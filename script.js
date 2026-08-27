@@ -347,5 +347,18 @@ addBubble('Merhaba. Takvimini, nöbetlerini, rutinlerini ve E.log kurallarını 
     try{ swRegistration=await navigator.serviceWorker.register('./sw.js'); }
     catch(e){ console.warn('Service worker kurulamadı',e); }
   }
+  if("serviceWorker" in navigator){
+    try{
+      swRegistration=await navigator.serviceWorker.register("./sw.js?v=20260827-1452",{updateViaCache:"none"});
+      await swRegistration.update();
+      if(swRegistration.waiting) swRegistration.waiting.postMessage({type:"SKIP_WAITING"});
+      navigator.serviceWorker.addEventListener("controllerchange",()=>{
+        const key="elog-sw-reloaded-20260827-1452";
+        if(sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key,"1");
+        location.reload();
+      });
+    }catch(e){console.warn("Service worker update hatası",e);}
+  }
   await initFirebase();
 })();
