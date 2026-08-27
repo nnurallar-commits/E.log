@@ -1,7 +1,7 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
 
 const $ = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
@@ -62,9 +62,26 @@ function showSetupMode(){
 async function ensureProfile(user){
   const ref=doc(db,"users",user.uid); const snap=await getDoc(ref);
   if(!snap.exists()){
-    await setDoc(ref,{name:user.email?.split("@")[0]||"Erol",role:"owner",pairId:user.uid,createdAt:serverTimestamp()});
+    profile=null;
+    await openFirstSetup(user);
+    return;
   }
-  profile=(await getDoc(ref)).data();
+  profile=snap.data();
+}
+
+async function openFirstSetup(user){
+  return new Promise(resolve=>{
+    openGeneric(`<div class="modal-head"><h3>E.log'a hoş geldin 🌿</h3></div><p>Bu hesabı bir kez tanımlayalım.</p><form id="firstSetupForm"><label>Ben<select id="setupRole"><option value="owner">Erol</option><option value="partner">Nilsu</option></select></label><label id="pairWrap" style="display:none">Erol'un Pair ID'si<input id="setupPair" placeholder="Erol'un Profil ekranında yazar"></label><button class="primary-btn full" type="submit">Devam et</button><p id="setupMsg" class="form-message"></p></form>`,()=>{
+      const role=$("#setupRole"), wrap=$("#pairWrap");
+      role.onchange=()=>wrap.style.display=role.value==='partner'?'block':'none';
+      $("#firstSetupForm").onsubmit=async ev=>{
+        ev.preventDefault(); const r=role.value; const entered=$("#setupPair").value.trim();
+        if(r==='partner'&&!entered){$("#setupMsg").textContent='Erol’un Pair ID’sini yaz.';return;}
+        const data={name:r==='owner'?'Erol':'Nilsu',role:r,pairId:r==='owner'?user.uid:entered,createdAt:serverTimestamp()};
+        await setDoc(doc(db,'users',user.uid),data); profile=data; $("#genericDialog").close(); resolve();
+      };
+    });
+  });
 }
 
 function clearListeners(){unsubs.forEach(fn=>fn());unsubs=[]}
@@ -160,8 +177,7 @@ async function askAI(message){
 }
 function addBubble(text,type){const d=document.createElement('div');d.className=`bubble ${type}`;d.textContent=text;$("#chat").appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'})}
 
-async function authSubmit(ev){ev.preventDefault();const email=$("#authEmail").value.trim(),pass=$("#authPassword").value;$("#authMessage").textContent='';try{await signInWithEmailAndPassword(auth,email,pass)}catch(e){$("#authMessage").textContent='Giriş olmadı: '+e.message}}
-async function signup(){const email=$("#authEmail").value.trim(),pass=$("#authPassword").value;try{await createUserWithEmailAndPassword(auth,email,pass)}catch(e){$("#authMessage").textContent='Kayıt olmadı: '+e.message}}
+async function googleLogin(){try{const provider=new GoogleAuthProvider();await signInWithPopup(auth,provider)}catch(e){$("#authMessage").textContent='Google girişi olmadı: '+e.message}}
 
 function wire(){
   $$('.nav-btn').forEach(b=>b.onclick=()=>switchView(b.dataset.view));
@@ -176,7 +192,7 @@ function wire(){
   $("#learnedBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>🧠 E.log'un öğrendikleri</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-list">${rules.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p></div>`).join('')}</div>`);
   $("#memoryAddBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>♡ Eroland'a ekle</h3><button class="icon-btn close-generic" type="button">×</button></div><form id="memoryForm"><label>Başlık<input id="memoryTitle" required placeholder="Örn. Kahve molası"></label><label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label><label>Emoji<input id="memoryEmoji" value="♡" maxlength="4"></label><button class="primary-btn full" type="submit">Ekle</button></form>`,()=>{$("#memoryForm").onsubmit=async ev=>{ev.preventDefault();const d={title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||'♡',date:today(),createdBy:currentUser.uid};if(currentUser.uid==='demo'){memories.push({id:crypto.randomUUID(),...d});renderMemories()}else await addDoc(pairPath('memories'),{...d,createdAt:serverTimestamp()});$("#genericDialog").close()}});
   $$('[data-memory-filter]').forEach(b=>b.onclick=()=>{$$('[data-memory-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderMemories(b.dataset.memoryFilter)});
-  $("#authForm").onsubmit=authSubmit;$("#signupBtn").onclick=signup;$("#logoutBtn").onclick=()=>auth&&signOut(auth);
+  $("#googleLoginBtn").onclick=googleLogin;$("#logoutBtn").onclick=()=>auth&&signOut(auth);
   $("#profileBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>Profil</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-row"><strong>${safe(profile?.name||'Erol')}</strong><small>${safe(profile?.role||'owner')}</small></div>`);
 }
 

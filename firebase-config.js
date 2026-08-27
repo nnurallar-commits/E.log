@@ -1,4 +1,4 @@
-window.ELOG_FIREBASE_CONFIG = {
+export const firebaseConfig = {
   apiKey: "AIzaSyA642NY42_ospJmzhYpiBQt6HcEK_JOt4w",
   authDomain: "e-log-2f316.firebaseapp.com",
   projectId: "e-log-2f316",

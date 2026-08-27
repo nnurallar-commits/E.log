@@ -141,14 +141,13 @@
 
   <dialog id="genericDialog" class="modal"><div id="genericContent" class="modal-card"></div></dialog>
   <dialog id="authDialog" class="modal auth-modal">
-    <form id="authForm" class="modal-card">
+    <div class="modal-card">
       <div class="auth-logo">E<span>.</span></div>
       <h2>E.log</h2><p>Hayat, sana göre.</p>
-      <label>E-posta<input id="authEmail" type="email" required /></label>
-      <label>Şifre<input id="authPassword" type="password" minlength="6" required /></label>
-      <div class="form-row"><button id="loginBtn" class="primary-btn" type="submit">Giriş</button><button id="signupBtn" class="secondary-btn" type="button">Kayıt ol</button></div>
+      <button id="googleLoginBtn" class="primary-btn full" type="button">Google ile devam et</button>
+      <p class="form-message">Şifre yok. Google hesabını seçmen yeterli.</p>
       <p id="authMessage" class="form-message"></p>
-    </form>
+    </div>
   </dialog>
 
   <script type="module" src="script.js"></script>
