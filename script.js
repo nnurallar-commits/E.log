@@ -68,18 +68,28 @@ function scheduleCloudSync(){
 }
 async function flushLocalToCloud(){
   if(!db||!profile?.pairId||!currentUser||currentUser.uid==="demo") return;
-  const pending=entries.filter(x=>x._pending);
-  for(const e of pending){
-    try{
-      const copy={...e}; delete copy.id; delete copy._pending;
-      const ref=await addDoc(pairPath("entries"),{...copy,createdAt:serverTimestamp()});
-      entries=entries.map(x=>x.id===e.id?{...x,id:ref.id,_pending:false}:x);
-      saveLocal();
-    }catch(err){ console.error("sync entry",err); markSync("yerelde kayıtlı",false); return; }
+  const groups=[
+    ["entries",()=>entries,v=>entries=v],
+    ["shifts",()=>shifts,v=>shifts=v],
+    ["memories",()=>memories,v=>memories=v],
+    ["routines",()=>routines,v=>routines=v],
+    ["rules",()=>rules,v=>rules=v]
+  ];
+  for(const [name,getter,setter] of groups){
+    const list=getter();
+    for(const item of list.filter(x=>x._pending)){
+      try{
+        const copy={...item}; delete copy.id; delete copy._pending;
+        const ref=await addDoc(pairPath(name),{...copy,createdAt:serverTimestamp()});
+        setter(getter().map(x=>x.id===item.id?{...x,id:ref.id,_pending:false}:x));
+        saveLocal();
+      }catch(err){
+        console.error("sync "+name,err); markSync("yerelde kayıtlı",false); return;
+      }
+    }
   }
   markSync("canlı");
 }
-
 async function initFirebase(){
   let cfg;
   try { cfg = (await import("./firebase-config.js")).firebaseConfig; }
@@ -113,8 +123,8 @@ function showSetupMode(){
     {id:"r1",name:"Pazartesi akvaryum",type:"weekday",weekday:1,action:"Şans'ın akvaryumunu temizle",active:true},
     {id:"r2",name:"Nöbet çıkışı spor yok",type:"after_shift",action:"Spor önerme",active:true},
   ];
-  memories=[{id:"m1",type:"memory",title:"Kahve molası",date:today(),emoji:"☕"},{id:"m2",type:"plan",title:"Birlikte yapılacak",date:today(),emoji:"♡"}];
-  shifts=[]; routines=[];
+  if(!memories.length) memories=[{id:"m1",type:"memory",title:"Kahve molası",date:today(),emoji:"☕"},{id:"m2",type:"plan",title:"Birlikte yapılacak",date:today(),emoji:"♡"}];
+  shifts=shifts||[]; routines=routines||[];
   learnedPatterns=[
     {id:"lp1",label:"Cuma günleri spor eğilimi",confidence:0.72,evidence:"Son kayıtlardaki tekrar eden spor günlerinden tahmin."}
   ];
@@ -152,7 +162,13 @@ function startRealtime(){
   clearListeners(); $("#syncBadge").textContent="● canlı";
   const bind=(name,setter,sortField="date")=>{
     const qy=query(pairPath(name),orderBy(sortField));
-    unsubs.push(onSnapshot(qy,s=>{const cloud=s.docs.map(d=>({id:d.id,...d.data()})); if(name==="entries"){const pending=entries.filter(x=>x._pending); setter([...cloud,...pending]);} else setter(cloud); saveLocal(); renderAll();},err=>{console.error(err);markSync("yerelde",false);}));
+    unsubs.push(onSnapshot(qy,s=>{
+      const cloud=s.docs.map(d=>({id:d.id,...d.data()}));
+      const localMap={entries,shifts,routines,memories,rules};
+      const pending=(localMap[name]||[]).filter(x=>x._pending);
+      setter([...cloud,...pending]);
+      saveLocal(); renderAll();
+    },err=>{console.error(err);markSync("yerelde",false);}));
   };
   bind("entries",v=>entries=v,"date"); bind("shifts",v=>shifts=v,"startDate"); bind("routines",v=>routines=v,"name"); bind("memories",v=>memories=v,"date"); bind("rules",v=>rules=v,"name");
 }
@@ -178,11 +194,27 @@ function renderCalendar(){
   const first=new Date(y,m,1); const start=(first.getDay()+6)%7; const grid=[];
   for(let i=0;i<42;i++){const d=new Date(y,m,1-start+i);grid.push(d)}
   $("#calendarGrid").innerHTML=grid.map(d=>{const ds=isoDate(d);const count=entries.filter(e=>e.date===ds).length+shifts.filter(s=>s.startDate===ds).length;const dayEmoji=dayEmojis[ds];
+    const dayShift=shifts.find(sh=>sh.startDate===ds);
+    const dayEntries=entries.filter(e=>e.date===ds);
+    const categoryIcons={
+      sport:"🏋️",gym:"🏋️",work:"💼",personal:"✨",love:"❤️",
+      food:"🍽️",meal:"🍽️",movie:"🎬",game:"🎮",coffee:"☕",
+      health:"🩺",other:"•"
+    };
+    const autoIcons=[];
+    if(dayShift) autoIcons.push("🩻");
+    dayEntries.forEach(e=>{
+      const ic=categoryIcons[e.category]||categoryIcons[e.type]||"•";
+      if(ic!=="•"&&!autoIcons.includes(ic)) autoIcons.push(ic);
+    });
     return `<button class="day-cell ${d.getMonth()!==m?'out':''} ${ds===today()?'today':''} ${ds===selectedDate?'selected':''}" data-date="${ds}" type="button">
       <span class="day-number">${d.getDate()}</span>
-      ${dayEmoji?`<span class="day-emoji">${emojiDisplay(dayEmoji)}</span>`:""}
-      ${count?`<span class="event-dots">${'<i></i>'.repeat(Math.min(count,4))}</span>`:""}
-    </button>`}).join("");
+      <span class="calendar-day-icons">
+        ${dayShift?'<span class="auto-day-icon shift-icon">🩻</span>':""}
+        ${dayEmoji?`<span class="day-emoji">${emojiDisplay(dayEmoji)}</span>`:""}
+        ${autoIcons.filter(x=>x!=="🩻").slice(0,2).map(x=>`<span class="auto-day-icon">${x}</span>`).join("")}
+      </span>
+    </button>`;
   $$('[data-date]').forEach(b=>b.addEventListener('click',()=>{selectedDate=b.dataset.date;renderCalendar();renderDayDetail();}));
   renderDayDetail();
 }
@@ -196,7 +228,7 @@ function renderDayDetail(){
       <button id="dayEmojiBtn" class="text-btn emoji-add-btn" type="button">${currentEmoji?"Emoji değiştir":"＋ Emoji ekle"}</button>
     </div>
     ${currentEmoji?`<div class="selected-day-emoji">${emojiDisplay(currentEmoji)}<span>Bu güne ekli</span></div>`:""}
-    ${shift?`<div class="panel-row"><strong>🩻 Nöbet</strong><small>${safe(shift.startTime||"")} → ${safe(shift.endTime||"")}</small></div>`:""}
+    ${shift?`<div class="panel-row shift-detail-row"><strong>🩻 Nöbet</strong><small>${safe(time24(shift.startTime)||"20:00")} → ertesi gün ${safe(time24(shift.endTime)||"08:30")}</small></div>`:""}
     ${list.length?`<div class="panel-list">${list.map(e=>`<div class="panel-row"><strong>${safe(time24(e.time))} · ${safe(e.title)}</strong><small>${safe(e.note||categoryName(e.category))}</small></div>`).join("")}</div>`:'<div class="empty">Bu gün boş görünüyor.</div>'}
   `;
   $("#dayEmojiBtn").onclick=()=>openDayEmojiPicker(selectedDate);
@@ -228,9 +260,69 @@ function openDayEmojiPicker(date){
   });
 }
 
+function memoryTypeName(t){return ({memory:"Anı",plan:"Plan",place:"Yer"})[t]||"Anı"}
 function renderMemories(filter="all"){
-  const list=memories.filter(m=>filter==='all'||m.type===filter).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  $("#memoryGrid").innerHTML=list.length?list.map(m=>`<article class="memory-card"><div class="emoji">${safe(m.emoji||'♡')}</div><h4>${safe(m.title)}</h4><p>${safe(m.date||'')}</p></article>`).join(''):'<div class="empty">Henüz bir şey yok.</div>';
+  const list=memories.filter(m=>filter==="all"||m.type===filter).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  const grid=$("#memoryGrid"); if(!grid)return;
+  grid.innerHTML=list.length?list.map(m=>`
+    <button class="memory-card memory-click" data-memory-id="${m.id}" type="button">
+      <div class="emoji">${safe(m.emoji||"♡")}</div>
+      <span class="memory-kind">${memoryTypeName(m.type)}</span>
+      <h4>${safe(m.title)}</h4>
+      <p>${safe(m.date||"")}${m._pending?" · telefonda":""}</p>
+      ${m.note?`<small>${safe(m.note)}</small>`:""}
+    </button>`).join(""):'<div class="empty">Henüz bir şey yok. + Anı ile ekleyebilirsin.</div>';
+  $$("[data-memory-id]",grid).forEach(b=>b.onclick=()=>openMemoryActions(b.dataset.memoryId));
+}
+async function saveMemory(data,existingId=null){
+  if(existingId){
+    const old=memories.find(x=>x.id===existingId); if(!old)return;
+    memories=memories.map(x=>x.id===existingId?{...x,...data,_pending:x._pending||existingId.startsWith("local-")}:x);
+    saveLocal();renderMemories();
+    if(db&&currentUser?.uid!=="demo"&&!existingId.startsWith("local-")){
+      try{await updateDoc(doc(db,"pairs",profile.pairId,"memories",existingId),data);markSync("canlı")}
+      catch(e){console.error(e);markSync("değişiklik telefonda",false)}
+    }else scheduleCloudSync();
+    return;
+  }
+  const item={id:"local-"+crypto.randomUUID(),...data,createdBy:currentUser?.uid||"local",_pending:true};
+  memories.push(item);saveLocal();renderMemories();renderAll();
+  if(currentUser?.uid==="demo"){item._pending=false;saveLocal();return}
+  scheduleCloudSync();
+}
+function openMemoryForm(existing=null){
+  openGeneric(`<div class="modal-head"><h3>${existing?"Eroland kaydını düzenle":"♡ Eroland'a ekle"}</h3><button class="icon-btn close-generic" type="button">×</button></div>
+    <form id="memoryForm">
+      <label>Başlık<input id="memoryTitle" required value="${safe(existing?.title||"")}" placeholder="Örn. Alaçatı günü"></label>
+      <label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label>
+      <div class="form-row"><label>Tarih<input id="memoryDate" type="date" value="${safe(existing?.date||today())}"></label><label>Emoji<input id="memoryEmoji" value="${safe(existing?.emoji||"♡")}" maxlength="8"></label></div>
+      <label>Not<textarea id="memoryNote" rows="3" placeholder="İstersen küçük bir not ekle">${safe(existing?.note||"")}</textarea></label>
+      <button class="primary-btn full" type="submit">${existing?"Kaydet":"Ekle"}</button>
+    </form>`,()=>{
+      $("#memoryType").value=existing?.type||"memory";
+      $("#memoryForm").onsubmit=async ev=>{
+        ev.preventDefault();
+        const data={title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value.trim()||"♡",date:$("#memoryDate").value||today(),note:$("#memoryNote").value.trim()};
+        await saveMemory(data,existing?.id||null);$("#genericDialog").close();renderMemories();
+      };
+    });
+}
+function openMemoryActions(id){
+  const m=memories.find(x=>x.id===id);if(!m)return;
+  openGeneric(`<div class="modal-head"><h3>${safe(m.emoji||"♡")} ${safe(m.title)}</h3><button class="icon-btn close-generic" type="button">×</button></div>
+    <div class="panel-row"><strong>${memoryTypeName(m.type)}</strong><small>${safe(m.date||"")}</small></div>
+    ${m.note?`<p>${safe(m.note)}</p>`:""}
+    <button id="editMemory" class="secondary-btn full" type="button">Düzenle</button>
+    <button id="deleteMemory" class="secondary-btn full danger-action" type="button">Sil</button>`,()=>{
+      $("#editMemory").onclick=()=>{$("#genericDialog").close();openMemoryForm(m)};
+      $("#deleteMemory").onclick=async()=>{
+        memories=memories.filter(x=>x.id!==id);saveLocal();renderAll();
+        if(db&&currentUser?.uid!=="demo"&&!id.startsWith("local-")){
+          try{await deleteDoc(doc(db,"pairs",profile.pairId,"memories",id))}catch(e){console.error(e)}
+        }
+        $("#genericDialog").close();
+      };
+    });
 }
 function renderShiftMini(){const next=shifts.filter(s=>s.startDate>=today()).sort((a,b)=>a.startDate.localeCompare(b.startDate))[0];$("#shiftMini").textContent=next?`${next.startDate} · ${next.startTime||''}`:'Yaklaşan nöbet yok'}
 
@@ -323,162 +415,59 @@ function openModule(name){
   if(name==='brain') openBrain();
   if(name==='eroland') switchView('eroland');
 }
-function parseShiftLine(line){
-  const t=line.trim();
-  if(!t) return null;
 
-  // Kabul edilen örnekler:
-  // 27.08.2026 20:00-08:00
-  // 27/08/2026 20:00 - 08:00
-  // 2026-08-27 20:00-08:00
-  let date="",start="",end="";
-  let m=t.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/);
-  if(m){date=m[1];start=time24(m[2]);end=time24(m[3]);}
-  else{
-    m=t.match(/^(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{4}))?\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/);
-    if(m){
-      const y=m[3]||String(new Date().getFullYear());
-      date=`${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
-      start=time24(m[4]); end=time24(m[5]);
-    }
-  }
-  if(!date||!start||!end) return null;
-
-  let endDate=date;
-  if(end < start){
-    const d=new Date(date+"T12:00:00");
-    d.setDate(d.getDate()+1);
-    endDate=isoDate(d);
-  }
-
-  return {
-    id:"local-"+crypto.randomUUID(),
-    startDate:date,
-    startTime:start,
-    endDate,
-    endTime:end,
-    type:"Tomografi",
-    createdBy:currentUser?.uid||"local",
-    _pending:true
-  };
+function shiftEndDate(date){
+  const d=new Date(date+"T12:00:00"); d.setDate(d.getDate()+1); return isoDate(d);
 }
-
-async function saveShiftItem(d){
-  shifts.push(d); saveLocal(); renderAll();
-  if(currentUser?.uid==="demo" || !db) return;
+async function saveFixedShift(date){
+  if(shifts.some(x=>x.startDate===date)) return false;
+  const item={id:"local-"+crypto.randomUUID(),startDate:date,startTime:"20:00",endDate:shiftEndDate(date),endTime:"08:30",type:"Tomografi",createdBy:currentUser?.uid||"local",_pending:true};
+  shifts.push(item);saveLocal();renderAll();markSync("nöbet kaydedildi");
+  if(currentUser?.uid==="demo"||!db)return true;
   try{
-    const copy={...d}; delete copy.id; delete copy._pending;
+    const copy={...item};delete copy.id;delete copy._pending;
     const ref=await addDoc(pairPath("shifts"),{...copy,createdAt:serverTimestamp()});
-    shifts=shifts.map(x=>x.id===d.id?{...x,id:ref.id,_pending:false}:x);
-    saveLocal(); renderAll(); markSync("canlı");
-  }catch(e){
-    console.error(e); markSync("nöbetler telefonda kayıtlı",false);
-  }
+    shifts=shifts.map(x=>x.id===item.id?{...x,id:ref.id,_pending:false}:x);saveLocal();renderAll();markSync("canlı");
+  }catch(e){console.error(e);markSync("nöbet telefonda kayıtlı",false)}
+  return true;
 }
-
 function openShifts(){
-  const sorted=[...shifts].sort((a,b)=>(a.startDate+a.startTime).localeCompare(b.startDate+b.startTime));
-  const future=sorted.filter(x=>x.startDate>=today());
-
+  let pickCursor=new Date(),selected=new Set();
   openGeneric(`
-    <div class="modal-head">
-      <h3>🩻 Nöbetlerim</h3>
-      <button class="icon-btn close-generic" type="button">×</button>
-    </div>
-
-    <div class="rule-card">
-      <strong>Toplam ${sorted.length} nöbet</strong>
-      <p>${future.length} yaklaşan nöbet var.</p>
-    </div>
-
-    <div class="panel-list shift-list">
-      ${sorted.length ? sorted.map(s=>`
-        <div class="panel-row shift-row">
-          <div>
-            <strong>${safe(s.startDate)} · ${safe(time24(s.startTime))}</strong>
-            <small>${safe(time24(s.startTime))} → ${safe(s.endDate)} ${safe(time24(s.endTime))}${s._pending?" · telefonda":""}</small>
-          </div>
-          <button class="icon-btn delete-shift" data-shift-id="${s.id}" type="button" aria-label="Nöbeti sil">×</button>
-        </div>`).join("") : '<div class="empty">Henüz nöbet yok.</div>'}
-    </div>
-
-    <details class="bulk-shift-box" open>
-      <summary><strong>Toplu nöbet listesi ekle</strong></summary>
-      <p class="form-message">Her nöbeti ayrı satıra yaz. Örn: <b>27.08.2026 20:00-08:00</b></p>
-      <form id="bulkShiftForm">
-        <label>Nöbet listesi
-          <textarea id="bulkShiftText" rows="7" placeholder="27.08.2026 20:00-08:00&#10;30.08.2026 20:00-08:00&#10;02.09.2026 20:00-08:00"></textarea>
-        </label>
-        <button class="primary-btn full" type="submit">Listeyi kaydet</button>
-        <p id="bulkShiftMsg" class="form-message"></p>
-      </form>
-    </details>
-
-    <details class="single-shift-box">
-      <summary><strong>Tek nöbet ekle</strong></summary>
-      <form id="shiftForm">
-        <div class="form-row">
-          <label>Başlangıç<input id="shiftDate" type="date" required value="${today()}"></label>
-          <label>Saat<input id="shiftStart" type="time" required value="20:00" step="60"></label>
-        </div>
-        <div class="form-row">
-          <label>Bitiş tarihi<input id="shiftEndDate" type="date" required value="${today()}"></label>
-          <label>Bitiş<input id="shiftEnd" type="time" required value="08:00" step="60"></label>
-        </div>
-        <button class="primary-btn full" type="submit">Nöbet ekle</button>
-      </form>
-    </details>
-  `,()=>{
-    $("#bulkShiftForm").onsubmit=async ev=>{
-      ev.preventDefault();
-      const lines=$("#bulkShiftText").value.split(/\n+/).map(x=>x.trim()).filter(Boolean);
-      const parsed=lines.map(parseShiftLine);
-      const valid=parsed.filter(Boolean);
-      const bad=parsed.filter(x=>!x).length;
-
-      if(!valid.length){
-        $("#bulkShiftMsg").textContent="Tarih/saat formatını kontrol et.";
-        return;
+    <div class="modal-head"><div><span class="eyebrow">NÖBET PLANI</span><h3>🩻 Nöbetlerim</h3></div><button class="icon-btn close-generic" type="button">×</button></div>
+    <div class="shift-fixed-info"><span>🌙</span><div><strong>Saatler otomatik</strong><small>20:00 → ertesi gün 08:30</small></div></div>
+    <div class="shift-picker-head"><button id="shiftPrevMonth" class="icon-btn" type="button">‹</button><strong id="shiftPickMonth"></strong><button id="shiftNextMonth" class="icon-btn" type="button">›</button></div>
+    <div class="shift-weekdays"><span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span></div>
+    <div id="shiftPickGrid" class="shift-pick-grid"></div>
+    <div id="shiftSelectionText" class="shift-selection-text">Nöbet günlerine dokun.</div>
+    <button id="saveSelectedShifts" class="primary-btn full" type="button">Seçili nöbetleri kaydet</button>
+    <div class="shift-list-title"><strong>Kayıtlı nöbetler</strong><span id="shiftCount">${shifts.length}</span></div>
+    <div id="savedShiftList" class="panel-list shift-list"></div>`,()=>{
+    function drawPicker(){
+      const y=pickCursor.getFullYear(),m=pickCursor.getMonth(),first=new Date(y,m,1),offset=(first.getDay()+6)%7,days=new Date(y,m+1,0).getDate();
+      $("#shiftPickMonth").textContent=monthTR(pickCursor);let out="";
+      for(let i=0;i<offset;i++)out+='<span></span>';
+      for(let day=1;day<=days;day++){
+        const ds=isoDate(new Date(y,m,day)),already=shifts.some(x=>x.startDate===ds),chosen=selected.has(ds);
+        out+=`<button class="shift-pick-day ${already?"already":""} ${chosen?"chosen":""}" data-shift-date="${ds}" type="button"><b>${day}</b>${already?"<small>🩻</small>":chosen?"<small>✓</small>":""}</button>`;
       }
-
-      // exact duplicate protection
-      const keys=new Set(shifts.map(x=>`${x.startDate}|${x.startTime}|${x.endDate}|${x.endTime}`));
-      const unique=valid.filter(x=>{
-        const k=`${x.startDate}|${x.startTime}|${x.endDate}|${x.endTime}`;
-        if(keys.has(k)) return false;
-        keys.add(k); return true;
-      });
-
-      for(const item of unique) await saveShiftItem(item);
-      $("#bulkShiftMsg").textContent=`✓ ${unique.length} nöbet kaydedildi${bad?`, ${bad} satır okunamadı`:""}.`;
-      setTimeout(()=>{ $("#genericDialog").close(); openShifts(); },500);
-    };
-
-    $("#shiftForm").onsubmit=async ev=>{
-      ev.preventDefault();
-      const d={
-        id:"local-"+crypto.randomUUID(),
-        startDate:$("#shiftDate").value,
-        startTime:time24($("#shiftStart").value),
-        endDate:$("#shiftEndDate").value,
-        endTime:time24($("#shiftEnd").value),
-        type:"Tomografi",
-        createdBy:currentUser?.uid||"local",
-        _pending:true
-      };
-      await saveShiftItem(d);
-      $("#genericDialog").close();
-    };
-
-    $$(".delete-shift").forEach(b=>b.onclick=async()=>{
-      const id=b.dataset.shiftId;
-      const sh=shifts.find(x=>x.id===id);
-      shifts=shifts.filter(x=>x.id!==id); saveLocal(); renderAll();
-      if(db && currentUser?.uid!=="demo" && sh && !id.startsWith("local-")){
-        try{await deleteDoc(doc(db,"pairs",profile.pairId,"shifts",id));}catch(e){console.error(e)}
-      }
-      $("#genericDialog").close(); openShifts();
-    });
+      $("#shiftPickGrid").innerHTML=out;
+      $$("[data-shift-date]",$("#shiftPickGrid")).forEach(b=>b.onclick=()=>{const ds=b.dataset.shiftDate;if(shifts.some(x=>x.startDate===ds))return;selected.has(ds)?selected.delete(ds):selected.add(ds);drawPicker();drawSelection()});
+    }
+    function drawSelection(){
+      const arr=[...selected].sort();
+      $("#shiftSelectionText").innerHTML=arr.length?`<strong>${arr.length} gün seçildi</strong><small>${arr.map(x=>x.split("-").reverse().join(".")).join(" · ")}</small>`:"Nöbet günlerine dokun.";
+      $("#saveSelectedShifts").disabled=!arr.length;
+    }
+    function drawSaved(){
+      const sorted=[...shifts].sort((a,b)=>a.startDate.localeCompare(b.startDate));$("#shiftCount").textContent=sorted.length;
+      $("#savedShiftList").innerHTML=sorted.length?sorted.map(sh=>`<div class="panel-row shift-row"><div class="shift-date-badge"><b>${new Date(sh.startDate+"T12:00:00").getDate()}</b><small>${new Intl.DateTimeFormat("tr-TR",{month:"short"}).format(new Date(sh.startDate+"T12:00:00"))}</small></div><div class="shift-row-copy"><strong>${safe(new Intl.DateTimeFormat("tr-TR",{weekday:"long",day:"numeric",month:"long"}).format(new Date(sh.startDate+"T12:00:00")))}</strong><small>20:00 → ertesi gün 08:30${sh._pending?" · telefonda":""}</small></div><button class="icon-btn delete-shift" data-shift-id="${sh.id}" type="button">×</button></div>`).join(""):'<div class="empty">Henüz nöbet eklenmedi.</div>';
+      $$(".delete-shift",$("#savedShiftList")).forEach(b=>b.onclick=async()=>{const id=b.dataset.shiftId,sh=shifts.find(x=>x.id===id);shifts=shifts.filter(x=>x.id!==id);saveLocal();renderAll();drawSaved();drawPicker();if(db&&currentUser?.uid!=="demo"&&sh&&!id.startsWith("local-"))try{await deleteDoc(doc(db,"pairs",profile.pairId,"shifts",id))}catch(e){console.error(e)}});
+    }
+    $("#shiftPrevMonth").onclick=()=>{pickCursor=new Date(pickCursor.getFullYear(),pickCursor.getMonth()-1,1);drawPicker()};
+    $("#shiftNextMonth").onclick=()=>{pickCursor=new Date(pickCursor.getFullYear(),pickCursor.getMonth()+1,1);drawPicker()};
+    $("#saveSelectedShifts").onclick=async()=>{for(const date of [...selected].sort())await saveFixedShift(date);selected.clear();drawPicker();drawSelection();drawSaved()};
+    drawPicker();drawSelection();drawSaved();
   });
 }
 function openStats(){const month=today().slice(0,7),monthEntries=entries.filter(e=>e.date?.startsWith(month)),sport=monthEntries.filter(e=>e.category==='sport').length,us=monthEntries.filter(e=>e.category==='us').length,work=monthEntries.filter(e=>e.category==='work').length;openGeneric(`<div class="modal-head"><h3>▥ Bu ay</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="stat-grid"><div class="stat"><b>${monthEntries.length}</b><span>Kayıt</span></div><div class="stat"><b>${shifts.filter(s=>s.startDate?.startsWith(month)).length}</b><span>Nöbet</span></div><div class="stat"><b>${sport}</b><span>Spor</span></div><div class="stat"><b>${us}</b><span>Nilsu ♡</span></div><div class="stat"><b>${work}</b><span>İş</span></div><div class="stat"><b>${memories.filter(m=>m.date?.startsWith(month)).length}</b><span>Anı</span></div></div>`)}
@@ -608,7 +597,7 @@ function wire(){
   $("#smartPlanBtn").onclick=()=>{switchView('ai');askAI('Bugünkü günümü takvimim, nöbetlerim ve rutinlerime göre planla.')};
   $("#aiForm").onsubmit=e=>{e.preventDefault();const m=$("#aiInput").value.trim();if(m)askAI(m)};
   $("#learnedBtn").onclick=openBrain;
-  $("#memoryAddBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>♡ Eroland'a ekle</h3><button class="icon-btn close-generic" type="button">×</button></div><form id="memoryForm"><label>Başlık<input id="memoryTitle" required placeholder="Örn. Kahve molası"></label><label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label><label>Emoji<input id="memoryEmoji" value="♡" maxlength="4"></label><button class="primary-btn full" type="submit">Ekle</button></form>`,()=>{$("#memoryForm").onsubmit=async ev=>{ev.preventDefault();const d={title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||'♡',date:today(),createdBy:currentUser.uid};if(currentUser.uid==='demo'){memories.push({id:crypto.randomUUID(),...d});renderMemories()}else {memories.push({id:"local-"+crypto.randomUUID(),...d,_pending:true});saveLocal();renderMemories();try{await addDoc(pairPath('memories'),{...d,createdAt:serverTimestamp()});}catch(e){console.error(e);markSync("anı yerelde kayıtlı",false)}}$("#genericDialog").close()}});
+  $("#memoryAddBtn").onclick=()=>openMemoryForm();
   $$('[data-memory-filter]').forEach(b=>b.onclick=()=>{$$('[data-memory-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderMemories(b.dataset.memoryFilter)});
   $("#googleLoginBtn").onclick=googleLogin;$("#logoutBtn").onclick=()=>auth&&signOut(auth);
   $("#profileBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>Profil</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-row"><strong>${safe(profile?.name||'Erol')}</strong><small>${safe(profile?.role||'owner')}</small></div>`);
@@ -623,11 +612,11 @@ addBubble('Merhaba. Takvimini, nöbetlerini, rutinlerini ve E.log kurallarını 
 (async()=>{
   if("serviceWorker" in navigator){
     try{
-      swRegistration=await navigator.serviceWorker.register("./sw.js?v=20260827-repaired1",{updateViaCache:"none"});
+      swRegistration=await navigator.serviceWorker.register("./sw.js?v=20260827-allfix1",{updateViaCache:"none"});
       await swRegistration.update();
       if(swRegistration.waiting) swRegistration.waiting.postMessage({type:"SKIP_WAITING"});
       navigator.serviceWorker.addEventListener("controllerchange",()=>{
-        const key="elog-sw-reloaded-20260827-repaired1";
+        const key="elog-sw-reloaded-20260827-allfix1";
         if(sessionStorage.getItem(key)) return;
         sessionStorage.setItem(key,"1");
         location.reload();

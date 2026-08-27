@@ -1,14 +1,8 @@
-# E.log Nöbet Listesi + Bildirim
-
-Yeni:
-- Nöbetler toplu liste halinde tek seferde eklenebilir.
-- Örnek satır: `27.08.2026 20:00-08:00`
-- Gece nöbetinde bitiş tarihi otomatik ertesi gün yapılır.
-- Tekrarlanan aynı nöbet ikinci kez eklenmez.
-- Tüm nöbetler listede görünür ve silinebilir.
-- 24 saat formatı korunur.
-- Bildirim izni uygulama içinden açılır.
-- Uygulama açıkken nöbetten yaklaşık 24 saat ve 2 saat önce yerel bildirim kontrolü yapılır.
-- Gerçek arka plan bildirimleri için Firebase Functions/Push backend deploy edilmiş olmalıdır.
-
-Sürüm: 20260827-shifts2
+# E.log all-fix
+- Eroland + Anı artık gerçekten kaydeder.
+- Anı / Plan / Yer filtreleri çalışır.
+- Kayıtlara basıp düzenleme ve silme var.
+- Yerel kayıt Firebase snapshot gelince kaybolmaz.
+- Pending entries, shifts, memories, routines ve rules buluta tekrar gönderilir.
+- Nöbet seçimi 20:00 → ertesi gün 08:30.
+- Takvimde anlamsız noktalar yerine emojiler.
