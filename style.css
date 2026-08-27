@@ -262,3 +262,290 @@ input:focus,select:focus,textarea:focus{
 .memory-cover{width:100%;height:115px;object-fit:cover;border-radius:14px;margin-top:8px;background:#e8ece5}
 .memory-media{width:100%;max-height:340px;object-fit:contain;border-radius:16px;background:#eef1eb}
 .memory-card small{display:block;color:var(--muted);margin-top:5px}
+
+/* ===== Theme Refresh: quieter, richer, more app-like ===== */
+:root{
+  --bg:#f3f1e8;
+  --paper:#fffdf8;
+  --ink:#20362e;
+  --muted:#7b857e;
+  --line:#dce3d9;
+  --sage:#dce8d8;
+  --sage-2:#c7d8c3;
+  --sage-3:#afc5aa;
+  --deep:#244536;
+  --cream:#f8f5ec;
+  --blush:#efe6dd;
+  --shadow:0 16px 42px rgba(36,69,54,.08);
+  --shadow-soft:0 8px 24px rgba(36,69,54,.055);
+}
+html{
+  background:
+    radial-gradient(circle at 10% -10%,rgba(213,228,208,.82),transparent 34%),
+    radial-gradient(circle at 90% 0%,rgba(241,230,211,.62),transparent 26%),
+    var(--bg);
+}
+body{
+  background:transparent!important;
+  min-height:100vh;
+  color:var(--ink);
+}
+.app-shell{
+  max-width:820px;
+  padding-top:10px;
+}
+.topbar{
+  position:sticky;
+  top:0;
+  z-index:20;
+  margin:0 -6px 10px;
+  padding:12px 12px 14px;
+  background:rgba(247,244,236,.78);
+  backdrop-filter:blur(22px);
+  -webkit-backdrop-filter:blur(22px);
+  border:1px solid rgba(220,227,217,.72);
+  border-radius:0 0 24px 24px;
+  box-shadow:0 10px 30px rgba(36,69,54,.04);
+}
+.topbar h1{
+  font-size:38px;
+  letter-spacing:-.045em;
+}
+.eyebrow{
+  color:#7d8d83;
+  font-weight:700;
+  letter-spacing:.16em;
+}
+.hero-card{
+  background:
+    radial-gradient(circle at 85% 20%,rgba(255,255,255,.55),transparent 20%),
+    linear-gradient(145deg,#dce8d8 0%,#f6f3e9 72%);
+  color:var(--deep);
+  border:1px solid #d0ded0;
+  box-shadow:var(--shadow);
+  min-height:170px;
+}
+.hero-card .tag{
+  background:rgba(36,69,54,.08);
+  color:var(--deep);
+}
+.hero-card p{
+  color:#607066!important;
+}
+.hero-card:after{
+  content:"✦";
+  position:absolute;
+  right:18px;
+  top:10px;
+  font-size:72px;
+  color:rgba(36,69,54,.07);
+}
+.primary-btn{
+  background:var(--deep)!important;
+  color:#fff!important;
+  border-radius:18px;
+  box-shadow:0 8px 20px rgba(36,69,54,.15);
+}
+.primary-btn.small{
+  background:var(--sage)!important;
+  color:var(--deep)!important;
+  box-shadow:none;
+}
+.secondary-btn{
+  background:#fffdf8;
+  border:1px solid var(--line);
+}
+.section-block,.smart-card,.module-card,.memory-card,.panel-row,.rule-card{
+  border-color:#dfe6dc!important;
+  box-shadow:var(--shadow-soft);
+}
+.section-block{
+  background:rgba(255,253,248,.74);
+  backdrop-filter:blur(10px);
+}
+.smart-card{
+  background:linear-gradient(145deg,#eef4ea,#dfe9db);
+}
+.smart-icon{
+  background:var(--deep);
+}
+.two-col{
+  gap:14px;
+}
+.module-card{
+  min-height:132px;
+  background:linear-gradient(160deg,#fffdf8,#f2f5ed);
+  transition:transform .14s ease,box-shadow .14s ease;
+}
+.module-card:active{
+  transform:scale(.985);
+}
+.module-card strong{
+  font-size:18px;
+}
+.module-icon{
+  filter:saturate(.92);
+}
+.bottom-nav{
+  bottom:10px;
+  border-radius:28px;
+  padding:9px;
+  background:rgba(253,251,245,.9);
+  backdrop-filter:blur(26px);
+  -webkit-backdrop-filter:blur(26px);
+  box-shadow:0 16px 40px rgba(31,57,45,.13);
+}
+.nav-btn{
+  min-height:58px;
+  border-radius:20px;
+}
+.nav-btn.active{
+  background:linear-gradient(145deg,#dce8d8,#e8efe4);
+  color:var(--deep);
+}
+.calendar-toolbar{
+  background:rgba(255,253,248,.72);
+  backdrop-filter:blur(12px);
+  border-radius:20px;
+}
+.day-cell{
+  background:rgba(255,253,248,.9);
+  min-height:74px;
+  border-radius:18px;
+  box-shadow:0 5px 16px rgba(36,69,54,.035);
+}
+.day-cell.today{
+  outline:none;
+  box-shadow:inset 0 0 0 2px #8fa98f,0 7px 20px rgba(36,69,54,.06);
+}
+.day-cell.selected{
+  background:linear-gradient(145deg,#d7e4d3,#edf2e9);
+}
+.day-number{
+  font-size:15px;
+}
+.calendar-day-icons span{
+  font-size:13px;
+}
+.day-detail{
+  background:rgba(255,253,248,.68);
+  border:1px solid var(--line);
+  border-radius:22px;
+  padding:14px;
+  box-shadow:var(--shadow-soft);
+}
+.eroland-banner{
+  background:
+    radial-gradient(circle at 75% 30%,rgba(255,255,255,.42),transparent 22%),
+    linear-gradient(145deg,#efe5dc,#e2eadf);
+  box-shadow:var(--shadow-soft);
+}
+.eroland-banner p{
+  font-size:30px;
+  letter-spacing:-.035em;
+}
+.tabs-row{
+  padding-top:16px;
+}
+.mini-tab{
+  border-radius:999px;
+  padding:10px 14px;
+  background:rgba(255,253,248,.82);
+}
+.mini-tab.active{
+  background:var(--deep);
+}
+.memory-grid{
+  gap:14px;
+}
+.memory-card{
+  background:linear-gradient(160deg,#fffdf8,#f4f6f0);
+  min-height:170px;
+  border-radius:22px;
+  overflow:hidden;
+}
+.memory-cover{
+  height:150px!important;
+  border-radius:16px!important;
+}
+.memory-kind{
+  background:#e2ebdf!important;
+  color:#476154!important;
+}
+.chat{
+  min-height:380px;
+  gap:12px;
+}
+.bubble{
+  border-radius:22px;
+  box-shadow:0 6px 18px rgba(36,69,54,.04);
+}
+.bubble.user{
+  background:var(--deep);
+}
+.bubble.ai{
+  background:rgba(255,253,248,.92);
+}
+.composer{
+  background:rgba(247,244,236,.88);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border:1px solid rgba(220,227,217,.76);
+  box-shadow:0 12px 30px rgba(36,69,54,.07);
+}
+.composer textarea{
+  background:#fffdf8;
+}
+.send-btn{
+  background:var(--deep);
+}
+.settings-list{
+  gap:11px;
+}
+.settings-list button{
+  background:rgba(255,253,248,.9);
+  border-radius:20px;
+  box-shadow:var(--shadow-soft);
+}
+.modal-card{
+  border-radius:30px;
+  background:rgba(255,253,248,.98);
+}
+.modal::backdrop{
+  background:rgba(30,44,36,.34);
+  backdrop-filter:blur(8px);
+}
+input,textarea,select{
+  background:#fffef9!important;
+  border-color:#d9e1d7!important;
+}
+input:focus,textarea:focus,select:focus{
+  outline:2px solid rgba(143,169,143,.24);
+  border-color:#a8bfa5!important;
+}
+.chip{
+  background:#e1eadf;
+}
+.chip.ghost{
+  background:rgba(255,253,248,.55);
+}
+.shift-pick-day{
+  min-height:52px!important;
+  border-radius:14px!important;
+  background:#fffdf8!important;
+}
+.shift-pick-day.chosen{
+  background:var(--deep)!important;
+}
+.shift-pick-day.already{
+  background:#dfe9db!important;
+}
+@media(max-width:520px){
+  .app-shell{padding-inline:10px}
+  .topbar{margin-inline:-2px}
+  .hero-card{min-height:150px}
+  .topbar h1{font-size:34px}
+  .eroland-banner p{font-size:26px}
+  .day-cell{min-height:66px}
+  .memory-grid{grid-template-columns:1fr}
+}
