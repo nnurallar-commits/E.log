@@ -40,12 +40,26 @@ function emojiDisplay(value){
   if(value==="heart-sticker") return `<img class="calendar-sticker" src="${HEART_STICKER_DATA}" alt="kalp sticker">`;
   return `<span class="calendar-emoji-char">${safe(value||"")}</span>`;
 }
-function setDayEmoji(date,value){
-  if(!value) delete dayEmojis[date];
-  else dayEmojis[date]=value;
-  saveDayEmojis();
-  renderCalendar();
+function getDayEmojis(date){
+  const v=dayEmojis[date]; return !v?[]:(Array.isArray(v)?v:[v]);
 }
+function setDayEmoji(date,value){
+  if(!value) delete dayEmojis[date]; else dayEmojis[date]=[value];
+  saveDayEmojis(); renderCalendar();
+}
+function addDayEmoji(date,value){
+  if(!value)return;
+  const arr=getDayEmojis(date);
+  if(arr.length>=4)return;
+  if(!arr.includes(value))arr.push(value);
+  dayEmojis[date]=arr; saveDayEmojis(); renderCalendar(); renderDayDetail();
+}
+function removeDayEmojiItem(date,value){
+  const arr=getDayEmojis(date).filter(x=>x!==value);
+  if(arr.length)dayEmojis[date]=arr; else delete dayEmojis[date];
+  saveDayEmojis();renderCalendar();renderDayDetail();
+}
+function clearDayEmojis(date){delete dayEmojis[date];saveDayEmojis();renderCalendar();renderDayDetail();}
 
 let syncTimer=null;
 function loadLocal(){
@@ -193,7 +207,7 @@ function renderCalendar(){
   const y=calendarCursor.getFullYear(),m=calendarCursor.getMonth();
   const first=new Date(y,m,1); const start=(first.getDay()+6)%7; const grid=[];
   for(let i=0;i<42;i++){const d=new Date(y,m,1-start+i);grid.push(d)}
-  $("#calendarGrid").innerHTML=grid.map(d=>{const ds=isoDate(d);const count=entries.filter(e=>e.date===ds).length+shifts.filter(s=>s.startDate===ds).length;const dayEmoji=dayEmojis[ds];
+  $("#calendarGrid").innerHTML=grid.map(d=>{const ds=isoDate(d);const count=entries.filter(e=>e.date===ds).length+shifts.filter(s=>s.startDate===ds).length;const dayEmojiList=getDayEmojis(ds);
     const dayShift=shifts.find(sh=>sh.startDate===ds);
     const dayEntries=entries.filter(e=>e.date===ds);
     const categoryIcons={
@@ -211,27 +225,29 @@ function renderCalendar(){
       <span class="day-number">${d.getDate()}</span>
       <span class="calendar-day-icons">
         ${dayShift?'<span class="auto-day-icon shift-icon">🩻</span>':""}
-        ${dayEmoji?`<span class="day-emoji">${emojiDisplay(dayEmoji)}</span>`:""}
+        ${dayEmojiList.slice(0,4).map(e=>`<span class="day-emoji">${emojiDisplay(e)}</span>`).join("")}
         ${autoIcons.filter(x=>x!=="🩻").slice(0,2).map(x=>`<span class="auto-day-icon">${x}</span>`).join("")}
       </span>
     </button>`;
+  }).join("");
   $$('[data-date]').forEach(b=>b.addEventListener('click',()=>{selectedDate=b.dataset.date;renderCalendar();renderDayDetail();}));
   renderDayDetail();
 }
 function renderDayDetail(){
   const list=entries.filter(e=>e.date===selectedDate).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
   const shift=shifts.find(s=>s.startDate===selectedDate);
-  const currentEmoji=dayEmojis[selectedDate];
+  const currentEmojis=getDayEmojis(selectedDate);
   $("#calendarDayDetail").innerHTML=`
     <div class="day-detail-head">
       <h3>${safe(new Intl.DateTimeFormat("tr-TR",{day:"numeric",month:"long",weekday:"long"}).format(new Date(selectedDate+"T12:00:00")))}</h3>
-      <button id="dayEmojiBtn" class="text-btn emoji-add-btn" type="button">${currentEmoji?"Emoji değiştir":"＋ Emoji ekle"}</button>
+      <button id="dayEmojiBtn" class="text-btn emoji-add-btn" type="button">${currentEmojis.length>=4?"4 emoji eklendi":"＋ Emoji ekle"}</button>
     </div>
-    ${currentEmoji?`<div class="selected-day-emoji">${emojiDisplay(currentEmoji)}<span>Bu güne ekli</span></div>`:""}
+    ${currentEmojis.length?`<div class="selected-day-emojis">${currentEmojis.map(e=>`<button class="selected-emoji-chip" data-remove-day-emoji="${safe(e)}" type="button">${emojiDisplay(e)}<span>×</span></button>`).join("")}</div>`:""}
     ${shift?`<div class="panel-row shift-detail-row"><strong>🩻 Nöbet</strong><small>${safe(time24(shift.startTime)||"20:00")} → ertesi gün ${safe(time24(shift.endTime)||"08:30")}</small></div>`:""}
     ${list.length?`<div class="panel-list">${list.map(e=>`<div class="panel-row"><strong>${safe(time24(e.time))} · ${safe(e.title)}</strong><small>${safe(e.note||categoryName(e.category))}</small></div>`).join("")}</div>`:'<div class="empty">Bu gün boş görünüyor.</div>'}
   `;
   $("#dayEmojiBtn").onclick=()=>openDayEmojiPicker(selectedDate);
+  $$("[data-remove-day-emoji]",$("#calendarDayDetail")).forEach(b=>b.onclick=()=>removeDayEmojiItem(selectedDate,b.dataset.removeDayEmoji));
 }
 
 function openDayEmojiPicker(date){
@@ -245,17 +261,16 @@ function openDayEmojiPicker(date){
       </button>
       ${presets.map(e=>`<button class="emoji-choice" data-emoji="${e}" type="button">${e}</button>`).join("")}
     </div>
-    <button id="removeDayEmoji" class="secondary-btn full" type="button">Bu gündeki emojiyi kaldır</button>
+    <button id="removeDayEmoji" class="secondary-btn full" type="button">Bu gündeki tüm emojileri kaldır</button>
   `,()=>{
     $$("[data-emoji]",$("#genericContent")).forEach(b=>b.onclick=()=>{
-      setDayEmoji(date,b.dataset.emoji);
+      if(getDayEmojis(date).length>=4)return;
+      addDayEmoji(date,b.dataset.emoji);
       $("#genericDialog").close();
-      renderDayDetail();
     });
     $("#removeDayEmoji").onclick=()=>{
-      setDayEmoji(date,"");
+      clearDayEmojis(date);
       $("#genericDialog").close();
-      renderDayDetail();
     };
   });
 }

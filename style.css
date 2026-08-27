@@ -239,3 +239,11 @@ input:focus,select:focus,textarea:focus{
 .memory-card small{display:block;margin-top:8px;color:var(--muted);line-height:1.35}
 .memory-card:active{transform:scale(.985)}
 .danger-action{margin-top:8px;color:#a7473f}
+
+.calendar-day-icons{flex-wrap:wrap!important;align-content:center;gap:0!important;max-height:30px}
+.calendar-day-icons .day-emoji{width:15px!important;height:15px!important}
+.calendar-day-icons .day-emoji .calendar-emoji-char{font-size:12px!important}
+.calendar-day-icons .day-emoji .calendar-sticker{width:15px!important;height:15px!important}
+.selected-day-emojis{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.selected-emoji-chip{border:1px solid #dce3d9;background:#fffdf8;border-radius:14px;min-width:50px;min-height:46px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:22px}
+.selected-emoji-chip span{font-size:15px;color:#8a928b}
