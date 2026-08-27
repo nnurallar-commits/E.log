@@ -1,5 +1,21 @@
 {
-  "firestore":{"rules":"firestore.rules"},
-  "functions":{"source":"functions"},
-  "hosting":{"public":".","ignore":["firebase.json","**/.*","**/node_modules/**","functions/**"],"rewrites":[]}
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "functions": {
+    "source": "functions"
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "functions/**"
+    ],
+    "rewrites": []
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
 }

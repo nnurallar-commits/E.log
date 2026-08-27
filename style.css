@@ -247,3 +247,18 @@ input:focus,select:focus,textarea:focus{
 .selected-day-emojis{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
 .selected-emoji-chip{border:1px solid #dce3d9;background:#fffdf8;border-radius:14px;min-width:50px;min-height:46px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:22px}
 .selected-emoji-chip span{font-size:15px;color:#8a928b}
+
+/* repo-hotfix stable features */
+.shift-pick-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:12px 0 14px}
+.shift-pick-day{min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)}
+.shift-pick-day.chosen{background:var(--green);color:white}
+.shift-pick-day.already{background:var(--sage-light);color:var(--green)}
+.calendar-day-icons{position:absolute;left:4px;right:4px;bottom:4px;display:flex;justify-content:center;gap:1px;flex-wrap:wrap;line-height:1}
+.calendar-day-icons span{font-size:13px}
+.selected-day-emojis{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0 12px}
+.selected-day-emojis button{border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:7px 9px}
+.memory-click{appearance:none;text-align:left;color:inherit;font:inherit;width:100%;cursor:pointer}
+.memory-kind{display:inline-flex;margin-top:8px;padding:4px 8px;border-radius:999px;background:var(--sage-light);font-size:10px;font-weight:800;color:var(--green)}
+.memory-cover{width:100%;height:115px;object-fit:cover;border-radius:14px;margin-top:8px;background:#e8ece5}
+.memory-media{width:100%;max-height:340px;object-fit:contain;border-radius:16px;background:#eef1eb}
+.memory-card small{display:block;color:var(--muted);margin-top:5px}
