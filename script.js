@@ -129,7 +129,7 @@ function categoryIcon(c){return ({work:"💼",sport:"🏋️",food:"🍽️",us:
 function renderToday(){
   const el=$("#todayTimeline");if(!el)return;
   const list=entries.filter(e=>e.date===today()).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
-  el.innerHTML=list.length?list.map(e=>`<button class="timeline-item" data-entry="${e.id}" type="button"><span class="time">${safe(time24(e.time)||"--:--")}</span><span><strong>${safe(e.title)}</strong><small>${safe(e.note||categoryName(e.category))}</small></span><i class="status-dot ${e.done?"done":""}"></i></button>`).join(""):'<div class="empty">Bugün henüz kayıt yok.</div>';
+  el.innerHTML=list.length?list.map(e=>`<button class="timeline-item" data-entry="${e.id}" type="button"><span class="time">${safe(time24(e.time)||"--:--")}${e.endTime?`–${safe(time24(e.endTime))}`:""}</span><span><strong>${safe(e.title)}</strong><small>${safe(e.note||categoryName(e.category))}</small></span><i class="status-dot ${e.done?"done":""}"></i></button>`).join(""):'<div class="empty">Bugün henüz kayıt yok.</div>';
   $$("[data-entry]",el).forEach(b=>b.onclick=()=>openEntryActions(b.dataset.entry));
 }
 function renderCalendar(){
@@ -154,7 +154,7 @@ function renderDayDetail(){
   el.innerHTML=`<div class="day-detail-head"><h3>${fmtTR(new Date(selectedDate+"T12:00:00"))}</h3><button id="dayEmojiBtn" class="text-btn" type="button">＋ Emoji</button></div>
   ${ems.length?`<div class="selected-day-emojis">${ems.map(e=>`<button data-remove-emoji="${safe(e)}" type="button">${safe(e)} ×</button>`).join("")}</div>`:""}
   ${sh?`<div class="panel-row"><strong>🩻 Nöbet</strong><small>08:30 → ertesi gün 08:30</small></div>`:""}
-  ${list.length?list.map(e=>`<div class="panel-row"><strong>${safe(time24(e.time))} · ${safe(e.title)}</strong><small>${safe(e.note||categoryName(e.category))}</small></div>`).join(""):'<div class="empty">Bu gün boş.</div>'}`;
+  ${list.length?list.map(e=>`<div class="panel-row"><strong>${safe(time24(e.time))}${e.endTime?`–${safe(time24(e.endTime))}`:""} · ${safe(e.title)}</strong><small>${safe(e.note||categoryName(e.category))}</small></div>`).join(""):'<div class="empty">Bu gün boş.</div>'}`;
   $("#dayEmojiBtn").onclick=()=>openDayEmojiPicker(selectedDate);
   $$("[data-remove-emoji]",el).forEach(b=>b.onclick=()=>removeDayEmoji(selectedDate,b.dataset.removeEmoji));
 }
@@ -272,71 +272,155 @@ function checkShiftNotifications(){
   shifts.forEach(s=>{const mins=(new Date(`${s.startDate}T08:30:00`)-new Date())/60000;for(const [key,min,max,msg] of [["24",1380,1440,"Yarın 08:30'da nöbetin var 🩻"],["2",60,120,"Nöbetin 08:30'da başlıyor 🩻"]]){const k=`shift-${s.id}-${key}`;if(mins>min&&mins<=max&&!localStorage.getItem(k)){new Notification("E.log",{body:msg,icon:"./icon-192.png"});localStorage.setItem(k,"1")}}});
 }
 
+function normalizeTR(x){
+  return String(x||"").toLocaleLowerCase("tr-TR")
+    .replace(/[’']/g,"'")
+    .replace(/\s+/g," ")
+    .trim();
+}
+function nextWeekdayDate(target){
+  const now=new Date(),cur=(now.getDay()+6)%7;
+  let diff=(target-cur+7)%7;
+  if(diff===0)diff=7;
+  const d=new Date(now);d.setDate(now.getDate()+diff);return isoDate(d);
+}
+function resolveNaturalDate(text){
+  const x=normalizeTR(text),now=new Date();
+  if(/\bbugün\b/.test(x))return today();
+  if(/\byarın\b/.test(x)){const d=new Date(now);d.setDate(d.getDate()+1);return isoDate(d)}
+  if(/\böbür gün\b|\böbürgun\b|\böbürgün\b/.test(x)){const d=new Date(now);d.setDate(d.getDate()+2);return isoDate(d)}
+  const wd=[
+    [/\b(pzt|pazartesi)\b/,0],[/\b(sal|salı)\b/,1],[/\b(çar|çarşamba)\b/,2],
+    [/\b(per|perşembe)\b/,3],[/\b(cum|cuma)\b/,4],[/\b(cmt|cumartesi)\b/,5],[/\b(paz|pazar)\b/,6]
+  ];
+  for(const [r,i] of wd)if(r.test(x))return nextWeekdayDate(i);
+
+  let m=x.match(/\b(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{2,4}))?\b/);
+  if(m){
+    let y=m[3]?Number(m[3]):now.getFullYear();if(y<100)y+=2000;
+    return `${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+  }
+  return null;
+}
+function parseClockToken(token){
+  const t=String(token||"").trim().replace(",",".");
+  let m=t.match(/^(\d{1,2})(?:[.:](\d{1,2}))?$/);
+  if(!m)return null;
+  let h=Number(m[1]),min=m[2]?Number(m[2]):0;
+  if(h>23||min>59)return null;
+  return `${String(h).padStart(2,"0")}:${String(min).padStart(2,"0")}`;
+}
+function extractTimeRange(text){
+  const x=normalizeTR(text);
+  let m=x.match(/\b(\d{1,2}(?:[.:]\d{1,2})?)\s*(?:-|–|—|ile|den|dan|ten|tan)\s*(\d{1,2}(?:[.:]\d{1,2})?)\b/);
+  if(m){
+    const a=parseClockToken(m[1]),b=parseClockToken(m[2]);
+    if(a&&b)return {start:a,end:b};
+  }
+  const tokens=[...x.matchAll(/\b\d{1,2}(?:[.:]\d{1,2})?\b/g)].map(v=>parseClockToken(v[0])).filter(Boolean);
+  if(tokens.length>=2)return {start:tokens[0],end:tokens[1]};
+  if(tokens.length===1)return {start:tokens[0],end:null};
+  return {start:null,end:null};
+}
+function inferNaturalCategory(text){
+  const x=normalizeTR(text);
+  if(/ekstra mesai|fazla mesai|mesai/.test(x))return {category:"work",title:"Ekstra mesai"};
+  if(/spor|gym|fitness|antrenman/.test(x))return {category:"sport",title:"Spor"};
+  if(/kahve/.test(x))return {category:"food",title:"Kahve"};
+  if(/yemek|akşam yemeği|öğle/.test(x))return {category:"food",title:"Yemek"};
+  if(/nilsu|biz|buluş/.test(x))return {category:"us",title:"Nilsu ♡"};
+  if(/iş|toplantı|meeting/.test(x))return {category:"work",title:"İş"};
+  if(/diş|doktor|hastane/.test(x))return {category:"personal",title:"Randevu"};
+  return {category:"general",title:"Plan"};
+}
+async function addNaturalEntryFromText(text){
+  const date=resolveNaturalDate(text);
+  const {start,end}=extractTimeRange(text);
+  const info=inferNaturalCategory(text);
+  if(!date||!start)return null;
+
+  const item={
+    id:uuid(),date,time:start,endTime:end||"",
+    title:info.title,note:String(text).trim(),category:info.category,
+    done:false,createdBy:currentUser?.uid||"local",_pending:true
+  };
+  entries.push(item);saveLocal();renderAll();
+  await cloudSave("entries",item);
+  return item;
+}
+function formatDateTR(date){
+  try{return new Intl.DateTimeFormat("tr-TR",{weekday:"long",day:"numeric",month:"long"}).format(new Date(date+"T12:00:00"))}
+  catch{return date}
+}
+function entriesForNaturalDate(text){
+  const d=resolveNaturalDate(text);
+  return d?entries.filter(e=>e.date===d).sort((a,b)=>(a.time||"").localeCompare(b.time||"")):[];
+}
 function localSmartReply(q){
-  const raw=String(q||"").trim();
-  const x=raw.toLocaleLowerCase("tr-TR");
-  const t=today();
-  const todayEntries=entries.filter(e=>e.date===t).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
-  const todayShift=shifts.find(s=>s.startDate===t);
-  const post=shifts.find(s=>s.endDate===t);
-  const future=shifts.filter(s=>s.startDate>=t).sort((a,b)=>a.startDate.localeCompare(b.startDate));
-  const memoriesToday=memories.filter(m=>m.date===t);
+  const x=normalizeTR(q),t=today(),targetDate=resolveNaturalDate(x);
+  const targetEntries=entriesForNaturalDate(x);
 
-  if(/^(selam|merhaba|hey|sa|naber)/i.test(x))
-    return `Selam ${profile?.name||""} ✦ Bugünkü takvimin, nöbetlerin ve Eroland kayıtların önümde. Ne planlayalım?`;
+  if(/^(selam|merhaba|hey|sa|naber)\b/.test(x))
+    return `Selam ${profile?.name||""} ✦ Ne planlayalım?`;
 
-  if(x.includes("nöbet"))
-    return future.length
-      ? `Yaklaşan nöbetlerin: ${future.slice(0,5).map(s=>`${s.startDate} 08:30`).join(" · ")}. Her nöbet ertesi gün 08:30'da bitiyor.`
-      : "Yaklaşan nöbet kaydı yok.";
+  if((/\bne yaptım\b|\bne yaptik\b|\bne yaptım\?/.test(x))&&targetDate){
+    return targetEntries.length
+      ? `${formatDateTR(targetDate)}: ${targetEntries.map(e=>`${time24(e.time)}${e.endTime?`–${time24(e.endTime)}`:""} ${e.title}`).join(" · ")}`
+      : `${formatDateTR(targetDate)} için kayıt görünmüyor.`;
+  }
 
-  if(x.includes("bugün")&&(x.includes("ne yapt")||x.includes("program")||x.includes("takvim")))
-    return todayEntries.length
-      ? `Bugün: ${todayEntries.map(e=>`${time24(e.time)} ${e.title}`).join(" · ")}${todayShift?" · 08:30 nöbet başlangıcı":""}`
-      : todayShift ? "Bugün 08:30'da nöbetin başladı. Başka aktivite kaydı yok." : "Bugün için kayıt görünmüyor.";
+  if((/\bne yapacağım\b|\bne yapicam\b|\bne var\b|\bprogram\b|\bplanım\b/.test(x))&&targetDate){
+    const sh=shifts.find(s=>s.startDate===targetDate);
+    const parts=[];
+    if(sh)parts.push("08:30 nöbet başlangıcı");
+    parts.push(...targetEntries.map(e=>`${time24(e.time)}${e.endTime?`–${time24(e.endTime)}`:""} ${e.title}`));
+    return parts.length?`${formatDateTR(targetDate)}: ${parts.join(" · ")}`:`${formatDateTR(targetDate)} için plan yok.`;
+  }
 
-  if(x.includes("spor"))
-    return post
-      ? "Bugün 08:30'da nöbetten çıktığın için sporu pas geçmeni öneriyorum. Dinlenme günü daha mantıklı."
-      : todayShift
-      ? "Bugün nöbet günün. Sporu ancak çok hafif tut."
-      : "Bugün nöbet engeli görünmüyor. Enerjin uygunsa spor eklenebilir.";
+  if(x.includes("nöbet")){
+    const future=shifts.filter(s=>s.startDate>=t).sort((a,b)=>a.startDate.localeCompare(b.startDate));
+    return future.length?`Yaklaşan nöbetlerin: ${future.slice(0,5).map(s=>`${s.startDate} 08:30`).join(" · ")}. Her nöbet ertesi gün 08:30'da bitiyor.`:"Yaklaşan nöbet kaydı yok.";
+  }
 
-  if(x.includes("plan")||x.includes("yarın")||x.includes("günümü"))
-    return `${todayShift?"08:30 nöbet başlangıcı var. ":""}${todayEntries.length?`Bugünkü kayıtların: ${todayEntries.map(e=>`${time24(e.time)} ${e.title}`).join(", ")}. `:""}${post?"Nöbet çıkışı olduğun için hafif bir gün daha iyi olur. ":""}İstersen boş saatlere göre sıraya koyabilirim.`;
+  if(x.includes("spor")){
+    const post=shifts.find(s=>s.endDate===t),todayShift=shifts.find(s=>s.startDate===t);
+    return post?"Bugün 08:30'da nöbetten çıktığın için sporu pas geçmeni öneriyorum.":todayShift?"Bugün nöbet günün. Sporu hafif tut.":"Bugün nöbet engeli görünmüyor.";
+  }
 
-  if(x.includes("erol")||x.includes("anı")||x.includes("eroland"))
-    return memoriesToday.length
-      ? `Bugünkü Eroland kayıtların: ${memoriesToday.map(m=>m.title).join(" · ")}`
-      : "Bugün için Eroland kaydı yok. + Anı ile ekleyebilirsin.";
-
-  if(x.includes("kahve")) return "Kahve molasını takvime ekleyebilirsin ☕";
-  if(x.includes("yemek")) return "Yemek planını saatle birlikte ekleyebilirim. 🍽️";
-  if(x.includes("hatırlat")) return "Eroland kayıtlarına 1 ay, 6 ay, 1 yıl veya özel tarih hatırlatması koyabilirsin.";
-
-  return "Seni dinliyorum. Nöbet, spor, bugün ne yaptığın, Eroland veya gün planın hakkında sorabilirsin.";
+  return "Bana doğal şekilde yazabilirsin: “yarın 8.30-16 ekstra mesai”, “salı 18 spor”, “pzt ne yapacağım?” gibi.";
 }
 async function askAI(message){
   addBubble(message,"user");
   $("#aiInput").value="";
+
+  const x=normalizeTR(message);
+  const commandLike=/ekstra mesai|fazla mesai|mesai|spor|kahve|yemek|iş|toplantı|diş|doktor|buluş/.test(x);
+  const hasActionDate=!!resolveNaturalDate(x);
+  const times=extractTimeRange(x);
+
+  if(commandLike&&hasActionDate&&times.start&&!/\b(ne yap|ne var|program|planım|ne yapt)/.test(x)){
+    const item=await addNaturalEntryFromText(message);
+    if(item){
+      addBubble(`✓ ${formatDateTR(item.date)} için ${item.title} eklendi: ${time24(item.time)}${item.endTime?`–${time24(item.endTime)}`:""}.`,"ai");
+      return;
+    }
+  }
+
   const localReply=localSmartReply(message);
   addBubble(localReply,"ai");
 
-  // Backend varsa cevabı arka planda geliştirir, yoksa kullanıcı beklemez.
   try{
     if(functions){
       const fn=httpsCallable(functions,"elogAssistant");
       const res=await Promise.race([
         fn({message}),
-        new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),2500))
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),1800))
       ]);
       const remote=res?.data?.reply?.trim();
-      if(remote && remote!==localReply){
-        addBubble(remote,"ai");
-      }
+      if(remote&&remote!==localReply)addBubble(remote,"ai");
     }
   }catch(e){
-    console.warn("AI backend erişilemedi; yerel cevap kullanıldı.",e);
+    console.warn("AI backend yok; yerel asistan kullanılıyor.",e);
   }
 }
 function addBubble(text,type){const d=document.createElement("div");d.className=`bubble ${type}`;d.textContent=text;$("#chat").appendChild(d);d.scrollIntoView({behavior:"smooth",block:"end"})}

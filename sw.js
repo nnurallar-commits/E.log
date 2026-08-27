@@ -1,4 +1,4 @@
-const VERSION="20260827-theme-refresh1";
+const VERSION="20260827-smart-calendar1";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
