@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
-import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging.js";
+
 
 const $ = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
@@ -13,7 +13,7 @@ const fmtTR = d => new Intl.DateTimeFormat("tr-TR",{weekday:"long",day:"numeric"
 const monthTR = d => new Intl.DateTimeFormat("tr-TR",{month:"long",year:"numeric"}).format(d);
 const safe = s => String(s ?? "").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
 
-let app, auth, db, functions, messaging=null, swRegistration=null;
+let app, auth, db, functions, swRegistration=null;
 let currentUser = null;
 let profile = null;
 let calendarCursor = new Date();
@@ -35,9 +35,7 @@ async function initFirebase(){
   auth=getAuth(app);
   db=getFirestore(app);
   functions=getFunctions(app,"europe-west1");
-  try{
-    if(await isMessagingSupported()) messaging=getMessaging(app);
-  }catch{}
+
   onAuthStateChanged(auth, async user => {
     currentUser=user;
     if(!user){ profile=null; clearListeners(); $("#authDialog").showModal(); return; }
@@ -230,58 +228,60 @@ function openBrain(){
 }
 function openStats(){const month=today().slice(0,7),monthEntries=entries.filter(e=>e.date?.startsWith(month)),sport=monthEntries.filter(e=>e.category==='sport').length,us=monthEntries.filter(e=>e.category==='us').length,work=monthEntries.filter(e=>e.category==='work').length;openGeneric(`<div class="modal-head"><h3>▥ Bu ay</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="stat-grid"><div class="stat"><b>${monthEntries.length}</b><span>Kayıt</span></div><div class="stat"><b>${shifts.filter(s=>s.startDate?.startsWith(month)).length}</b><span>Nöbet</span></div><div class="stat"><b>${sport}</b><span>Spor</span></div><div class="stat"><b>${us}</b><span>Nilsu ♡</span></div><div class="stat"><b>${work}</b><span>İş</span></div><div class="stat"><b>${memories.filter(m=>m.date?.startsWith(month)).length}</b><span>Anı</span></div></div>`)}
 async function pushStateText(){
-  if(!('Notification' in window)) return 'Bu tarayıcı bildirim desteklemiyor.';
-  if(Notification.permission==='granted') return 'Bildirim izni açık.';
-  if(Notification.permission==='denied') return 'Bildirim izni tarayıcıdan engellenmiş.';
-  return 'Henüz bildirim izni verilmedi.';
+  if(!("Notification" in window)) return "Bu tarayıcı bildirim desteklemiyor.";
+  if(Notification.permission==="granted") return "Bildirim izni açık.";
+  if(Notification.permission==="denied") return "Bildirim tarayıcı ayarından engellenmiş.";
+  return "Henüz bildirim izni verilmedi.";
 }
-
+function b64ToUint8(base64){
+  const padding="=".repeat((4-base64.length%4)%4);
+  const raw=atob((base64+padding).replace(/-/g,"+").replace(/_/g,"/"));
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
 async function enablePushNotifications(){
   const msg=$("#pushMsg");
   try{
-    if(currentUser?.uid==='demo'){msg.textContent='Demo modunda push kurulmaz.';return;}
-    if(!messaging){msg.textContent='Bu tarayıcı Firebase push bildirimlerini desteklemiyor.';return;}
-    if(!('serviceWorker' in navigator)){msg.textContent='Service Worker desteklenmiyor.';return;}
-
+    if(currentUser?.uid==="demo"){msg.textContent="Demo modunda push kurulmaz.";return;}
+    if(!("serviceWorker" in navigator)||!("PushManager" in window)){msg.textContent="Bu tarayıcı web push desteklemiyor.";return;}
     const permission=await Notification.requestPermission();
-    if(permission!=='granted'){msg.textContent='Bildirim izni verilmedi.';return;}
+    if(permission!=="granted"){msg.textContent="Bildirim izni verilmedi.";return;}
+    swRegistration=swRegistration||await navigator.serviceWorker.ready;
 
-    const {vapidKey}=await import('./notification-config.js');
-    if(!vapidKey){
-      msg.textContent='Önce notification-config.js içine Firebase Web Push VAPID anahtarını ekle.';
-      return;
+    const fn=httpsCallable(functions,"getPushPublicKey");
+    const res=await fn({});
+    const publicKey=res.data?.key;
+    if(!publicKey){msg.textContent="Push anahtarı backend'den alınamadı.";return;}
+
+    let sub=await swRegistration.pushManager.getSubscription();
+    if(!sub){
+      sub=await swRegistration.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:b64ToUint8(publicKey)
+      });
     }
 
-    swRegistration=swRegistration || await navigator.serviceWorker.ready;
-    const token=await getToken(messaging,{vapidKey,serviceWorkerRegistration:swRegistration});
-    if(!token){msg.textContent='FCM token alınamadı.';return;}
+    const id=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(sub.endpoint))
+      .then(buf=>[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,40));
 
-    const deviceId=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token))
-      .then(buf=>[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,40));
-
-    await setDoc(doc(db,'users',currentUser.uid,'devices',deviceId),{
-      token,
-      role:profile?.role||'owner',
-      platform:navigator.userAgent.slice(0,180),
+    await setDoc(doc(db,"users",currentUser.uid,"pushSubscriptions",id),{
+      subscription:sub.toJSON(),
+      role:profile?.role||"owner",
       updatedAt:serverTimestamp()
     },{merge:true});
 
-    msg.textContent='✓ Akıllı bildirimler bu cihazda açık.';
+    msg.textContent="✓ Akıllı bildirimler bu cihazda açık.";
   }catch(err){
     console.error(err);
-    msg.textContent='Bildirim kurulamadı: '+(err.message||err);
+    msg.textContent="Bildirim kurulamadı: "+(err.message||err);
   }
 }
-
 async function openNotifications(){
   const state=await pushStateText();
   openGeneric(`<div class="modal-head"><h3>🔔 Akıllı Bildirimler</h3><button class="icon-btn close-generic" type="button">×</button></div>
-    <div class="rule-card"><strong>E.log önce günü kontrol eder</strong><p>Nöbet çıkışında spor bildirimi göndermez, pazartesi akvaryumu hatırlatır, oruç modunu görür ve boş günlerde gün sonu kaydı önerebilir.</p></div>
-    <div class="rule-card"><strong>Nilsu özeti</strong><p>Partner hesabında, gün doluysa akşam tek sakin özet gelebilir. Sürekli aktivite bildirimi gönderilmez.</p></div>
-    <button id="enablePushBtn" class="primary-btn full" type="button">Bu cihazda bildirimleri aç</button>
-    <p id="pushMsg" class="form-message">${safe(state)}</p>`,()=>{
-      $("#enablePushBtn").onclick=enablePushNotifications;
-    });
+  <div class="rule-card"><strong>E.log günü kontrol eder</strong><p>Nöbet çıkışında spor bildirimi göndermez; pazartesi Şans'ı, oruç gününü ve gün sonu kaydını bağlama göre hatırlatır.</p></div>
+  <div class="rule-card"><strong>Nilsu görünümü</strong><p>Partner hesabında her hareket için bildirim yağdırmak yerine sakin bir günlük özet kullanılabilir.</p></div>
+  <button id="enablePushBtn" class="primary-btn full" type="button">Bu cihazda bildirimleri aç</button>
+  <p id="pushMsg" class="form-message">${safe(state)}</p>`,()=>{$("#enablePushBtn").onclick=enablePushNotifications;});
 }
 function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görünümü</h3><button class="icon-btn close-generic" type="button">×</button></div><p>Erol'un ortak veritabanına kaydettiği günlük aktiviteler bu hesapta otomatik görünür. Partner hesabını aynı <b>pairId</b> ile eşleştirmen yeterli.</p><div class="panel-row"><strong>Pair ID</strong><small>${safe(profile?.pairId||'demo-pair')}</small></div>`)}
 
@@ -326,11 +326,4 @@ addBubble('Merhaba. Takvimini, nöbetlerini, rutinlerini ve E.log kurallarını 
     catch(e){ console.warn('Service worker kurulamadı',e); }
   }
   await initFirebase();
-  if(messaging){
-    onMessage(messaging,payload=>{
-      const title=payload.notification?.title||payload.data?.title||'E.log';
-      const body=payload.notification?.body||payload.data?.body||'Yeni bir bildirim var.';
-      addBubble(`${title}: ${body}`,'ai');
-    });
-  }
 })();

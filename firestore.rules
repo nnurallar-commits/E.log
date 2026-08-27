@@ -1,21 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn(){ return request.auth != null; }
-    function own(uid){ return signedIn() && request.auth.uid == uid; }
-    function userDoc(){ return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
-    function pairId(){ return userDoc().data.pairId; }
+    function signedIn() { return request.auth != null; }
+    function own(uid) { return signedIn() && request.auth.uid == uid; }
+    function myUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function myPair() { return myUser().data.pairId; }
 
     match /users/{uid} {
       allow read, write: if own(uid);
 
-      match /devices/{deviceId} {
+      match /pushSubscriptions/{subscriptionId} {
         allow read, create, update, delete: if own(uid);
       }
     }
 
     match /pairs/{pair}/{document=**} {
-      allow read, write: if signedIn() && pairId() == pair;
+      allow read, write: if signedIn() && myPair() == pair;
     }
   }
 }
