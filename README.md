@@ -1,11 +1,14 @@
-# E.log Logo Final Fix
+# E.log Nöbet Listesi + Bildirim
 
-Bu sürüm iPhone ana ekran ikonunu kesinleştirmek için:
-- `apple-touch-icon.png` root klasöre kondu.
-- `apple-touch-icon-precomposed` eklendi.
-- `icon-192.png` ve `icon-512.png` root klasörde.
-- Manifest doğrudan bu root ikonlarını kullanıyor.
-- Browser favicon da gerçek E.log logosu.
-- Cache sürümü: 20260827-logo-final3
+Yeni:
+- Nöbetler toplu liste halinde tek seferde eklenebilir.
+- Örnek satır: `27.08.2026 20:00-08:00`
+- Gece nöbetinde bitiş tarihi otomatik ertesi gün yapılır.
+- Tekrarlanan aynı nöbet ikinci kez eklenmez.
+- Tüm nöbetler listede görünür ve silinebilir.
+- 24 saat formatı korunur.
+- Bildirim izni uygulama içinden açılır.
+- Uygulama açıkken nöbetten yaklaşık 24 saat ve 2 saat önce yerel bildirim kontrolü yapılır.
+- Gerçek arka plan bildirimleri için Firebase Functions/Push backend deploy edilmiş olmalıdır.
 
-iPhone'da eski ana ekran E.log ikonunu silip Safari'den siteyi tekrar Ana Ekrana Ekle.
+Sürüm: 20260827-shifts2

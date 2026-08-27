@@ -55,3 +55,13 @@
   .calendar-emoji-char{font-size:18px}
   .emoji-picker-grid{grid-template-columns:repeat(4,1fr)}
 }
+
+.shift-list{max-height:320px;overflow:auto;margin-bottom:14px}
+.shift-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.shift-row>div{min-width:0}
+.bulk-shift-box,.single-shift-box{
+  margin-top:14px;padding:12px 14px;border:1px solid var(--line,#d8ddd4);
+  border-radius:18px;background:var(--card,#fffdf8)
+}
+.bulk-shift-box summary,.single-shift-box summary{cursor:pointer;padding:4px 0 10px}
+#bulkShiftText{min-height:150px;font-family:inherit}

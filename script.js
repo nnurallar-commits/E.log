@@ -323,15 +323,163 @@ function openModule(name){
   if(name==='brain') openBrain();
   if(name==='eroland') switchView('eroland');
 }
-function openShifts(){openGeneric(`<div class="modal-head"><h3>🩻 Nöbetlerim</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-list">${shifts.length?shifts.map(s=>`<div class="panel-row"><strong>${safe(s.startDate)} · ${safe(s.type||'Nöbet')}</strong><small>${safe(time24(s.startTime)||'')} → ${safe(time24(s.endTime)||'')}</small></div>`).join(''):'<div class="empty">Henüz nöbet yok.</div>'}</div><form id="shiftForm"><div class="form-row"><label>Başlangıç<input id="shiftDate" type="date" required value="${today()}"></label><label>Saat<input id="shiftStart" type="time" required value="20:00"></label></div><div class="form-row"><label>Bitiş tarihi<input id="shiftEndDate" type="date" required value="${today()}"></label><label>Bitiş<input id="shiftEnd" type="time" required value="08:00"></label></div><button class="primary-btn full" type="submit">Nöbet ekle</button></form>`,()=>{$("#shiftForm").onsubmit=async ev=>{ev.preventDefault();const d={startDate:$("#shiftDate").value,startTime:$("#shiftStart").value,endDate:$("#shiftEndDate").value,endTime:$("#shiftEnd").value,type:'Tomografi',createdBy:currentUser.uid};if(currentUser.uid==='demo'){shifts.push({id:crypto.randomUUID(),...d});renderAll()}else {shifts.push({id:"local-"+crypto.randomUUID(),...d,_pending:true});saveLocal();renderAll();try{await addDoc(pairPath('shifts'),{...d,createdAt:serverTimestamp()});}catch(e){console.error(e);markSync("nöbet yerelde kayıtlı",false)}}$("#genericDialog").close()}})}
-function openRoutines(){openGeneric(`<div class="modal-head"><h3>↻ Rutinler & Kurallar</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-list">${rules.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p><small>${r.active?'Aktif':'Kapalı'}</small></div>`).join('')}</div><form id="ruleForm"><label>Kural adı<input id="ruleName" placeholder="Örn. Cuma spor"></label><label>Ne yapsın?<input id="ruleAction" placeholder="Örn. Spor öner"></label><button class="primary-btn full" type="submit">Kural ekle</button></form>`,()=>{$("#ruleForm").onsubmit=async ev=>{ev.preventDefault();const d={name:$("#ruleName").value.trim(),action:$("#ruleAction").value.trim(),type:'custom',active:true};if(!d.name||!d.action)return;if(currentUser.uid==='demo'){rules.push({id:crypto.randomUUID(),...d});renderAll()}else {rules.push({id:"local-"+crypto.randomUUID(),...d,_pending:true});saveLocal();renderAll();try{await addDoc(pairPath('rules'),{...d,createdAt:serverTimestamp()});}catch(e){console.error(e);markSync("kural yerelde kayıtlı",false)}}$("#genericDialog").close()}})}
-function openBrain(){
-  const pats=inferPatterns();
-  const exact=rules.filter(r=>r.active);
-  openGeneric(`<div class="modal-head"><h3>🧠 E.log beyni</h3><button class="icon-btn close-generic" type="button">×</button></div>
-  <p class="form-message">Kesin kurallar ayrı, gözlemden çıkan tahminler ayrı tutulur.</p>
-  <h4>Kesin bildiklerim</h4><div class="panel-list">${exact.length?exact.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p><small>Kesin kural</small></div>`).join(''):'<div class="empty">Henüz kesin kural yok.</div>'}</div>
-  <h4>Tahminlerim</h4><div class="panel-list">${pats.length?pats.map(p=>`<div class="rule-card"><strong>${safe(p.label)}</strong><p>${safe(p.evidence)}</p><small>Güven: %${Math.round(p.confidence*100)}</small></div>`).join(''):'<div class="empty">Yeterli tekrar oluşunca alışkanlıkları burada göstereceğim.</div>'}</div>`);
+function parseShiftLine(line){
+  const t=line.trim();
+  if(!t) return null;
+
+  // Kabul edilen örnekler:
+  // 27.08.2026 20:00-08:00
+  // 27/08/2026 20:00 - 08:00
+  // 2026-08-27 20:00-08:00
+  let date="",start="",end="";
+  let m=t.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/);
+  if(m){date=m[1];start=time24(m[2]);end=time24(m[3]);}
+  else{
+    m=t.match(/^(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{4}))?\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})$/);
+    if(m){
+      const y=m[3]||String(new Date().getFullYear());
+      date=`${y}-${String(m[2]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+      start=time24(m[4]); end=time24(m[5]);
+    }
+  }
+  if(!date||!start||!end) return null;
+
+  let endDate=date;
+  if(end < start){
+    const d=new Date(date+"T12:00:00");
+    d.setDate(d.getDate()+1);
+    endDate=isoDate(d);
+  }
+
+  return {
+    id:"local-"+crypto.randomUUID(),
+    startDate:date,
+    startTime:start,
+    endDate,
+    endTime:end,
+    type:"Tomografi",
+    createdBy:currentUser?.uid||"local",
+    _pending:true
+  };
+}
+
+async function saveShiftItem(d){
+  shifts.push(d); saveLocal(); renderAll();
+  if(currentUser?.uid==="demo" || !db) return;
+  try{
+    const copy={...d}; delete copy.id; delete copy._pending;
+    const ref=await addDoc(pairPath("shifts"),{...copy,createdAt:serverTimestamp()});
+    shifts=shifts.map(x=>x.id===d.id?{...x,id:ref.id,_pending:false}:x);
+    saveLocal(); renderAll(); markSync("canlı");
+  }catch(e){
+    console.error(e); markSync("nöbetler telefonda kayıtlı",false);
+  }
+}
+
+function openShifts(){
+  const sorted=[...shifts].sort((a,b)=>(a.startDate+a.startTime).localeCompare(b.startDate+b.startTime));
+  const future=sorted.filter(x=>x.startDate>=today());
+
+  openGeneric(`
+    <div class="modal-head">
+      <h3>🩻 Nöbetlerim</h3>
+      <button class="icon-btn close-generic" type="button">×</button>
+    </div>
+
+    <div class="rule-card">
+      <strong>Toplam ${sorted.length} nöbet</strong>
+      <p>${future.length} yaklaşan nöbet var.</p>
+    </div>
+
+    <div class="panel-list shift-list">
+      ${sorted.length ? sorted.map(s=>`
+        <div class="panel-row shift-row">
+          <div>
+            <strong>${safe(s.startDate)} · ${safe(time24(s.startTime))}</strong>
+            <small>${safe(time24(s.startTime))} → ${safe(s.endDate)} ${safe(time24(s.endTime))}${s._pending?" · telefonda":""}</small>
+          </div>
+          <button class="icon-btn delete-shift" data-shift-id="${s.id}" type="button" aria-label="Nöbeti sil">×</button>
+        </div>`).join("") : '<div class="empty">Henüz nöbet yok.</div>'}
+    </div>
+
+    <details class="bulk-shift-box" open>
+      <summary><strong>Toplu nöbet listesi ekle</strong></summary>
+      <p class="form-message">Her nöbeti ayrı satıra yaz. Örn: <b>27.08.2026 20:00-08:00</b></p>
+      <form id="bulkShiftForm">
+        <label>Nöbet listesi
+          <textarea id="bulkShiftText" rows="7" placeholder="27.08.2026 20:00-08:00&#10;30.08.2026 20:00-08:00&#10;02.09.2026 20:00-08:00"></textarea>
+        </label>
+        <button class="primary-btn full" type="submit">Listeyi kaydet</button>
+        <p id="bulkShiftMsg" class="form-message"></p>
+      </form>
+    </details>
+
+    <details class="single-shift-box">
+      <summary><strong>Tek nöbet ekle</strong></summary>
+      <form id="shiftForm">
+        <div class="form-row">
+          <label>Başlangıç<input id="shiftDate" type="date" required value="${today()}"></label>
+          <label>Saat<input id="shiftStart" type="time" required value="20:00" step="60"></label>
+        </div>
+        <div class="form-row">
+          <label>Bitiş tarihi<input id="shiftEndDate" type="date" required value="${today()}"></label>
+          <label>Bitiş<input id="shiftEnd" type="time" required value="08:00" step="60"></label>
+        </div>
+        <button class="primary-btn full" type="submit">Nöbet ekle</button>
+      </form>
+    </details>
+  `,()=>{
+    $("#bulkShiftForm").onsubmit=async ev=>{
+      ev.preventDefault();
+      const lines=$("#bulkShiftText").value.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+      const parsed=lines.map(parseShiftLine);
+      const valid=parsed.filter(Boolean);
+      const bad=parsed.filter(x=>!x).length;
+
+      if(!valid.length){
+        $("#bulkShiftMsg").textContent="Tarih/saat formatını kontrol et.";
+        return;
+      }
+
+      // exact duplicate protection
+      const keys=new Set(shifts.map(x=>`${x.startDate}|${x.startTime}|${x.endDate}|${x.endTime}`));
+      const unique=valid.filter(x=>{
+        const k=`${x.startDate}|${x.startTime}|${x.endDate}|${x.endTime}`;
+        if(keys.has(k)) return false;
+        keys.add(k); return true;
+      });
+
+      for(const item of unique) await saveShiftItem(item);
+      $("#bulkShiftMsg").textContent=`✓ ${unique.length} nöbet kaydedildi${bad?`, ${bad} satır okunamadı`:""}.`;
+      setTimeout(()=>{ $("#genericDialog").close(); openShifts(); },500);
+    };
+
+    $("#shiftForm").onsubmit=async ev=>{
+      ev.preventDefault();
+      const d={
+        id:"local-"+crypto.randomUUID(),
+        startDate:$("#shiftDate").value,
+        startTime:time24($("#shiftStart").value),
+        endDate:$("#shiftEndDate").value,
+        endTime:time24($("#shiftEnd").value),
+        type:"Tomografi",
+        createdBy:currentUser?.uid||"local",
+        _pending:true
+      };
+      await saveShiftItem(d);
+      $("#genericDialog").close();
+    };
+
+    $$(".delete-shift").forEach(b=>b.onclick=async()=>{
+      const id=b.dataset.shiftId;
+      const sh=shifts.find(x=>x.id===id);
+      shifts=shifts.filter(x=>x.id!==id); saveLocal(); renderAll();
+      if(db && currentUser?.uid!=="demo" && sh && !id.startsWith("local-")){
+        try{await deleteDoc(doc(db,"pairs",profile.pairId,"shifts",id));}catch(e){console.error(e)}
+      }
+      $("#genericDialog").close(); openShifts();
+    });
+  });
 }
 function openStats(){const month=today().slice(0,7),monthEntries=entries.filter(e=>e.date?.startsWith(month)),sport=monthEntries.filter(e=>e.category==='sport').length,us=monthEntries.filter(e=>e.category==='us').length,work=monthEntries.filter(e=>e.category==='work').length;openGeneric(`<div class="modal-head"><h3>▥ Bu ay</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="stat-grid"><div class="stat"><b>${monthEntries.length}</b><span>Kayıt</span></div><div class="stat"><b>${shifts.filter(s=>s.startDate?.startsWith(month)).length}</b><span>Nöbet</span></div><div class="stat"><b>${sport}</b><span>Spor</span></div><div class="stat"><b>${us}</b><span>Nilsu ♡</span></div><div class="stat"><b>${work}</b><span>İş</span></div><div class="stat"><b>${memories.filter(m=>m.date?.startsWith(month)).length}</b><span>Anı</span></div></div>`)}
 async function pushStateText(){
@@ -383,12 +531,20 @@ async function enablePushNotifications(){
   }
 }
 async function openNotifications(){
-  const state=await pushStateText();
-  openGeneric(`<div class="modal-head"><h3>🔔 Akıllı Bildirimler</h3><button class="icon-btn close-generic" type="button">×</button></div>
-  <div class="rule-card"><strong>E.log günü kontrol eder</strong><p>Nöbet çıkışında spor bildirimi göndermez; pazartesi Şans'ı, oruç gününü ve gün sonu kaydını bağlama göre hatırlatır.</p></div>
-  <div class="rule-card"><strong>Nilsu görünümü</strong><p>Partner hesabında her hareket için bildirim yağdırmak yerine sakin bir günlük özet kullanılabilir.</p></div>
-  <button id="enablePushBtn" class="primary-btn full" type="button">Bu cihazda bildirimleri aç</button>
-  <p id="pushMsg" class="form-message">${safe(state)}</p>`,()=>{$("#enablePushBtn").onclick=enablePushNotifications;});
+  const status=("Notification" in window)?Notification.permission:"unsupported";
+  openGeneric(`
+    <div class="modal-head"><h3>🔔 Akıllı Bildirimler</h3><button class="icon-btn close-generic" type="button">×</button></div>
+    <div class="rule-card"><strong>Nöbet bildirimleri</strong><p>Nöbetten yaklaşık 24 saat önce ve 2 saat önce hatırlatma hedeflenir.</p></div>
+    <div class="rule-card"><strong>Akıllı kural</strong><p>Nöbet çıkışı gününde spor hatırlatması yapılmaz.</p></div>
+    <button id="enableNotifyBtn" class="primary-btn full" type="button">${status==="granted"?"Bildirimler açık ✓":"Bildirimleri aç"}</button>
+    <p id="notifyStatus" class="form-message">Durum: ${safe(status)}</p>
+  `,()=>{
+    $("#enableNotifyBtn").onclick=async()=>{
+      const ok=await requestLocalNotificationPermission();
+      $("#notifyStatus").textContent=ok?"✓ Bildirim izni açık.":"Bildirim izni verilmedi.";
+      if(ok){ checkUpcomingShiftNotifications(); }
+    };
+  });
 }
 function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görünümü</h3><button class="icon-btn close-generic" type="button">×</button></div><p>Erol'un ortak veritabanına kaydettiği günlük aktiviteler bu hesapta otomatik görünür. Partner hesabını aynı <b>pairId</b> ile eşleştirmen yeterli.</p><div class="panel-row"><strong>Pair ID</strong><small>${safe(profile?.pairId||'demo-pair')}</small></div>`)}
 
@@ -406,6 +562,41 @@ function addBubble(text,type){const d=document.createElement('div');d.className=
 
 async function googleLogin(){try{const provider=new GoogleAuthProvider();await signInWithPopup(auth,provider)}catch(e){$("#authMessage").textContent='Google girişi olmadı: '+e.message}}
 
+
+function minutesUntil(date,time){
+  const target=new Date(`${date}T${time}:00`);
+  return Math.round((target-Date.now())/60000);
+}
+async function requestLocalNotificationPermission(){
+  if(!("Notification" in window)) return false;
+  if(Notification.permission==="granted") return true;
+  if(Notification.permission==="denied") return false;
+  return (await Notification.requestPermission())==="granted";
+}
+function checkUpcomingShiftNotifications(){
+  if(!("Notification" in window) || Notification.permission!=="granted") return;
+  const now=new Date();
+  for(const sh of shifts){
+    const mins=minutesUntil(sh.startDate,time24(sh.startTime));
+    const key24=`elog-shift24-${sh.id}-${sh.startDate}`;
+    const key2=`elog-shift2-${sh.id}-${sh.startDate}`;
+
+    if(mins<=1440 && mins>1380 && !localStorage.getItem(key24)){
+      new Notification("Yarın nöbet var 🩻",{
+        body:`${sh.startDate} ${time24(sh.startTime)} nöbetin var.`,
+        icon:"./icon-192.png"
+      });
+      localStorage.setItem(key24,"1");
+    }
+    if(mins<=120 && mins>60 && !localStorage.getItem(key2)){
+      new Notification("Nöbete az kaldı 🩻",{
+        body:`Nöbetin ${time24(sh.startTime)}'de başlıyor.`,
+        icon:"./icon-192.png"
+      });
+      localStorage.setItem(key2,"1");
+    }
+  }
+}
 function wire(){
   $$('.nav-btn').forEach(b=>b.onclick=()=>switchView(b.dataset.view));
   $$('[data-open]').forEach(b=>b.onclick=()=>openModule(b.dataset.open));
