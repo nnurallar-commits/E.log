@@ -185,6 +185,28 @@ function openEntryActions(id){const e=entries.find(x=>x.id===id);if(!e)return;op
   $("#deleteEntry").onclick=async()=>{if(currentUser.uid==='demo'){entries=entries.filter(x=>x.id!==id);renderAll()}else await deleteDoc(doc(db,'pairs',profile.pairId,'entries',id));$("#genericDialog").close()};
 })}
 
+
+function switchView(name){
+  const target = document.getElementById(`view-${name}`);
+  if(!target) return;
+
+  $$('.view').forEach(v => v.classList.remove('active'));
+  target.classList.add('active');
+
+  $$('.nav-btn').forEach(btn => {
+    const active = btn.dataset.view === name;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-current', active ? 'page' : 'false');
+  });
+
+  // Sekmeye özel ekranı tazele
+  if(name === 'home') renderToday();
+  if(name === 'calendar') renderCalendar();
+  if(name === 'eroland') renderMemories();
+
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
 function openGeneric(html,after){$("#genericContent").innerHTML=html;$("#genericDialog").showModal();const c=$(".close-generic");if(c)c.onclick=()=>$("#genericDialog").close();after?.()}
 function openModule(name){
   if(name==='shifts') openShifts();
