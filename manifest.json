@@ -1,0 +1,9 @@
+{
+  "name":"E.log",
+  "short_name":"E.log",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#f7f4ec",
+  "theme_color":"#23352b",
+  "icons":[]
+}

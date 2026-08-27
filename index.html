@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#23352b" />
+  <title>E.log</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow" id="todayLabel">Bugün</p>
+        <h1>E.log</h1>
+      </div>
+      <div class="top-actions">
+        <button id="syncBadge" class="chip ghost" type="button">● çevrimdışı</button>
+        <button id="profileBtn" class="icon-btn" type="button" aria-label="Profil">E</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="view-home" class="view active">
+        <div class="hero-card">
+          <div>
+            <span class="tag">Bugün senin günün</span>
+            <h2 id="heroGreeting">Merhaba 👋</h2>
+            <p id="heroSummary">Günün akışını birlikte toparlayalım.</p>
+          </div>
+          <button id="quickAddBtn" class="primary-btn" type="button">+ Hızlı ekle</button>
+        </div>
+
+        <section class="section-block">
+          <div class="section-head">
+            <div><p class="eyebrow">Akış</p><h3>Bugün</h3></div>
+            <button id="smartPlanBtn" class="text-btn" type="button">✨ Akıllı plan</button>
+          </div>
+          <div id="todayTimeline" class="timeline"></div>
+        </section>
+
+        <section id="smartCard" class="smart-card">
+          <div class="smart-icon">✦</div>
+          <div>
+            <p class="eyebrow">E.log AI</p>
+            <h3 id="smartTitle">Sana göre</h3>
+            <p id="smartText">Takvimini ve rutinlerini öğrendikçe öneriler burada değişecek.</p>
+            <button id="whyBtn" class="text-btn" type="button">Neden?</button>
+          </div>
+        </section>
+
+        <section class="two-col">
+          <button class="module-card" data-open="shifts" type="button">
+            <span class="module-icon">🩻</span><strong>Nöbetler</strong><small id="shiftMini">Yaklaşan nöbet yok</small>
+          </button>
+          <button class="module-card" data-open="eroland" type="button">
+            <span class="module-icon">♡</span><strong>Eroland</strong><small>Anılar & ortak planlar</small>
+          </button>
+        </section>
+      </section>
+
+      <section id="view-calendar" class="view">
+        <div class="section-head">
+          <div><p class="eyebrow">Planla</p><h2>Takvim</h2></div>
+          <button id="calendarAddBtn" class="primary-btn small" type="button">+ Ekle</button>
+        </div>
+        <div class="calendar-toolbar">
+          <button id="prevMonth" class="icon-btn" type="button">‹</button>
+          <strong id="monthTitle"></strong>
+          <button id="nextMonth" class="icon-btn" type="button">›</button>
+        </div>
+        <div class="calendar-weekdays"><span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span></div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+        <div id="calendarDayDetail" class="day-detail"></div>
+      </section>
+
+      <section id="view-eroland" class="view">
+        <div class="section-head">
+          <div><p class="eyebrow">Size özel</p><h2>Eroland ♡</h2></div>
+          <button id="memoryAddBtn" class="primary-btn small" type="button">+ Anı</button>
+        </div>
+        <div class="eroland-banner">
+          <p>İyi planlar, daha güzel yarınlar.</p>
+          <span>Sen + Erol</span>
+        </div>
+        <div class="tabs-row">
+          <button class="mini-tab active" data-memory-filter="all" type="button">Tümü</button>
+          <button class="mini-tab" data-memory-filter="memory" type="button">Anılar</button>
+          <button class="mini-tab" data-memory-filter="plan" type="button">Planlar</button>
+          <button class="mini-tab" data-memory-filter="place" type="button">Yerler</button>
+        </div>
+        <div id="memoryGrid" class="memory-grid"></div>
+      </section>
+
+      <section id="view-ai" class="view ai-view">
+        <div class="section-head">
+          <div><p class="eyebrow">E.log AI</p><h2>Seni tanıyan asistan</h2></div>
+          <button id="learnedBtn" class="chip" type="button">🧠 Öğrendiklerim</button>
+        </div>
+        <div id="chat" class="chat"></div>
+        <form id="aiForm" class="composer">
+          <textarea id="aiInput" rows="2" placeholder="Örn. Yarınki günümü planla..."></textarea>
+          <button class="send-btn" type="submit">↑</button>
+        </form>
+      </section>
+
+      <section id="view-more" class="view">
+        <div class="section-head"><div><p class="eyebrow">E.log</p><h2>Daha fazla</h2></div></div>
+        <div class="settings-list">
+          <button data-open="shifts" type="button"><span>🩻 Nöbetlerim</span><b>›</b></button>
+          <button data-open="routines" type="button"><span>↻ Rutinler & Kurallar</span><b>›</b></button>
+          <button data-open="stats" type="button"><span>▥ İstatistikler</span><b>›</b></button>
+          <button data-open="notifications" type="button"><span>🔔 Akıllı Bildirimler</span><b>›</b></button>
+          <button data-open="partner" type="button"><span>♡ Nilsu görünümü</span><b>›</b></button>
+          <button id="logoutBtn" type="button"><span>Çıkış yap</span><b>›</b></button>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-view="home" type="button"><span>⌂</span><small>Bugün</small></button>
+      <button class="nav-btn" data-view="calendar" type="button"><span>▣</span><small>Takvim</small></button>
+      <button class="nav-btn" data-view="eroland" type="button"><span>♡</span><small>Eroland</small></button>
+      <button class="nav-btn" data-view="ai" type="button"><span>✦</span><small>AI</small></button>
+      <button class="nav-btn" data-view="more" type="button"><span>•••</span><small>Daha fazla</small></button>
+    </nav>
+  </div>
+
+  <dialog id="entryDialog" class="modal">
+    <form id="entryForm" class="modal-card">
+      <div class="modal-head"><h3>Aktivite ekle</h3><button class="icon-btn close-dialog" type="button">×</button></div>
+      <label>Tarih<input id="entryDate" type="date" required /></label>
+      <div class="form-row"><label>Saat<input id="entryTime" type="time" required /></label><label>Kategori<select id="entryCategory"><option value="general">Genel</option><option value="work">İş</option><option value="sport">Spor</option><option value="food">Yemek</option><option value="us">Nilsu ♡</option><option value="personal">Kişisel</option></select></label></div>
+      <label>Ne yaptın / ne yapacaksın?<input id="entryTitle" maxlength="80" required placeholder="Örn. Spora gittim" /></label>
+      <label>Not<textarea id="entryNote" rows="3" placeholder="İstersen kısa not..."></textarea></label>
+      <label class="switch-row"><input id="entryDone" type="checkbox" /><span>Tamamlandı</span></label>
+      <button class="primary-btn full" type="submit">Kaydet</button>
+    </form>
+  </dialog>
+
+  <dialog id="genericDialog" class="modal"><div id="genericContent" class="modal-card"></div></dialog>
+  <dialog id="authDialog" class="modal auth-modal">
+    <form id="authForm" class="modal-card">
+      <div class="auth-logo">E<span>.</span></div>
+      <h2>E.log</h2><p>Hayat, sana göre.</p>
+      <label>E-posta<input id="authEmail" type="email" required /></label>
+      <label>Şifre<input id="authPassword" type="password" minlength="6" required /></label>
+      <div class="form-row"><button id="loginBtn" class="primary-btn" type="submit">Giriş</button><button id="signupBtn" class="secondary-btn" type="button">Kayıt ol</button></div>
+      <p id="authMessage" class="form-message"></p>
+    </form>
+  </dialog>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
