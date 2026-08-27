@@ -72,33 +72,62 @@ async function handleAuth(user){
   syncDayEmojis();
 }
 async function ensureProfile(user){
-  let data=null;
-  try{const s=await getDoc(doc(db,"users",user.uid));if(s.exists())data=s.data()}catch{}
-  if(!data){
-    data=JSON.parse(localStorage.getItem("elog-profile-"+user.uid)||"null");
+  let data = null;
+
+  try{
+    const snap = await getDoc(doc(db, "users", user.uid));
+
+    if(snap.exists()){
+      data = snap.data();
+    }
+  }catch(e){
+    console.warn("Firestore profil okunamadı:", e);
   }
+
   if(!data){
-    await firstSetup(user);return;
+    try{
+      data = JSON.parse(
+        localStorage.getItem("elog-profile-" + user.uid) || "null"
+      );
+    }catch(e){
+      data = null;
+    }
   }
-  profile=data;localStorage.setItem("elog-profile-"+user.uid,JSON.stringify(profile));
-}
-function firstSetup(user){
-  return new Promise(resolve=>{
-    openGeneric(`<div class="modal-head"><h3>E.log'a hoş geldin 🌿</h3></div>
-    <form id="firstSetupForm"><label>Ben<select id="setupRole"><option value="owner">Erol</option><option value="partner">Nilsu</option></select></label>
-    <label id="pairWrap" style="display:none">Erol'un Pair ID'si<input id="setupPair"></label>
-    <button class="primary-btn full" type="submit">Devam et</button></form>`,()=>{
-      $("#setupRole").onchange=()=>$("#pairWrap").style.display=$("#setupRole").value==="partner"?"block":"none";
-      $("#firstSetupForm").onsubmit=async e=>{
-        e.preventDefault();const role=$("#setupRole").value,pair=$("#setupPair").value.trim();
-        if(role==="partner"&&!pair)return;
-        profile={name:role==="owner"?"Erol":"Nilsu",role,pairId:role==="owner"?user.uid:pair};
-        localStorage.setItem("elog-profile-"+user.uid,JSON.stringify(profile));
-        try{await setDoc(doc(db,"users",user.uid),{...profile,updatedAt:serverTimestamp()},{merge:true})}catch{}
-        $("#genericDialog").close();resolve();
-      };
-    });
-  });
+
+  if(!data){
+    await firstSetup(user);
+    data = profile;
+  }
+
+  if(!data) return;
+
+  profile = {
+    ...data,
+    pairId: data.pairId || user.uid
+  };
+
+  localStorage.setItem(
+    "elog-profile-" + user.uid,
+    JSON.stringify(profile)
+  );
+
+  try{
+    await setDoc(
+      doc(db, "users", user.uid),
+      {
+        ...profile,
+        email: user.email || "",
+        displayName: user.displayName || "",
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    markSync("● canlı");
+  }catch(e){
+    console.error("Firestore kullanıcı kaydı oluşturulamadı:", e);
+    markSync("● telefonda");
+  }
 }
 function clearListeners(){unsubs.forEach(fn=>{try{fn()}catch{}});unsubs=[]}
 function pairCol(name){return collection(db,"pairs",pairId(),name)}
