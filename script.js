@@ -23,14 +23,47 @@ let routines = [];
 let shifts = [];
 let memories = [];
 let rules = [];
-let dayStates = [];
 let learnedPatterns = [];
 let unsubs = [];
+
+const LOCAL_KEY="elog-local-v1";
+let syncTimer=null;
+function loadLocal(){
+  try{
+    const x=JSON.parse(localStorage.getItem(LOCAL_KEY)||"{}");
+    entries=x.entries||entries; shifts=x.shifts||shifts; routines=x.routines||routines;
+    memories=x.memories||memories; rules=x.rules||rules;
+  }catch{}
+}
+function saveLocal(){
+  try{localStorage.setItem(LOCAL_KEY,JSON.stringify({entries,shifts,routines,memories,rules}));}catch{}
+}
+function markSync(text,ok=true){
+  const b=$("#syncBadge"); if(!b)return;
+  b.textContent=(ok?"● ":"⚠ ")+text;
+}
+function scheduleCloudSync(){
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(()=>flushLocalToCloud().catch(()=>{}),1200);
+}
+async function flushLocalToCloud(){
+  if(!db||!profile?.pairId||!currentUser||currentUser.uid==="demo") return;
+  const pending=entries.filter(x=>x._pending);
+  for(const e of pending){
+    try{
+      const copy={...e}; delete copy.id; delete copy._pending;
+      const ref=await addDoc(pairPath("entries"),{...copy,createdAt:serverTimestamp()});
+      entries=entries.map(x=>x.id===e.id?{...x,id:ref.id,_pending:false}:x);
+      saveLocal();
+    }catch(err){ console.error("sync entry",err); markSync("yerelde kayıtlı",false); return; }
+  }
+  markSync("canlı");
+}
 
 async function initFirebase(){
   let cfg;
   try { cfg = (await import("./firebase-config.js")).firebaseConfig; }
-  catch { showSetupMode(); return false; }
+  catch(err){ console.error(err); loadLocal(); showSetupMode(); markSync("Firebase yok, yerel",false); return false; }
   app = initializeApp(cfg);
   auth=getAuth(app);
   db=getFirestore(app);
@@ -59,11 +92,9 @@ function showSetupMode(){
   rules=[
     {id:"r1",name:"Pazartesi akvaryum",type:"weekday",weekday:1,action:"Şans'ın akvaryumunu temizle",active:true},
     {id:"r2",name:"Nöbet çıkışı spor yok",type:"after_shift",action:"Spor önerme",active:true},
-    {id:"r3",name:"Oruç günü",type:"fasting",action:"Günü oruca göre düzenle",active:true}
   ];
   memories=[{id:"m1",type:"memory",title:"Kahve molası",date:today(),emoji:"☕"},{id:"m2",type:"plan",title:"Birlikte yapılacak",date:today(),emoji:"♡"}];
   shifts=[]; routines=[];
-  dayStates=[{id:"fast-demo",date:today(),fasting:false,energy:"normal"}];
   learnedPatterns=[
     {id:"lp1",label:"Cuma günleri spor eğilimi",confidence:0.72,evidence:"Son kayıtlardaki tekrar eden spor günlerinden tahmin."}
   ];
@@ -101,9 +132,9 @@ function startRealtime(){
   clearListeners(); $("#syncBadge").textContent="● canlı";
   const bind=(name,setter,sortField="date")=>{
     const qy=query(pairPath(name),orderBy(sortField));
-    unsubs.push(onSnapshot(qy,s=>{setter(s.docs.map(d=>({id:d.id,...d.data()})));renderAll();}));
+    unsubs.push(onSnapshot(qy,s=>{const cloud=s.docs.map(d=>({id:d.id,...d.data()})); if(name==="entries"){const pending=entries.filter(x=>x._pending); setter([...cloud,...pending]);} else setter(cloud); saveLocal(); renderAll();},err=>{console.error(err);markSync("yerelde",false);}));
   };
-  bind("entries",v=>entries=v,"date"); bind("shifts",v=>shifts=v,"startDate"); bind("routines",v=>routines=v,"name"); bind("memories",v=>memories=v,"date"); bind("rules",v=>rules=v,"name"); bind("dayStates",v=>dayStates=v,"date");
+  bind("entries",v=>entries=v,"date"); bind("shifts",v=>shifts=v,"startDate"); bind("routines",v=>routines=v,"name"); bind("memories",v=>memories=v,"date"); bind("rules",v=>rules=v,"name");
 }
 
 function renderAll(){
@@ -161,15 +192,13 @@ function getContext(){
   const todayEntries=entries.filter(e=>e.date===t);
   const todayShift=shifts.find(s=>s.startDate===t);
   const previousShift=shifts.find(s=>s.endDate===t);
-  const state=dayStates.find(s=>s.date===t)||{};
   const mondayRule=weekday===1 && rules.some(r=>r.active&&r.type==='weekday'&&Number(r.weekday)===1);
   const patterns=inferPatterns();
-  return {weekday,todayEntries,todayShift,previousShift,mondayRule,fasting:!!state.fasting,energy:state.energy||"normal",patterns};
+  return {weekday,todayEntries,todayShift,previousShift,mondayRule,patterns};
 }
 function renderSmart(){
   const c=getContext(); let title="Sana göre",text="Bugünün akışını öğreniyorum.",why="Takvim, rutin ve geçmiş davranışlarına bakıyorum.";
   if(c.previousShift){title="Nöbet çıkışı modu";text="Bugün nöbet çıkışı olduğun için spor önermiyorum. Günü daha hafif tutuyorum.";why="Kesin kural: nöbet çıkışlarında spor yapmıyorsun."}
-  else if(c.fasting){title="Oruç modu 🌙";text="Bugün oruç günü olarak işaretli. Planı buna göre daha sakin ve uygun saatlere göre yorumlayacağım.";why="Bugünün durumunda Oruç açık."}
   else if(c.mondayRule){title="Pazartesi rutini 🐟";text="Şans'ın akvaryumunu temizleme günün. Henüz listede yoksa ekleyebilirsin.";why="Kesin kural: pazartesi günleri Şans'ın akvaryumu temizleniyor."}
   else if(c.todayShift){title="Nöbet günü 🩻";text="Bugün nöbetin var. Nöbet saatlerini günün ana planında öne çıkarıyorum.";why="Takvimindeki nöbet kaydını görüyorum."}
   else if(c.todayEntries.some(e=>e.category==='sport')){title="Spor planı";text="Bugün spor kaydın var. Çakışan nöbet görünmüyor.";why="Takvimindeki spor kaydını ve nöbetlerini birlikte kontrol ettim."}
@@ -179,7 +208,22 @@ function renderSmart(){
 }
 
 function openEntryDialog(date=today()){$("#entryForm").reset();$("#entryDate").value=date;$("#entryTime").value=new Date().toTimeString().slice(0,5);$("#entryDialog").showModal()}
-async function saveEntry(ev){ev.preventDefault();const data={date:$("#entryDate").value,time:$("#entryTime").value,title:$("#entryTitle").value.trim(),note:$("#entryNote").value.trim(),category:$("#entryCategory").value,done:$("#entryDone").checked,createdBy:currentUser.uid,updatedAt:new Date().toISOString()};if(currentUser.uid==='demo'){entries.push({id:crypto.randomUUID(),...data});renderAll()}else await addDoc(pairPath('entries'),{...data,createdAt:serverTimestamp()});$("#entryDialog").close()}
+async function saveEntry(ev){
+  ev.preventDefault();
+  const title=$("#entryTitle").value.trim();
+  if(!title) return;
+  const data={
+    date:$("#entryDate").value,time:$("#entryTime").value,title,
+    note:$("#entryNote").value.trim(),category:$("#entryCategory").value,
+    done:$("#entryDone").checked,createdBy:currentUser?.uid||"local",
+    updatedAt:new Date().toISOString()
+  };
+  const localId="local-"+crypto.randomUUID();
+  entries.push({id:localId,...data,_pending:currentUser?.uid!=="demo"});
+  saveLocal(); renderAll(); $("#entryDialog").close();
+  markSync(currentUser?.uid==="demo"?"yerel demo":"kaydedildi");
+  if(currentUser?.uid!=="demo") scheduleCloudSync();
+}
 function openEntryActions(id){const e=entries.find(x=>x.id===id);if(!e)return;openGeneric(`<div class="modal-head"><h3>${safe(e.title)}</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-row"><strong>${safe(e.date)} · ${safe(e.time)}</strong><small>${safe(e.note||categoryName(e.category))}</small></div><button id="toggleDone" class="primary-btn full" type="button">${e.done?'Tamamlanmadı yap':'Tamamlandı ✓'}</button><button id="deleteEntry" class="secondary-btn" type="button">Sil</button>`,()=>{
   $("#toggleDone").onclick=async()=>{if(currentUser.uid==='demo'){e.done=!e.done;renderAll()}else await updateDoc(doc(db,'pairs',profile.pairId,'entries',id),{done:!e.done});$("#genericDialog").close()};
   $("#deleteEntry").onclick=async()=>{if(currentUser.uid==='demo'){entries=entries.filter(x=>x.id!==id);renderAll()}else await deleteDoc(doc(db,'pairs',profile.pairId,'entries',id));$("#genericDialog").close()};
@@ -214,32 +258,11 @@ function openModule(name){
   if(name==='stats') openStats();
   if(name==='notifications') openNotifications();
   if(name==='partner') openPartner();
-  if(name==='daystate') openDayState();
   if(name==='brain') openBrain();
   if(name==='eroland') switchView('eroland');
 }
-function openShifts(){openGeneric(`<div class="modal-head"><h3>🩻 Nöbetlerim</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-list">${shifts.length?shifts.map(s=>`<div class="panel-row"><strong>${safe(s.startDate)} · ${safe(s.type||'Nöbet')}</strong><small>${safe(s.startTime||'')} → ${safe(s.endTime||'')}</small></div>`).join(''):'<div class="empty">Henüz nöbet yok.</div>'}</div><form id="shiftForm"><div class="form-row"><label>Başlangıç<input id="shiftDate" type="date" required value="${today()}"></label><label>Saat<input id="shiftStart" type="time" required value="20:00"></label></div><div class="form-row"><label>Bitiş tarihi<input id="shiftEndDate" type="date" required value="${today()}"></label><label>Bitiş<input id="shiftEnd" type="time" required value="08:00"></label></div><button class="primary-btn full" type="submit">Nöbet ekle</button></form>`,()=>{$("#shiftForm").onsubmit=async ev=>{ev.preventDefault();const d={startDate:$("#shiftDate").value,startTime:$("#shiftStart").value,endDate:$("#shiftEndDate").value,endTime:$("#shiftEnd").value,type:'Tomografi',createdBy:currentUser.uid};if(currentUser.uid==='demo'){shifts.push({id:crypto.randomUUID(),...d});renderAll()}else await addDoc(pairPath('shifts'),{...d,createdAt:serverTimestamp()});$("#genericDialog").close()}})}
-function openRoutines(){openGeneric(`<div class="modal-head"><h3>↻ Rutinler & Kurallar</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-list">${rules.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p><small>${r.active?'Aktif':'Kapalı'}</small></div>`).join('')}</div><form id="ruleForm"><label>Kural adı<input id="ruleName" placeholder="Örn. Cuma spor"></label><label>Ne yapsın?<input id="ruleAction" placeholder="Örn. Spor öner"></label><button class="primary-btn full" type="submit">Kural ekle</button></form>`,()=>{$("#ruleForm").onsubmit=async ev=>{ev.preventDefault();const d={name:$("#ruleName").value.trim(),action:$("#ruleAction").value.trim(),type:'custom',active:true};if(!d.name||!d.action)return;if(currentUser.uid==='demo'){rules.push({id:crypto.randomUUID(),...d});renderAll()}else await addDoc(pairPath('rules'),{...d,createdAt:serverTimestamp()});$("#genericDialog").close()}})}
-function openDayState(){
-  const s=dayStates.find(x=>x.date===today())||{};
-  openGeneric(`<div class="modal-head"><h3>🌙 Bugünün durumu</h3><button class="icon-btn close-generic" type="button">×</button></div>
-  <form id="dayStateForm">
-    <label class="switch-row"><input id="fastingToday" type="checkbox" ${s.fasting?'checked':''}><span>Bugün oruç tutuyorum</span></label>
-    <label>Enerjim<select id="energyToday"><option value="low" ${s.energy==='low'?'selected':''}>Düşük</option><option value="normal" ${!s.energy||s.energy==='normal'?'selected':''}>Normal</option><option value="high" ${s.energy==='high'?'selected':''}>Yüksek</option></select></label>
-    <button class="primary-btn full" type="submit">Bugünü güncelle</button>
-  </form>`,()=>{
-    $("#dayStateForm").onsubmit=async ev=>{
-      ev.preventDefault();
-      const d={date:today(),fasting:$("#fastingToday").checked,energy:$("#energyToday").value,updatedBy:currentUser.uid};
-      if(currentUser.uid==='demo'){
-        dayStates=dayStates.filter(x=>x.date!==today());dayStates.push({id:"demo-state",...d});renderAll();
-      }else{
-        await setDoc(doc(db,'pairs',profile.pairId,'dayStates',today()),{...d,updatedAt:serverTimestamp()},{merge:true});
-      }
-      $("#genericDialog").close();
-    };
-  });
-}
+function openShifts(){openGeneric(`<div class="modal-head"><h3>🩻 Nöbetlerim</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-list">${shifts.length?shifts.map(s=>`<div class="panel-row"><strong>${safe(s.startDate)} · ${safe(s.type||'Nöbet')}</strong><small>${safe(s.startTime||'')} → ${safe(s.endTime||'')}</small></div>`).join(''):'<div class="empty">Henüz nöbet yok.</div>'}</div><form id="shiftForm"><div class="form-row"><label>Başlangıç<input id="shiftDate" type="date" required value="${today()}"></label><label>Saat<input id="shiftStart" type="time" required value="20:00"></label></div><div class="form-row"><label>Bitiş tarihi<input id="shiftEndDate" type="date" required value="${today()}"></label><label>Bitiş<input id="shiftEnd" type="time" required value="08:00"></label></div><button class="primary-btn full" type="submit">Nöbet ekle</button></form>`,()=>{$("#shiftForm").onsubmit=async ev=>{ev.preventDefault();const d={startDate:$("#shiftDate").value,startTime:$("#shiftStart").value,endDate:$("#shiftEndDate").value,endTime:$("#shiftEnd").value,type:'Tomografi',createdBy:currentUser.uid};if(currentUser.uid==='demo'){shifts.push({id:crypto.randomUUID(),...d});renderAll()}else {shifts.push({id:"local-"+crypto.randomUUID(),...d,_pending:true});saveLocal();renderAll();try{await addDoc(pairPath('shifts'),{...d,createdAt:serverTimestamp()});}catch(e){console.error(e);markSync("nöbet yerelde kayıtlı",false)}}$("#genericDialog").close()}})}
+function openRoutines(){openGeneric(`<div class="modal-head"><h3>↻ Rutinler & Kurallar</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-list">${rules.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p><small>${r.active?'Aktif':'Kapalı'}</small></div>`).join('')}</div><form id="ruleForm"><label>Kural adı<input id="ruleName" placeholder="Örn. Cuma spor"></label><label>Ne yapsın?<input id="ruleAction" placeholder="Örn. Spor öner"></label><button class="primary-btn full" type="submit">Kural ekle</button></form>`,()=>{$("#ruleForm").onsubmit=async ev=>{ev.preventDefault();const d={name:$("#ruleName").value.trim(),action:$("#ruleAction").value.trim(),type:'custom',active:true};if(!d.name||!d.action)return;if(currentUser.uid==='demo'){rules.push({id:crypto.randomUUID(),...d});renderAll()}else {rules.push({id:"local-"+crypto.randomUUID(),...d,_pending:true});saveLocal();renderAll();try{await addDoc(pairPath('rules'),{...d,createdAt:serverTimestamp()});}catch(e){console.error(e);markSync("kural yerelde kayıtlı",false)}}$("#genericDialog").close()}})}
 function openBrain(){
   const pats=inferPatterns();
   const exact=rules.filter(r=>r.active);
@@ -332,28 +355,25 @@ function wire(){
   $("#smartPlanBtn").onclick=()=>{switchView('ai');askAI('Bugünkü günümü takvimim, nöbetlerim ve rutinlerime göre planla.')};
   $("#aiForm").onsubmit=e=>{e.preventDefault();const m=$("#aiInput").value.trim();if(m)askAI(m)};
   $("#learnedBtn").onclick=openBrain;
-  $("#memoryAddBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>♡ Eroland'a ekle</h3><button class="icon-btn close-generic" type="button">×</button></div><form id="memoryForm"><label>Başlık<input id="memoryTitle" required placeholder="Örn. Kahve molası"></label><label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label><label>Emoji<input id="memoryEmoji" value="♡" maxlength="4"></label><button class="primary-btn full" type="submit">Ekle</button></form>`,()=>{$("#memoryForm").onsubmit=async ev=>{ev.preventDefault();const d={title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||'♡',date:today(),createdBy:currentUser.uid};if(currentUser.uid==='demo'){memories.push({id:crypto.randomUUID(),...d});renderMemories()}else await addDoc(pairPath('memories'),{...d,createdAt:serverTimestamp()});$("#genericDialog").close()}});
+  $("#memoryAddBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>♡ Eroland'a ekle</h3><button class="icon-btn close-generic" type="button">×</button></div><form id="memoryForm"><label>Başlık<input id="memoryTitle" required placeholder="Örn. Kahve molası"></label><label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label><label>Emoji<input id="memoryEmoji" value="♡" maxlength="4"></label><button class="primary-btn full" type="submit">Ekle</button></form>`,()=>{$("#memoryForm").onsubmit=async ev=>{ev.preventDefault();const d={title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||'♡',date:today(),createdBy:currentUser.uid};if(currentUser.uid==='demo'){memories.push({id:crypto.randomUUID(),...d});renderMemories()}else {memories.push({id:"local-"+crypto.randomUUID(),...d,_pending:true});saveLocal();renderMemories();try{await addDoc(pairPath('memories'),{...d,createdAt:serverTimestamp()});}catch(e){console.error(e);markSync("anı yerelde kayıtlı",false)}}$("#genericDialog").close()}});
   $$('[data-memory-filter]').forEach(b=>b.onclick=()=>{$$('[data-memory-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderMemories(b.dataset.memoryFilter)});
   $("#googleLoginBtn").onclick=googleLogin;$("#logoutBtn").onclick=()=>auth&&signOut(auth);
   $("#profileBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>Profil</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-row"><strong>${safe(profile?.name||'Erol')}</strong><small>${safe(profile?.role||'owner')}</small></div>`);
 }
 
+loadLocal();
 wire();
 renderAll();
 addBubble('Merhaba. Takvimini, nöbetlerini, rutinlerini ve E.log kurallarını birlikte okuyabilirim. ✦','ai');
 
 (async()=>{
-  if('serviceWorker' in navigator){
-    try{ swRegistration=await navigator.serviceWorker.register('./sw.js'); }
-    catch(e){ console.warn('Service worker kurulamadı',e); }
-  }
   if("serviceWorker" in navigator){
     try{
-      swRegistration=await navigator.serviceWorker.register("./sw.js?v=20260827-1452",{updateViaCache:"none"});
+      swRegistration=await navigator.serviceWorker.register("./sw.js?v=20260827-repaired1",{updateViaCache:"none"});
       await swRegistration.update();
       if(swRegistration.waiting) swRegistration.waiting.postMessage({type:"SKIP_WAITING"});
       navigator.serviceWorker.addEventListener("controllerchange",()=>{
-        const key="elog-sw-reloaded-20260827-1452";
+        const key="elog-sw-reloaded-20260827-repaired1";
         if(sessionStorage.getItem(key)) return;
         sessionStorage.setItem(key,"1");
         location.reload();
