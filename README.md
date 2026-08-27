@@ -1,3 +1,7 @@
+# E.log V3 Smart
+
+Bu sürüm V2 Google + Firestore altyapısının üstüne akıllı gün durumu, oruç modu, kesin kurallar, nöbet çıkışı mantığı, davranış örüntüsü çıkarımı ve E.log Beyni ekranını ekler.
+
 # E.log
 
 Kişisel takvim + öğrenen rutinler + nöbetler + Eroland + GPT asistan.

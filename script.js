@@ -22,6 +22,8 @@ let routines = [];
 let shifts = [];
 let memories = [];
 let rules = [];
+let dayStates = [];
+let learnedPatterns = [];
 let unsubs = [];
 
 async function initFirebase(){
@@ -56,6 +58,10 @@ function showSetupMode(){
   ];
   memories=[{id:"m1",type:"memory",title:"Kahve molası",date:today(),emoji:"☕"},{id:"m2",type:"plan",title:"Birlikte yapılacak",date:today(),emoji:"♡"}];
   shifts=[]; routines=[];
+  dayStates=[{id:"fast-demo",date:today(),fasting:false,energy:"normal"}];
+  learnedPatterns=[
+    {id:"lp1",label:"Cuma günleri spor eğilimi",confidence:0.72,evidence:"Son kayıtlardaki tekrar eden spor günlerinden tahmin."}
+  ];
   renderAll();
 }
 
@@ -92,7 +98,7 @@ function startRealtime(){
     const qy=query(pairPath(name),orderBy(sortField));
     unsubs.push(onSnapshot(qy,s=>{setter(s.docs.map(d=>({id:d.id,...d.data()})));renderAll();}));
   };
-  bind("entries",v=>entries=v,"date"); bind("shifts",v=>shifts=v,"startDate"); bind("routines",v=>routines=v,"name"); bind("memories",v=>memories=v,"date"); bind("rules",v=>rules=v,"name");
+  bind("entries",v=>entries=v,"date"); bind("shifts",v=>shifts=v,"startDate"); bind("routines",v=>routines=v,"name"); bind("memories",v=>memories=v,"date"); bind("rules",v=>rules=v,"name"); bind("dayStates",v=>dayStates=v,"date");
 }
 
 function renderAll(){
@@ -130,23 +136,42 @@ function renderMemories(filter="all"){
 }
 function renderShiftMini(){const next=shifts.filter(s=>s.startDate>=today()).sort((a,b)=>a.startDate.localeCompare(b.startDate))[0];$("#shiftMini").textContent=next?`${next.startDate} · ${next.startTime||''}`:'Yaklaşan nöbet yok'}
 
+function inferPatterns(){
+  const recent=entries.filter(e=>e.date).slice(-120);
+  const byWeekday={};
+  for(const e of recent){
+    if(e.category!=='sport') continue;
+    const wd=new Date(e.date+'T12:00:00').getDay();
+    byWeekday[wd]=(byWeekday[wd]||0)+1;
+  }
+  const names=["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
+  learnedPatterns=Object.entries(byWeekday)
+    .filter(([,count])=>count>=3)
+    .map(([wd,count])=>({id:`sport-${wd}`,label:`${names[Number(wd)]} günleri spor eğilimi`,confidence:Math.min(.95,.55+count*.07),evidence:`Son kayıtlarda bu gün ${count} kez spor kaydı var.`}));
+  return learnedPatterns;
+}
+
 function getContext(){
   const now=new Date(); const weekday=now.getDay(); const t=today();
-  const todayEntries=entries.filter(e=>e.date===t); const todayShift=shifts.find(s=>s.startDate===t); const previousShift=shifts.find(s=>s.endDate===t);
+  const todayEntries=entries.filter(e=>e.date===t);
+  const todayShift=shifts.find(s=>s.startDate===t);
+  const previousShift=shifts.find(s=>s.endDate===t);
+  const state=dayStates.find(s=>s.date===t)||{};
   const mondayRule=weekday===1 && rules.some(r=>r.active&&r.type==='weekday'&&Number(r.weekday)===1);
-  return {weekday,todayEntries,todayShift,previousShift,mondayRule};
+  const patterns=inferPatterns();
+  return {weekday,todayEntries,todayShift,previousShift,mondayRule,fasting:!!state.fasting,energy:state.energy||"normal",patterns};
 }
 function renderSmart(){
   const c=getContext(); let title="Sana göre",text="Bugünün akışını öğreniyorum.",why="Takvim, rutin ve geçmiş davranışlarına bakıyorum.";
-  if(c.previousShift){title="Nöbet çıkışı modu";text="Bugün nöbet çıkışı olduğun için spor önermiyorum. Günü daha hafif tutuyorum.";why="Kuralın: nöbet çıkışlarında spor yapmıyorsun."}
-  else if(c.mondayRule){title="Pazartesi rutini 🐟";text="Şans'ın akvaryumunu temizleme günün. Henüz listede yoksa ekleyebilirsin.";why="Pazartesi günleri bu rutini yaptığını söyledin."}
+  if(c.previousShift){title="Nöbet çıkışı modu";text="Bugün nöbet çıkışı olduğun için spor önermiyorum. Günü daha hafif tutuyorum.";why="Kesin kural: nöbet çıkışlarında spor yapmıyorsun."}
+  else if(c.fasting){title="Oruç modu 🌙";text="Bugün oruç günü olarak işaretli. Planı buna göre daha sakin ve uygun saatlere göre yorumlayacağım.";why="Bugünün durumunda Oruç açık."}
+  else if(c.mondayRule){title="Pazartesi rutini 🐟";text="Şans'ın akvaryumunu temizleme günün. Henüz listede yoksa ekleyebilirsin.";why="Kesin kural: pazartesi günleri Şans'ın akvaryumu temizleniyor."}
   else if(c.todayShift){title="Nöbet günü 🩻";text="Bugün nöbetin var. Nöbet saatlerini günün ana planında öne çıkarıyorum.";why="Takvimindeki nöbet kaydını görüyorum."}
   else if(c.todayEntries.some(e=>e.category==='sport')){title="Spor planı";text="Bugün spor kaydın var. Çakışan nöbet görünmüyor.";why="Takvimindeki spor kaydını ve nöbetlerini birlikte kontrol ettim."}
+  else if(c.patterns[0]){title="Bir alışkanlık fark ettim";text=c.patterns[0].label+". Bunu henüz kesin kural saymıyorum.";why=c.patterns[0].evidence}
   $("#smartTitle").textContent=title;$("#smartText").textContent=text;$("#whyBtn").dataset.why=why;
-  $("#heroSummary").textContent=c.todayEntries.length?`${c.todayEntries.length} kayıt var. Gününü sana göre düzenliyorum.`:'Bugün henüz boş. Rutinlerinden bir taslak oluşturabilirim.';
+  $("#heroSummary").textContent=c.todayEntries.length?`${c.todayEntries.length} kayıt var. Gününü sana göre düzenliyorum.`:'Bugün henüz boş. E.log rutinlerini yine de kontrol ediyor.';
 }
-
-function switchView(name){$$('.view').forEach(v=>v.classList.toggle('active',v.id===`view-${name}`));$$('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===name));window.scrollTo({top:0,behavior:'smooth'})}
 
 function openEntryDialog(date=today()){$("#entryForm").reset();$("#entryDate").value=date;$("#entryTime").value=new Date().toTimeString().slice(0,5);$("#entryDialog").showModal()}
 async function saveEntry(ev){ev.preventDefault();const data={date:$("#entryDate").value,time:$("#entryTime").value,title:$("#entryTitle").value.trim(),note:$("#entryNote").value.trim(),category:$("#entryCategory").value,done:$("#entryDone").checked,createdBy:currentUser.uid,updatedAt:new Date().toISOString()};if(currentUser.uid==='demo'){entries.push({id:crypto.randomUUID(),...data});renderAll()}else await addDoc(pairPath('entries'),{...data,createdAt:serverTimestamp()});$("#entryDialog").close()}
@@ -162,10 +187,40 @@ function openModule(name){
   if(name==='stats') openStats();
   if(name==='notifications') openNotifications();
   if(name==='partner') openPartner();
+  if(name==='daystate') openDayState();
+  if(name==='brain') openBrain();
   if(name==='eroland') switchView('eroland');
 }
 function openShifts(){openGeneric(`<div class="modal-head"><h3>🩻 Nöbetlerim</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-list">${shifts.length?shifts.map(s=>`<div class="panel-row"><strong>${safe(s.startDate)} · ${safe(s.type||'Nöbet')}</strong><small>${safe(s.startTime||'')} → ${safe(s.endTime||'')}</small></div>`).join(''):'<div class="empty">Henüz nöbet yok.</div>'}</div><form id="shiftForm"><div class="form-row"><label>Başlangıç<input id="shiftDate" type="date" required value="${today()}"></label><label>Saat<input id="shiftStart" type="time" required value="20:00"></label></div><div class="form-row"><label>Bitiş tarihi<input id="shiftEndDate" type="date" required value="${today()}"></label><label>Bitiş<input id="shiftEnd" type="time" required value="08:00"></label></div><button class="primary-btn full" type="submit">Nöbet ekle</button></form>`,()=>{$("#shiftForm").onsubmit=async ev=>{ev.preventDefault();const d={startDate:$("#shiftDate").value,startTime:$("#shiftStart").value,endDate:$("#shiftEndDate").value,endTime:$("#shiftEnd").value,type:'Tomografi',createdBy:currentUser.uid};if(currentUser.uid==='demo'){shifts.push({id:crypto.randomUUID(),...d});renderAll()}else await addDoc(pairPath('shifts'),{...d,createdAt:serverTimestamp()});$("#genericDialog").close()}})}
 function openRoutines(){openGeneric(`<div class="modal-head"><h3>↻ Rutinler & Kurallar</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-list">${rules.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p><small>${r.active?'Aktif':'Kapalı'}</small></div>`).join('')}</div><form id="ruleForm"><label>Kural adı<input id="ruleName" placeholder="Örn. Cuma spor"></label><label>Ne yapsın?<input id="ruleAction" placeholder="Örn. Spor öner"></label><button class="primary-btn full" type="submit">Kural ekle</button></form>`,()=>{$("#ruleForm").onsubmit=async ev=>{ev.preventDefault();const d={name:$("#ruleName").value.trim(),action:$("#ruleAction").value.trim(),type:'custom',active:true};if(!d.name||!d.action)return;if(currentUser.uid==='demo'){rules.push({id:crypto.randomUUID(),...d});renderAll()}else await addDoc(pairPath('rules'),{...d,createdAt:serverTimestamp()});$("#genericDialog").close()}})}
+function openDayState(){
+  const s=dayStates.find(x=>x.date===today())||{};
+  openGeneric(`<div class="modal-head"><h3>🌙 Bugünün durumu</h3><button class="icon-btn close-generic" type="button">×</button></div>
+  <form id="dayStateForm">
+    <label class="switch-row"><input id="fastingToday" type="checkbox" ${s.fasting?'checked':''}><span>Bugün oruç tutuyorum</span></label>
+    <label>Enerjim<select id="energyToday"><option value="low" ${s.energy==='low'?'selected':''}>Düşük</option><option value="normal" ${!s.energy||s.energy==='normal'?'selected':''}>Normal</option><option value="high" ${s.energy==='high'?'selected':''}>Yüksek</option></select></label>
+    <button class="primary-btn full" type="submit">Bugünü güncelle</button>
+  </form>`,()=>{
+    $("#dayStateForm").onsubmit=async ev=>{
+      ev.preventDefault();
+      const d={date:today(),fasting:$("#fastingToday").checked,energy:$("#energyToday").value,updatedBy:currentUser.uid};
+      if(currentUser.uid==='demo'){
+        dayStates=dayStates.filter(x=>x.date!==today());dayStates.push({id:"demo-state",...d});renderAll();
+      }else{
+        await setDoc(doc(db,'pairs',profile.pairId,'dayStates',today()),{...d,updatedAt:serverTimestamp()},{merge:true});
+      }
+      $("#genericDialog").close();
+    };
+  });
+}
+function openBrain(){
+  const pats=inferPatterns();
+  const exact=rules.filter(r=>r.active);
+  openGeneric(`<div class="modal-head"><h3>🧠 E.log beyni</h3><button class="icon-btn close-generic" type="button">×</button></div>
+  <p class="form-message">Kesin kurallar ayrı, gözlemden çıkan tahminler ayrı tutulur.</p>
+  <h4>Kesin bildiklerim</h4><div class="panel-list">${exact.length?exact.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p><small>Kesin kural</small></div>`).join(''):'<div class="empty">Henüz kesin kural yok.</div>'}</div>
+  <h4>Tahminlerim</h4><div class="panel-list">${pats.length?pats.map(p=>`<div class="rule-card"><strong>${safe(p.label)}</strong><p>${safe(p.evidence)}</p><small>Güven: %${Math.round(p.confidence*100)}</small></div>`).join(''):'<div class="empty">Yeterli tekrar oluşunca alışkanlıkları burada göstereceğim.</div>'}</div>`);
+}
 function openStats(){const month=today().slice(0,7),monthEntries=entries.filter(e=>e.date?.startsWith(month)),sport=monthEntries.filter(e=>e.category==='sport').length,us=monthEntries.filter(e=>e.category==='us').length,work=monthEntries.filter(e=>e.category==='work').length;openGeneric(`<div class="modal-head"><h3>▥ Bu ay</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="stat-grid"><div class="stat"><b>${monthEntries.length}</b><span>Kayıt</span></div><div class="stat"><b>${shifts.filter(s=>s.startDate?.startsWith(month)).length}</b><span>Nöbet</span></div><div class="stat"><b>${sport}</b><span>Spor</span></div><div class="stat"><b>${us}</b><span>Nilsu ♡</span></div><div class="stat"><b>${work}</b><span>İş</span></div><div class="stat"><b>${memories.filter(m=>m.date?.startsWith(month)).length}</b><span>Anı</span></div></div>`)}
 function openNotifications(){openGeneric(`<div class="modal-head"><h3>🔔 Akıllı Bildirimler</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="rule-card"><strong>Bildirim mantığı</strong><p>Nöbet çıkışı spor bildirimi gönderme, pazartesi akvaryumu hatırlat, boş günlerde gün sonu kaydı öner.</p></div><p class="form-message">Gerçek push bildirimleri için Firebase Cloud Messaging ve HTTPS kurulumu gerekir. functions/index.js içinde akıllı bildirim motorunun örnek yapısı var.</p>`)}
 function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görünümü</h3><button class="icon-btn close-generic" type="button">×</button></div><p>Erol'un ortak veritabanına kaydettiği günlük aktiviteler bu hesapta otomatik görünür. Partner hesabını aynı <b>pairId</b> ile eşleştirmen yeterli.</p><div class="panel-row"><strong>Pair ID</strong><small>${safe(profile?.pairId||'demo-pair')}</small></div>`)}
@@ -189,7 +244,7 @@ function wire(){
   $("#whyBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>Neden?</h3><button class="icon-btn close-generic" type="button">×</button></div><p>${safe($("#whyBtn").dataset.why||'Takvim ve rutinlerinden çıkardığım sonuca göre.')}</p>`);
   $("#smartPlanBtn").onclick=()=>{switchView('ai');askAI('Bugünkü günümü takvimim, nöbetlerim ve rutinlerime göre planla.')};
   $("#aiForm").onsubmit=e=>{e.preventDefault();const m=$("#aiInput").value.trim();if(m)askAI(m)};
-  $("#learnedBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>🧠 E.log'un öğrendikleri</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-list">${rules.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p></div>`).join('')}</div>`);
+  $("#learnedBtn").onclick=openBrain;
   $("#memoryAddBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>♡ Eroland'a ekle</h3><button class="icon-btn close-generic" type="button">×</button></div><form id="memoryForm"><label>Başlık<input id="memoryTitle" required placeholder="Örn. Kahve molası"></label><label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label><label>Emoji<input id="memoryEmoji" value="♡" maxlength="4"></label><button class="primary-btn full" type="submit">Ekle</button></form>`,()=>{$("#memoryForm").onsubmit=async ev=>{ev.preventDefault();const d={title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||'♡',date:today(),createdBy:currentUser.uid};if(currentUser.uid==='demo'){memories.push({id:crypto.randomUUID(),...d});renderMemories()}else await addDoc(pairPath('memories'),{...d,createdAt:serverTimestamp()});$("#genericDialog").close()}});
   $$('[data-memory-filter]').forEach(b=>b.onclick=()=>{$$('[data-memory-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderMemories(b.dataset.memoryFilter)});
   $("#googleLoginBtn").onclick=googleLogin;$("#logoutBtn").onclick=()=>auth&&signOut(auth);
