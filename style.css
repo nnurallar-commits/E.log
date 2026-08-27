@@ -549,3 +549,17 @@ input:focus,textarea:focus,select:focus{
   .day-cell{min-height:66px}
   .memory-grid{grid-template-columns:1fr}
 }
+
+/* Ekstra mesai */
+.overtime-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.overtime-row>div{
+  min-width:0;
+}
+.overtime-row strong{
+  color:var(--deep,#244536);
+}

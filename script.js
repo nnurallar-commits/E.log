@@ -377,6 +377,13 @@ function localSmartReply(q){
     return parts.length?`${formatDateTR(targetDate)}: ${parts.join(" · ")}`:`${formatDateTR(targetDate)} için plan yok.`;
   }
 
+  if(x.includes("ekstra mesai")||x.includes("fazla mesai")){
+    const list=overtimeEntries().filter(e=>e.date>=t).sort((a,b)=>a.date.localeCompare(b.date));
+    return list.length
+      ? `Yaklaşan ekstra mesailerin: ${list.slice(0,5).map(e=>`${formatDateTR(e.date)} ${time24(e.time)}–${time24(e.endTime)}`).join(" · ")}`
+      : "Yaklaşan ekstra mesai kaydı yok.";
+  }
+
   if(x.includes("nöbet")){
     const future=shifts.filter(s=>s.startDate>=t).sort((a,b)=>a.startDate.localeCompare(b.startDate));
     return future.length?`Yaklaşan nöbetlerin: ${future.slice(0,5).map(s=>`${s.startDate} 08:30`).join(" · ")}. Her nöbet ertesi gün 08:30'da bitiyor.`:"Yaklaşan nöbet kaydı yok.";
@@ -425,12 +432,99 @@ async function askAI(message){
 }
 function addBubble(text,type){const d=document.createElement("div");d.className=`bubble ${type}`;d.textContent=text;$("#chat").appendChild(d);d.scrollIntoView({behavior:"smooth",block:"end"})}
 
+
+function overtimeEntries(){
+  return entries.filter(e=>e.category==="work" && (e.kind==="overtime" || /ekstra mesai|fazla mesai/i.test(e.title||"")));
+}
+function openOvertime(){
+  const sorted=[...overtimeEntries()].sort((a,b)=>(b.date+(b.time||"")).localeCompare(a.date+(a.time||"")));
+  openGeneric(`
+    <div class="modal-head">
+      <div><p class="eyebrow">İŞ</p><h3>💼 Ekstra Mesai</h3></div>
+      <button class="icon-btn close-generic" type="button">×</button>
+    </div>
+
+    <div class="rule-card">
+      <strong>Normal nöbetten ayrı</strong>
+      <p>Buraya sadece ekstra mesai saatlerini kaydet.</p>
+    </div>
+
+    <form id="overtimeForm">
+      <label>Tarih
+        <input id="overtimeDate" type="date" required value="${today()}">
+      </label>
+      <div class="form-row">
+        <label>Başlangıç
+          <input id="overtimeStart" type="time" required step="60" value="08:30">
+        </label>
+        <label>Bitiş
+          <input id="overtimeEnd" type="time" required step="60" value="16:00">
+        </label>
+      </div>
+      <label>Not
+        <input id="overtimeNote" placeholder="Örn. Ekstra mesai">
+      </label>
+      <button class="primary-btn full" type="submit">Ekstra mesaiyi kaydet</button>
+      <p id="overtimeMsg" class="form-message"></p>
+    </form>
+
+    <div class="shift-list-title">
+      <strong>Kayıtlı ekstra mesailer</strong>
+      <span>${sorted.length}</span>
+    </div>
+    <div class="panel-list">
+      ${sorted.length ? sorted.map(e=>`
+        <div class="panel-row overtime-row">
+          <div>
+            <strong>💼 ${safe(formatDateTR(e.date))}</strong>
+            <small>${safe(time24(e.time))}–${safe(time24(e.endTime))}${e.note?` · ${safe(e.note)}`:""}</small>
+          </div>
+          <button class="text-btn delete-overtime" data-overtime-id="${e.id}" type="button">Sil</button>
+        </div>
+      `).join("") : '<div class="empty">Henüz ekstra mesai yok.</div>'}
+    </div>
+  `,()=>{
+    $("#overtimeForm").onsubmit=async ev=>{
+      ev.preventDefault();
+      const item={
+        id:uuid(),
+        date:$("#overtimeDate").value,
+        time:$("#overtimeStart").value,
+        endTime:$("#overtimeEnd").value,
+        title:"Ekstra mesai",
+        note:$("#overtimeNote").value.trim(),
+        category:"work",
+        kind:"overtime",
+        done:false,
+        createdBy:currentUser?.uid||"local",
+        _pending:true
+      };
+      entries.push(item);
+      saveLocal();
+      renderAll();
+      $("#overtimeMsg").textContent="✓ Ekstra mesai kaydedildi.";
+      await cloudSave("entries",item);
+      setTimeout(()=>{ $("#genericDialog").close(); openOvertime(); },350);
+    };
+
+    $$(".delete-overtime").forEach(b=>b.onclick=async()=>{
+      const id=b.dataset.overtimeId;
+      entries=entries.filter(x=>x.id!==id);
+      saveLocal();
+      renderAll();
+      if(db)try{await deleteDoc(pairDoc("entries",id))}catch{}
+      $("#genericDialog").close();
+      openOvertime();
+    });
+  });
+}
+
 function openRoutines(){openGeneric(`<div class="modal-head"><h3>↻ Rutinler & Kurallar</h3><button class="icon-btn close-generic">×</button></div>${rules.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p></div>`).join("")}`)}
 function openBrain(){openRoutines()}
 function openStats(){openGeneric(`<div class="modal-head"><h3>▥ Bu ay</h3><button class="icon-btn close-generic">×</button></div><div class="stat-grid"><div class="stat"><b>${entries.length}</b><span>Kayıt</span></div><div class="stat"><b>${shifts.length}</b><span>Nöbet</span></div><div class="stat"><b>${memories.length}</b><span>Eroland</span></div></div>`)}
 function openNotifications(){openGeneric(`<div class="modal-head"><h3>🔔 Bildirimler</h3><button class="icon-btn close-generic">×</button></div><button id="notifyBtn" class="primary-btn full">Bildirimleri aç</button>`,()=>{$("#notifyBtn").onclick=async()=>{if("Notification" in window)await Notification.requestPermission();$("#genericDialog").close()}})}
 function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görünümü</h3><button class="icon-btn close-generic">×</button></div><div class="panel-row"><strong>Pair ID</strong><small>${safe(pairId())}</small></div>`)}
-function openModule(n){if(n==="shifts")openShifts();if(n==="routines")openRoutines();if(n==="brain")openBrain();if(n==="stats")openStats();if(n==="notifications")openNotifications();if(n==="partner")openPartner();if(n==="eroland")switchView("eroland")}
+function openModule(n){if(n==="shifts")openShifts();if(n==="overtime")openOvertime();if(n==="routines")openRoutines();if(n==="brain")openBrain();if(n==="stats")openStats();if(n==="notifications")openNotifications();if(n==="partner")openPartner();if(n==="eroland")switchView("eroland")}
 function openGeneric(html,after){$("#genericContent").innerHTML=html;$("#genericDialog").showModal();$(".close-generic")?.addEventListener("click",()=>$("#genericDialog").close());after?.()}
 function switchView(name){const t=document.getElementById(`view-${name}`);if(!t)return;$$(".view").forEach(v=>v.classList.remove("active"));t.classList.add("active");$$(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="calendar")renderCalendar();if(name==="eroland")renderMemories(activeMemoryFilter);window.scrollTo(0,0)}
 async function googleLogin(){const p=new GoogleAuthProvider();try{/iPhone|iPad|Android/i.test(navigator.userAgent)?await signInWithRedirect(auth,p):await signInWithPopup(auth,p)}catch(e){$("#authMessage").textContent=e.message}}
