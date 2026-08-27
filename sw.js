@@ -1,4 +1,4 @@
-const VERSION="20260827-24h-fix";
+const VERSION="20260827-buttons-fix1";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",

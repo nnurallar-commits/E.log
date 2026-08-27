@@ -585,3 +585,52 @@ document.addEventListener("DOMContentLoaded",()=>{
   $("#nextItemCard")?.addEventListener("click",()=>showView("calendar"));
   setTimeout(renderProductivityHome,300);
 });
+
+/* ===== Robust home shortcut handlers ===== */
+document.addEventListener("click", function(e){
+  const btn=e.target.closest("button");
+  if(!btn)return;
+
+  if(btn.id==="quickPlanBtn"){
+    e.preventDefault(); e.stopPropagation();
+    const q=document.getElementById("quickAddBtn");
+    if(q) q.click();
+    return;
+  }
+
+  if(btn.id==="quickSportBtn"){
+    e.preventDefault(); e.stopPropagation();
+    const q=document.getElementById("quickAddBtn");
+    if(q){
+      q.click();
+      setTimeout(()=>{
+        const t=document.getElementById("entryTitle");
+        if(t){t.value="Spor";t.dispatchEvent(new Event("input",{bubbles:true}));}
+      },100);
+    }
+    return;
+  }
+
+  if(btn.id==="quickMemoryBtn"){
+    e.preventDefault(); e.stopPropagation();
+    showView("eroland");
+    setTimeout(()=>{
+      const add=document.getElementById("addMemoryBtn");
+      if(add)add.click();
+    },120);
+    return;
+  }
+
+  const promptBtn=btn.closest("[data-ai-prompt]");
+  if(promptBtn){
+    e.preventDefault(); e.stopPropagation();
+    const prompt=promptBtn.dataset.aiPrompt||"";
+    showView("ai");
+    setTimeout(()=>{
+      const inp=document.getElementById("aiInput");
+      if(inp)inp.value=prompt;
+      askAI(prompt);
+    },120);
+    return;
+  }
+}, true);

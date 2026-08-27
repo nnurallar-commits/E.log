@@ -585,3 +585,13 @@ input:focus,textarea:focus,select:focus{
   font-variant-numeric:tabular-nums;
   font-size:16px;
 }
+
+.quick-actions button,.ai-shortcut-buttons button{
+  cursor:pointer;
+  pointer-events:auto!important;
+  position:relative;
+  z-index:3;
+}
+.quick-actions button:active,.ai-shortcut-buttons button:active{
+  transform:scale(.97);
+}
