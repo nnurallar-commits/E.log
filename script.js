@@ -21,6 +21,8 @@ let unsubs=[],activeMemoryFilter="all";
 
 const LOCAL="elog-stable-v2";
 const EMOJI_KEY="elog-day-emojis-v2";
+function sharedLocalKey(base){return `${base}-${pairId()}`}
+
 const defaultRules=[
   {id:"rule-aquarium",name:"Pazartesi akvaryum",type:"weekday",weekday:1,action:"Şans'ın akvaryumunu temizle",active:true},
   {id:"rule-postshift",name:"Nöbet çıkışı spor yok",type:"after_shift",action:"Spor önerme",active:true}
@@ -31,15 +33,15 @@ function pairId(){return profile?.pairId||currentUser?.uid||"local"}
 function markSync(t){if($("#syncBadge"))$("#syncBadge").textContent=t}
 function loadLocal(){
   try{
-    const x=JSON.parse(localStorage.getItem(LOCAL)||"{}");
+    const x=JSON.parse(localStorage.getItem(sharedLocalKey(LOCAL))||localStorage.getItem(LOCAL)||"{}");
     entries=x.entries||[];shifts=x.shifts||[];routines=x.routines||[];memories=x.memories||[];rules=x.rules||[];
   }catch{}
-  try{dayEmojis=JSON.parse(localStorage.getItem(EMOJI_KEY)||"{}")}catch{dayEmojis={}}
+  try{dayEmojis=JSON.parse(localStorage.getItem(sharedLocalKey(EMOJI_KEY))||localStorage.getItem(EMOJI_KEY)||"{}")}catch{dayEmojis={}}
   if(!rules.length)rules=defaultRules.map(x=>({...x,_pending:true}));
 }
 function saveLocal(){
-  localStorage.setItem(LOCAL,JSON.stringify({entries,shifts,routines,memories,rules}));
-  localStorage.setItem(EMOJI_KEY,JSON.stringify(dayEmojis));
+  localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules}));
+  localStorage.setItem(sharedLocalKey(EMOJI_KEY),JSON.stringify(dayEmojis));
 }
 function arr(name){return ({entries,shifts,routines,memories,rules})[name]}
 function setArr(name,v){if(name==="entries")entries=v;if(name==="shifts")shifts=v;if(name==="routines")routines=v;if(name==="memories")memories=v;if(name==="rules")rules=v}
@@ -63,8 +65,11 @@ async function handleAuth(user){
   if(!user){profile=null;clearListeners();$("#authDialog")?.showModal();markSync("● giriş yok");return}
   $("#authDialog")?.close();
   await ensureProfile(user);
+  loadLocal();
+  renderAll();
   startRealtime();
   flushPending();
+  syncDayEmojis();
 }
 async function ensureProfile(user){
   let data=null;
@@ -103,9 +108,18 @@ function startRealtime(){
   [["entries","date"],["shifts","startDate"],["routines","name"],["memories","date"],["rules","name"]].forEach(([name,sort])=>{
     try{
       const q=query(pairCol(name),orderBy(sort));
-      unsubs.push(onSnapshot(q,s=>{mergeCloud(name,s.docs.map(d=>({id:d.id,...d.data(),_pending:false})));markSync("● canlı")},err=>{console.warn(err);markSync("● telefonda")}));
+      unsubs.push(onSnapshot(q,snap=>{mergeCloud(name,snap.docs.map(d=>({id:d.id,...d.data(),_pending:false})));markSync("● canlı")},err=>{console.warn(err);markSync("● telefonda")}));
     }catch(e){console.warn(e)}
   });
+  try{
+    unsubs.push(onSnapshot(pairDoc("shared","dayEmojis"),snap=>{
+      if(snap.exists()){
+        dayEmojis=snap.data().values||{};
+        saveLocal();renderCalendar();renderDayDetail();
+      }
+      markSync("● canlı");
+    },err=>{console.warn(err);markSync("● telefonda")}));
+  }catch(e){console.warn(e)}
 }
 async function cloudSave(name,item){
   if(!db||!currentUser)return false;
@@ -180,8 +194,9 @@ function renderDayDetail(){
   $$("[data-remove-emoji]",el).forEach(b=>b.onclick=()=>removeDayEmoji(selectedDate,b.dataset.removeEmoji));
 }
 function getDayEmojis(date){const v=dayEmojis[date];return !v?[]:(Array.isArray(v)?v:[v])}
-function addDayEmoji(date,e){const a=getDayEmojis(date);if(a.length>=4||a.includes(e))return;a.push(e);dayEmojis[date]=a;saveLocal();renderCalendar();renderDayDetail()}
-function removeDayEmoji(date,e){const a=getDayEmojis(date).filter(x=>x!==e);if(a.length)dayEmojis[date]=a;else delete dayEmojis[date];saveLocal();renderCalendar();renderDayDetail()}
+async function syncDayEmojis(){if(!db||!currentUser)return false;try{await setDoc(pairDoc("shared","dayEmojis"),{values:dayEmojis,updatedAt:serverTimestamp()},{merge:false});markSync("● canlı");return true}catch(e){console.warn(e);markSync("● telefonda");return false}}
+function addDayEmoji(date,e){const a=getDayEmojis(date);if(a.length>=4||a.includes(e))return;a.push(e);dayEmojis[date]=a;saveLocal();renderCalendar();renderDayDetail();syncDayEmojis()}
+function removeDayEmoji(date,e){const a=getDayEmojis(date).filter(x=>x!==e);if(a.length)dayEmojis[date]=a;else delete dayEmojis[date];saveLocal();renderCalendar();renderDayDetail();syncDayEmojis()}
 function openDayEmojiPicker(date){
   const presets=["❤️","🥰","✨","🏋️","☕","🍽️","🎬","🎮","🌿","🩻","🐟","🎉"];
   openGeneric(`<div class="modal-head"><h3>Emoji ekle</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="emoji-picker-grid">${presets.map(e=>`<button data-emoji="${e}" class="emoji-choice" type="button">${e}</button>`).join("")}</div>`,()=>{
@@ -555,7 +570,7 @@ function openBrain(){openRoutines()}
 function openStats(){openGeneric(`<div class="modal-head"><h3>▥ Bu ay</h3><button class="icon-btn close-generic">×</button></div><div class="stat-grid"><div class="stat"><b>${entries.length}</b><span>Kayıt</span></div><div class="stat"><b>${shifts.length}</b><span>Nöbet</span></div><div class="stat"><b>${memories.length}</b><span>Eroland</span></div></div>`)}
 function openNotifications(){openGeneric(`<div class="modal-head"><h3>🔔 Bildirimler</h3><button class="icon-btn close-generic">×</button></div><button id="notifyBtn" class="primary-btn full">Bildirimleri aç</button>`,()=>{$("#notifyBtn").onclick=async()=>{if("Notification" in window)await Notification.requestPermission();$("#genericDialog").close()}})}
 function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görünümü</h3><button class="icon-btn close-generic">×</button></div><div class="panel-row"><strong>Pair ID</strong><small>${safe(pairId())}</small></div>`)}
-function openModule(n){if(n==="shifts")openShifts();if(n==="overtime")openOvertime();if(n==="routines")openRoutines();if(n==="brain")openBrain();if(n==="stats")openStats();if(n==="notifications")openNotifications();if(n==="partner")openPartner();if(n==="eroland")switchView("eroland")}
+function openModule(n){if(n==="shifts")openShifts();if(n==="overtime")openOvertime();if(n==="pair")openPairInfo();if(n==="routines")openRoutines();if(n==="brain")openBrain();if(n==="stats")openStats();if(n==="notifications")openNotifications();if(n==="partner")openPartner();if(n==="eroland")switchView("eroland")}
 function openGeneric(html,after){$("#genericContent").innerHTML=html;$("#genericDialog").showModal();$(".close-generic")?.addEventListener("click",()=>$("#genericDialog").close());after?.()}
 function switchView(name){const t=document.getElementById(`view-${name}`);if(!t)return;$$(".view").forEach(v=>v.classList.remove("active"));t.classList.add("active");$$(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="calendar")renderCalendar();if(name==="eroland")renderMemories(activeMemoryFilter);window.scrollTo(0,0)}
 async function googleLogin(){const p=new GoogleAuthProvider();try{/iPhone|iPad|Android/i.test(navigator.userAgent)?await signInWithRedirect(auth,p):await signInWithPopup(auth,p)}catch(e){$("#authMessage").textContent=e.message}}
