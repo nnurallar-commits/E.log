@@ -1,13 +1,11 @@
-# E.log REPAIRED
+# E.log Calendar Emoji 🌿
 
-Bu sürümde:
-- Oruç bölümü tamamen kaldırıldı.
-- Aktivite kayıtları önce telefona/localStorage'a kaydedilir, sonra Firestore'a senkronlanır.
-- Firebase hata verirse kayıt kaybolmaz.
-- Senkron hatası üstte görünür.
-- Tek service worker kullanılır, mobil cache sürümü yenilendi.
-- iPhone/PWA ikonu gerçek E.log wordmark olarak değiştirildi.
-- Sekme geçişleri korunur.
-- Firestore canlı dinleyici hata verirse uygulama yerel kayıtlarla çalışmaya devam eder.
+Yeni özellik:
+- Takvimde herhangi bir güne emoji/sticker eklenebilir.
+- Gün seç → “+ Emoji ekle” → emoji seç.
+- Kullanıcının gönderdiği özel renkli kalp sticker da seçeneklerde.
+- Emoji gün kutusunun içinde görünür.
+- İstenirse kaldırılır veya değiştirilir.
+- Emoji seçimi telefonda kalıcı olarak saklanır.
 
-GitHub'a bu paketin içindekileri mevcut dosyaların üzerine yükleyip Commit changes yap.
+Sürüm: 20260827-emoji1
