@@ -454,6 +454,16 @@ async function askAI(message){
 function addBubble(text,type){const d=document.createElement("div");d.className=`bubble ${type}`;d.textContent=text;$("#chat").appendChild(d);d.scrollIntoView({behavior:"smooth",block:"end"})}
 
 
+function timeOptions(selected=""){
+  let out="";
+  for(let h=0;h<24;h++){
+    for(let m=0;m<60;m+=30){
+      const v=`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+      out+=`<option value="${v}"${v===selected?" selected":""}>${v}</option>`;
+    }
+  }
+  return out;
+}
 function overtimeEntries(){
   return entries.filter(e=>e.category==="work" && (e.kind==="overtime" || /ekstra mesai|fazla mesai/i.test(e.title||"")));
 }
@@ -476,10 +486,10 @@ function openOvertime(){
       </label>
       <div class="form-row">
         <label>Başlangıç
-          <input id="overtimeStart" type="time" required step="60" value="08:30">
+          <select id="overtimeStart" required>${timeOptions("08:30")}</select>
         </label>
         <label>Bitiş
-          <input id="overtimeEnd" type="time" required step="60" value="16:00">
+          <select id="overtimeEnd" required>${timeOptions("16:00")}</select>
         </label>
       </div>
       <label>Not

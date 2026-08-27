@@ -579,3 +579,9 @@ input:focus,textarea:focus,select:focus{
 .ai-shortcuts{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:17px 20px;margin-bottom:90px;border:1px solid #d7e2d4;border-radius:22px;background:linear-gradient(145deg,#e3ece0,#f6f4ec)}
 .ai-shortcut-buttons{display:flex;gap:7px;flex-wrap:wrap}.ai-shortcut-buttons button{border:1px solid rgba(36,69,54,.12);background:rgba(255,255,255,.7);border-radius:999px;padding:9px 12px;color:#294438;font-weight:700}
 @media(max-width:680px){.productivity-strip{grid-template-columns:1fr}.quick-actions{grid-template-columns:repeat(4,1fr)}.quick-actions button{flex-direction:column;padding:8px 3px}.ai-shortcuts{align-items:flex-start;flex-direction:column}}
+
+/* 24 saat seçiciler */
+#overtimeStart,#overtimeEnd{
+  font-variant-numeric:tabular-nums;
+  font-size:16px;
+}

@@ -1,4 +1,4 @@
-const VERSION="20260827-home-pro2";
+const VERSION="20260827-24h-fix";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
