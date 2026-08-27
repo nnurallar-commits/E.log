@@ -1,4 +1,4 @@
-const VERSION="20260827-overtime1";
+const VERSION="20260827-home-pro2";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",

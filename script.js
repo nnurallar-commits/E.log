@@ -119,7 +119,28 @@ async function flushPending(){
   }
 }
 
+
+function nextScheduledItem(){
+  const now=new Date(),c=[];
+  entries.forEach(e=>{
+    if(!e.date||!e.time)return;
+    const d=new Date(`${e.date}T${e.time}:00`);
+    if(d>=now)c.push({d,title:(e.kind==="overtime"?"💼 ":"")+e.title,meta:`${formatDateTR(e.date)} · ${time24(e.time)}${e.endTime?`–${time24(e.endTime)}`:""}`});
+  });
+  shifts.forEach(sh=>{
+    const d=new Date(`${sh.startDate}T08:30:00`);
+    if(d>=now)c.push({d,title:"🩻 Nöbet",meta:`${formatDateTR(sh.startDate)} · 08:30 → ertesi gün 08:30`});
+  });
+  return c.sort((a,b)=>a.d-b.d)[0]||null;
+}
+function renderProductivityHome(){
+  const a=$("#nextItemTitle"),b=$("#nextItemMeta"); if(!a||!b)return;
+  const n=nextScheduledItem();
+  a.textContent=n?n.title:"Yaklaşan plan yok";
+  b.textContent=n?n.meta:"Hızlı ekle ile gününü oluştur.";
+}
 function renderAll(){
+  renderProductivityHome();
   if($("#todayLabel"))$("#todayLabel").textContent=fmtTR(new Date());
   if($("#heroGreeting"))$("#heroGreeting").textContent=`Merhaba ${profile?.name||"Erol"} 👋`;
   renderToday();renderCalendar();renderMemories(activeMemoryFilter);renderSmart();renderShiftMini();checkReminders();checkShiftNotifications();
@@ -542,3 +563,15 @@ function wire(){
 }
 loadLocal();wire();renderAll();addBubble("Merhaba. E.log takvimini, nöbetlerini ve Eroland kayıtlarını okuyabiliyorum. ✦","ai");initFirebase();
 setInterval(()=>{flushPending();checkReminders();checkShiftNotifications()},60*60*1000);
+
+document.addEventListener("click",e=>{
+  const a=e.target.closest("[data-ai-prompt]");
+  if(a){showView("ai");setTimeout(()=>askAI(a.dataset.aiPrompt),60)}
+});
+document.addEventListener("DOMContentLoaded",()=>{
+  $("#quickPlanBtn")?.addEventListener("click",()=>$("#quickAddBtn")?.click());
+  $("#quickSportBtn")?.addEventListener("click",()=>{$("#quickAddBtn")?.click();setTimeout(()=>{if($("#entryTitle"))$("#entryTitle").value="Spor"},60)});
+  $("#quickMemoryBtn")?.addEventListener("click",()=>{showView("eroland");setTimeout(()=>$("#addMemoryBtn")?.click(),80)});
+  $("#nextItemCard")?.addEventListener("click",()=>showView("calendar"));
+  setTimeout(renderProductivityHome,300);
+});

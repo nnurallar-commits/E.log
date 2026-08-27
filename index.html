@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta name="elog-version" content="20260827-overtime1">
+  <meta name="elog-version" content="20260827-home-pro2">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#23352b" />
   <title>E.log</title>
-  <link rel="manifest" href="manifest.json?v=20260827-overtime1" />
-  <link rel="stylesheet" href="style.css?v=20260827-overtime1" />
+  <link rel="manifest" href="manifest.json?v=20260827-home-pro2" />
+  <link rel="stylesheet" href="style.css?v=20260827-home-pro2" />
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260827-logo-final3">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-logo-final3">
@@ -38,21 +38,34 @@
           <button id="quickAddBtn" class="primary-btn" type="button">+ Hızlı ekle</button>
         </div>
 
-        <section class="section-block">
+        <section class="productivity-strip">
+          <button class="next-card" id="nextItemCard" type="button">
+            <span class="mini-label">SIRADAKİ</span>
+            <strong id="nextItemTitle">Plan bulunuyor…</strong>
+            <small id="nextItemMeta">Takvimine bakıyorum</small>
+          </button>
+          <div class="quick-actions">
+            <button data-open="overtime" type="button"><span>💼</span><small>Mesai</small></button>
+            <button id="quickPlanBtn" type="button"><span>＋</span><small>Plan</small></button>
+            <button id="quickSportBtn" type="button"><span>🏋️</span><small>Spor</small></button>
+            <button id="quickMemoryBtn" type="button"><span>♡</span><small>Anı</small></button>
+          </div>
+        </section>
+
+        <section class="section-block today-compact">
           <div class="section-head">
             <div><p class="eyebrow">Akış</p><h3>Bugün</h3></div>
-            <button id="smartPlanBtn" class="text-btn" type="button">✨ Akıllı plan</button>
+            <button id="smartPlanBtn" class="text-btn" type="button">✨ Planla</button>
           </div>
           <div id="todayTimeline" class="timeline"></div>
         </section>
 
-        <section id="smartCard" class="smart-card">
-          <div class="smart-icon">✦</div>
-          <div>
-            <p class="eyebrow">E.log AI</p>
-            <h3 id="smartTitle">Sana göre</h3>
-            <p id="smartText">Takvimini ve rutinlerini öğrendikçe öneriler burada değişecek.</p>
-            <button id="whyBtn" class="text-btn" type="button">Neden?</button>
+        <section class="ai-shortcuts">
+          <div><p class="eyebrow">E.LOG AI</p><strong>Tek dokunuşla sor</strong></div>
+          <div class="ai-shortcut-buttons">
+            <button data-ai-prompt="Bugün ne yapacağım?" type="button">Bugün</button>
+            <button data-ai-prompt="Yarın ne var?" type="button">Yarın</button>
+            <button data-ai-prompt="Boş saatlerimi bul" type="button">Boş saatler</button>
           </div>
         </section>
 
@@ -161,6 +174,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="script.js?v=20260827-overtime1"></script>
+  <script type="module" src="script.js?v=20260827-home-pro2"></script>
 </body>
 </html>
