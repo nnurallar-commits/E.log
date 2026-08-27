@@ -273,17 +273,71 @@ function checkShiftNotifications(){
 }
 
 function localSmartReply(q){
-  const x=q.toLocaleLowerCase("tr-TR"),t=today(),todayEntries=entries.filter(e=>e.date===t),todayShift=shifts.find(s=>s.startDate===t),post=shifts.find(s=>s.endDate===t);
-  if(x.includes("nöbet")){const future=shifts.filter(s=>s.startDate>=t).sort((a,b)=>a.startDate.localeCompare(b.startDate));return future.length?`Yaklaşan nöbetlerin: ${future.slice(0,5).map(s=>`${s.startDate} 08:30`).join(", ")}. Her nöbet ertesi gün 08:30'da bitiyor.`:"Yaklaşan nöbet kaydı yok."}
-  if(x.includes("bugün")&&(x.includes("ne yaptı")||x.includes("ne yaptım")))return todayEntries.length?todayEntries.map(e=>`${time24(e.time)} ${e.title}`).join(" · "):"Bugün henüz aktivite kaydı yok.";
-  if(x.includes("spor"))return post?"Bugün 08:30'da nöbetten çıktığın için spor önermiyorum.":todayShift?"Bugün 08:30'da nöbetin başladı. Sporu nöbet planına göre hafif tut.":"Bugün nöbet engeli görünmüyor.";
-  if(x.includes("plan"))return `${todayShift?"08:30 nöbet başlangıcı. ":""}${todayEntries.length?todayEntries.map(e=>`${time24(e.time)} ${e.title}`).join(", "):"Takvimde başka aktivite yok."}`;
-  return "Takvimini, nöbetlerini ve Eroland kayıtlarını okuyabiliyorum. Nöbet, spor, bugün ne yaptığın veya planın hakkında sorabilirsin.";
+  const raw=String(q||"").trim();
+  const x=raw.toLocaleLowerCase("tr-TR");
+  const t=today();
+  const todayEntries=entries.filter(e=>e.date===t).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+  const todayShift=shifts.find(s=>s.startDate===t);
+  const post=shifts.find(s=>s.endDate===t);
+  const future=shifts.filter(s=>s.startDate>=t).sort((a,b)=>a.startDate.localeCompare(b.startDate));
+  const memoriesToday=memories.filter(m=>m.date===t);
+
+  if(/^(selam|merhaba|hey|sa|naber)/i.test(x))
+    return `Selam ${profile?.name||""} ✦ Bugünkü takvimin, nöbetlerin ve Eroland kayıtların önümde. Ne planlayalım?`;
+
+  if(x.includes("nöbet"))
+    return future.length
+      ? `Yaklaşan nöbetlerin: ${future.slice(0,5).map(s=>`${s.startDate} 08:30`).join(" · ")}. Her nöbet ertesi gün 08:30'da bitiyor.`
+      : "Yaklaşan nöbet kaydı yok.";
+
+  if(x.includes("bugün")&&(x.includes("ne yapt")||x.includes("program")||x.includes("takvim")))
+    return todayEntries.length
+      ? `Bugün: ${todayEntries.map(e=>`${time24(e.time)} ${e.title}`).join(" · ")}${todayShift?" · 08:30 nöbet başlangıcı":""}`
+      : todayShift ? "Bugün 08:30'da nöbetin başladı. Başka aktivite kaydı yok." : "Bugün için kayıt görünmüyor.";
+
+  if(x.includes("spor"))
+    return post
+      ? "Bugün 08:30'da nöbetten çıktığın için sporu pas geçmeni öneriyorum. Dinlenme günü daha mantıklı."
+      : todayShift
+      ? "Bugün nöbet günün. Sporu ancak çok hafif tut."
+      : "Bugün nöbet engeli görünmüyor. Enerjin uygunsa spor eklenebilir.";
+
+  if(x.includes("plan")||x.includes("yarın")||x.includes("günümü"))
+    return `${todayShift?"08:30 nöbet başlangıcı var. ":""}${todayEntries.length?`Bugünkü kayıtların: ${todayEntries.map(e=>`${time24(e.time)} ${e.title}`).join(", ")}. `:""}${post?"Nöbet çıkışı olduğun için hafif bir gün daha iyi olur. ":""}İstersen boş saatlere göre sıraya koyabilirim.`;
+
+  if(x.includes("erol")||x.includes("anı")||x.includes("eroland"))
+    return memoriesToday.length
+      ? `Bugünkü Eroland kayıtların: ${memoriesToday.map(m=>m.title).join(" · ")}`
+      : "Bugün için Eroland kaydı yok. + Anı ile ekleyebilirsin.";
+
+  if(x.includes("kahve")) return "Kahve molasını takvime ekleyebilirsin ☕";
+  if(x.includes("yemek")) return "Yemek planını saatle birlikte ekleyebilirim. 🍽️";
+  if(x.includes("hatırlat")) return "Eroland kayıtlarına 1 ay, 6 ay, 1 yıl veya özel tarih hatırlatması koyabilirsin.";
+
+  return "Seni dinliyorum. Nöbet, spor, bugün ne yaptığın, Eroland veya gün planın hakkında sorabilirsin.";
 }
 async function askAI(message){
-  addBubble(message,"user");$("#aiInput").value="";
-  try{const fn=httpsCallable(functions,"elogAssistant");const res=await fn({message});if(res.data?.reply){addBubble(res.data.reply,"ai");return}}catch(e){console.warn("AI backend yok, yerel zeka kullanılıyor",e)}
-  addBubble(localSmartReply(message),"ai");
+  addBubble(message,"user");
+  $("#aiInput").value="";
+  const localReply=localSmartReply(message);
+  addBubble(localReply,"ai");
+
+  // Backend varsa cevabı arka planda geliştirir, yoksa kullanıcı beklemez.
+  try{
+    if(functions){
+      const fn=httpsCallable(functions,"elogAssistant");
+      const res=await Promise.race([
+        fn({message}),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),2500))
+      ]);
+      const remote=res?.data?.reply?.trim();
+      if(remote && remote!==localReply){
+        addBubble(remote,"ai");
+      }
+    }
+  }catch(e){
+    console.warn("AI backend erişilemedi; yerel cevap kullanıldı.",e);
+  }
 }
 function addBubble(text,type){const d=document.createElement("div");d.className=`bubble ${type}`;d.textContent=text;$("#chat").appendChild(d);d.scrollIntoView({behavior:"smooth",block:"end"})}
 

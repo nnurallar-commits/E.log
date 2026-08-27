@@ -1,4 +1,4 @@
-const VERSION="20260827-repo-hotfix1";
+const VERSION="20260827-ai-stable-final";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
