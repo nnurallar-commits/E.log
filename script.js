@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/fireba
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
+import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-messaging.js";
 
 const $ = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
@@ -12,7 +13,7 @@ const fmtTR = d => new Intl.DateTimeFormat("tr-TR",{weekday:"long",day:"numeric"
 const monthTR = d => new Intl.DateTimeFormat("tr-TR",{month:"long",year:"numeric"}).format(d);
 const safe = s => String(s ?? "").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
 
-let app, auth, db, functions;
+let app, auth, db, functions, messaging=null, swRegistration=null;
 let currentUser = null;
 let profile = null;
 let calendarCursor = new Date();
@@ -30,7 +31,13 @@ async function initFirebase(){
   let cfg;
   try { cfg = (await import("./firebase-config.js")).firebaseConfig; }
   catch { showSetupMode(); return false; }
-  app = initializeApp(cfg); auth=getAuth(app); db=getFirestore(app); functions=getFunctions(app);
+  app = initializeApp(cfg);
+  auth=getAuth(app);
+  db=getFirestore(app);
+  functions=getFunctions(app,"europe-west1");
+  try{
+    if(await isMessagingSupported()) messaging=getMessaging(app);
+  }catch{}
   onAuthStateChanged(auth, async user => {
     currentUser=user;
     if(!user){ profile=null; clearListeners(); $("#authDialog").showModal(); return; }
@@ -222,13 +229,71 @@ function openBrain(){
   <h4>Tahminlerim</h4><div class="panel-list">${pats.length?pats.map(p=>`<div class="rule-card"><strong>${safe(p.label)}</strong><p>${safe(p.evidence)}</p><small>Güven: %${Math.round(p.confidence*100)}</small></div>`).join(''):'<div class="empty">Yeterli tekrar oluşunca alışkanlıkları burada göstereceğim.</div>'}</div>`);
 }
 function openStats(){const month=today().slice(0,7),monthEntries=entries.filter(e=>e.date?.startsWith(month)),sport=monthEntries.filter(e=>e.category==='sport').length,us=monthEntries.filter(e=>e.category==='us').length,work=monthEntries.filter(e=>e.category==='work').length;openGeneric(`<div class="modal-head"><h3>▥ Bu ay</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="stat-grid"><div class="stat"><b>${monthEntries.length}</b><span>Kayıt</span></div><div class="stat"><b>${shifts.filter(s=>s.startDate?.startsWith(month)).length}</b><span>Nöbet</span></div><div class="stat"><b>${sport}</b><span>Spor</span></div><div class="stat"><b>${us}</b><span>Nilsu ♡</span></div><div class="stat"><b>${work}</b><span>İş</span></div><div class="stat"><b>${memories.filter(m=>m.date?.startsWith(month)).length}</b><span>Anı</span></div></div>`)}
-function openNotifications(){openGeneric(`<div class="modal-head"><h3>🔔 Akıllı Bildirimler</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="rule-card"><strong>Bildirim mantığı</strong><p>Nöbet çıkışı spor bildirimi gönderme, pazartesi akvaryumu hatırlat, boş günlerde gün sonu kaydı öner.</p></div><p class="form-message">Gerçek push bildirimleri için Firebase Cloud Messaging ve HTTPS kurulumu gerekir. functions/index.js içinde akıllı bildirim motorunun örnek yapısı var.</p>`)}
+async function pushStateText(){
+  if(!('Notification' in window)) return 'Bu tarayıcı bildirim desteklemiyor.';
+  if(Notification.permission==='granted') return 'Bildirim izni açık.';
+  if(Notification.permission==='denied') return 'Bildirim izni tarayıcıdan engellenmiş.';
+  return 'Henüz bildirim izni verilmedi.';
+}
+
+async function enablePushNotifications(){
+  const msg=$("#pushMsg");
+  try{
+    if(currentUser?.uid==='demo'){msg.textContent='Demo modunda push kurulmaz.';return;}
+    if(!messaging){msg.textContent='Bu tarayıcı Firebase push bildirimlerini desteklemiyor.';return;}
+    if(!('serviceWorker' in navigator)){msg.textContent='Service Worker desteklenmiyor.';return;}
+
+    const permission=await Notification.requestPermission();
+    if(permission!=='granted'){msg.textContent='Bildirim izni verilmedi.';return;}
+
+    const {vapidKey}=await import('./notification-config.js');
+    if(!vapidKey){
+      msg.textContent='Önce notification-config.js içine Firebase Web Push VAPID anahtarını ekle.';
+      return;
+    }
+
+    swRegistration=swRegistration || await navigator.serviceWorker.ready;
+    const token=await getToken(messaging,{vapidKey,serviceWorkerRegistration:swRegistration});
+    if(!token){msg.textContent='FCM token alınamadı.';return;}
+
+    const deviceId=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token))
+      .then(buf=>[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,40));
+
+    await setDoc(doc(db,'users',currentUser.uid,'devices',deviceId),{
+      token,
+      role:profile?.role||'owner',
+      platform:navigator.userAgent.slice(0,180),
+      updatedAt:serverTimestamp()
+    },{merge:true});
+
+    msg.textContent='✓ Akıllı bildirimler bu cihazda açık.';
+  }catch(err){
+    console.error(err);
+    msg.textContent='Bildirim kurulamadı: '+(err.message||err);
+  }
+}
+
+async function openNotifications(){
+  const state=await pushStateText();
+  openGeneric(`<div class="modal-head"><h3>🔔 Akıllı Bildirimler</h3><button class="icon-btn close-generic" type="button">×</button></div>
+    <div class="rule-card"><strong>E.log önce günü kontrol eder</strong><p>Nöbet çıkışında spor bildirimi göndermez, pazartesi akvaryumu hatırlatır, oruç modunu görür ve boş günlerde gün sonu kaydı önerebilir.</p></div>
+    <div class="rule-card"><strong>Nilsu özeti</strong><p>Partner hesabında, gün doluysa akşam tek sakin özet gelebilir. Sürekli aktivite bildirimi gönderilmez.</p></div>
+    <button id="enablePushBtn" class="primary-btn full" type="button">Bu cihazda bildirimleri aç</button>
+    <p id="pushMsg" class="form-message">${safe(state)}</p>`,()=>{
+      $("#enablePushBtn").onclick=enablePushNotifications;
+    });
+}
 function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görünümü</h3><button class="icon-btn close-generic" type="button">×</button></div><p>Erol'un ortak veritabanına kaydettiği günlük aktiviteler bu hesapta otomatik görünür. Partner hesabını aynı <b>pairId</b> ile eşleştirmen yeterli.</p><div class="panel-row"><strong>Pair ID</strong><small>${safe(profile?.pairId||'demo-pair')}</small></div>`)}
 
 async function askAI(message){
   addBubble(message,'user'); $("#aiInput").value='';
   if(currentUser.uid==='demo'){const c=getContext();const reply=c.previousShift?'Bugün nöbet çıkışı olduğun için spor eklemem. Önce dinlenme, sonra hafif bir plan öneririm.':'Takvimini, nöbetlerini ve rutinlerini birlikte kontrol ettim. Bana Firebase + OpenAI bağlandığında gerçek verine göre daha ayrıntılı cevap vereceğim.';setTimeout(()=>addBubble(reply,'ai'),350);return;}
-  try{const fn=httpsCallable(functions,'elogAssistant');const res=await fn({message});addBubble(res.data.reply||'Cevap alınamadı.','ai')}catch(err){addBubble('AI bağlantısında hata oldu: '+err.message,'ai')}
+  try{const fn=httpsCallable(functions,'elogAssistant');const res=await fn({message});addBubble(res.data.reply||'Cevap alınamadı.','ai')}catch(err){
+    console.error(err);
+    const msg=String(err?.message||'');
+    if(msg.includes('not-found')) addBubble('AI backend henüz deploy edilmemiş görünüyor. README’deki Firebase Functions adımını tamamla.','ai');
+    else addBubble('AI bağlantısında hata oldu: '+msg,'ai');
+  }
 }
 function addBubble(text,type){const d=document.createElement('div');d.className=`bubble ${type}`;d.textContent=text;$("#chat").appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'})}
 
@@ -251,5 +316,21 @@ function wire(){
   $("#profileBtn").onclick=()=>openGeneric(`<div class="modal-head"><h3>Profil</h3><button class="icon-btn close-generic" type="button">×</button></div><div class="panel-row"><strong>${safe(profile?.name||'Erol')}</strong><small>${safe(profile?.role||'owner')}</small></div>`);
 }
 
-wire(); renderAll(); addBubble('Merhaba. Takvimini, nöbetlerini ve rutinlerini birlikte okuyabilirim. ✦','ai'); initFirebase();
-if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+wire();
+renderAll();
+addBubble('Merhaba. Takvimini, nöbetlerini, rutinlerini ve E.log kurallarını birlikte okuyabilirim. ✦','ai');
+
+(async()=>{
+  if('serviceWorker' in navigator){
+    try{ swRegistration=await navigator.serviceWorker.register('./sw.js'); }
+    catch(e){ console.warn('Service worker kurulamadı',e); }
+  }
+  await initFirebase();
+  if(messaging){
+    onMessage(messaging,payload=>{
+      const title=payload.notification?.title||payload.data?.title||'E.log';
+      const body=payload.notification?.body||payload.data?.body||'Yeni bir bildirim var.';
+      addBubble(`${title}: ${body}`,'ai');
+    });
+  }
+})();
