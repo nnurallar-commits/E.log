@@ -213,7 +213,8 @@ function openModule(name){
   if(name==='routines') openRoutines();
   if(name==='stats') openStats();
   if(name==='notifications') openNotifications();
-  if(name==='partner') openPartner()
+  if(name==='partner') openPartner();
+  if(name==='daystate') openDayState();
   if(name==='brain') openBrain();
   if(name==='eroland') switchView('eroland');
 }
