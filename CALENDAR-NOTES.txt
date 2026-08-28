@@ -1,0 +1,9 @@
+Takvim Notları
+- Seçili güne + Not ile not ekleme
+- Gün kutusunda 📝 göstergesi
+- Aynı güne birden fazla not
+- Nota dokunarak düzenleme
+- × ile silme
+- Firebase ortak senkron
+- Local cache desteği
+- Woohoo özel görsel düzeltmesi korunur

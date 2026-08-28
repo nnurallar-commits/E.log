@@ -16,12 +16,13 @@ const time24=v=>String(v||"").replace(/\s*(AM|PM)\s*/ig,"");
 
 let app,auth,db,functions,storage,currentUser=null,profile=null;
 let calendarCursor=new Date(),selectedDate=today();
-let entries=[],shifts=[],routines=[],memories=[],rules=[],sportMetrics=[],dayEmojis={};
+let entries=[],shifts=[],routines=[],memories=[],rules=[],sportMetrics=[],dayEmojis={},dayNotes={};
 let selectedEmojiDate=today();
 let unsubs=[],activeMemoryFilter="all";
 
 const LOCAL="elog-stable-v2";
 const EMOJI_KEY="elog-day-emojis-v2";
+const NOTES_KEY="elog-day-notes-v1";
 function sharedLocalKey(base){return `${base}-${pairId()}`}
 
 const defaultRules=[
@@ -95,6 +96,16 @@ function loadLocal(){
     dayEmojis={};
   }
 
+  try{
+    dayNotes=JSON.parse(
+      localStorage.getItem(sharedLocalKey(NOTES_KEY))
+      || localStorage.getItem(NOTES_KEY)
+      || "{}"
+    );
+  }catch{
+    dayNotes={};
+  }
+
   if(!rules.length){
     rules=defaultRules.map(x=>({...x,_pending:true}));
   }
@@ -104,6 +115,7 @@ function loadLocal(){
 function saveLocal(){
   localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics}));
   localStorage.setItem(sharedLocalKey(EMOJI_KEY),JSON.stringify(dayEmojis));
+  localStorage.setItem(sharedLocalKey(NOTES_KEY),JSON.stringify(dayNotes));
 }
 function arr(name){return ({entries,shifts,routines,memories,rules,sportMetrics})[name]}
 function setArr(name,v){if(name==="entries")entries=v;if(name==="shifts")shifts=v;if(name==="routines")routines=v;if(name==="memories")memories=v;if(name==="rules")rules=v;if(name==="sportMetrics")sportMetrics=v}
@@ -273,6 +285,15 @@ function startRealtime(){
     unsubs.push(onSnapshot(pairDoc("shared","dayEmojis"),snap=>{
       if(snap.exists()){
         dayEmojis=snap.data().value||snap.data().values||{};
+        saveLocal();renderCalendar();renderDayDetail();
+      }
+      markSync("● canlı");
+    },err=>{console.warn(err);markSync("● senkron hatası")}));
+  }catch(e){console.warn(e)}
+  try{
+    unsubs.push(onSnapshot(pairDoc("shared","dayNotes"),snap=>{
+      if(snap.exists()){
+        dayNotes=snap.data().values||snap.data().value||{};
         saveLocal();renderCalendar();renderDayDetail();
       }
       markSync("● canlı");
@@ -581,6 +602,8 @@ function renderCalendar(){
     const hasShift=shifts.some(x=>x.startDate===ds);
     const overtime=entries.filter(x=>x.date===ds && x.kind==="overtime");
     const plans=entries.filter(x=>x.date===ds && x.kind!=="overtime");
+    const notes=getDayNotes(ds);
+    const hasNote=notes.length>0;
 
     const auto=[];
     if(hasShift)auto.push("🩻");
@@ -607,6 +630,10 @@ function renderCalendar(){
             ${shown.map(e=>`<span class="calendar-emoji">${emojiVisual(e)}</span>`).join("")}
           </span>
         ` : `<span class="calendar-empty-mark" aria-hidden="true"></span>`}
+
+        ${hasNote ? `
+          <span class="calendar-note-mark" aria-hidden="true" title="Not var">📝</span>
+        ` : ""}
 
         ${(hasShift || overtime.length || plans.length) ? `
           <span class="calendar-record-mark" aria-hidden="true"></span>
@@ -639,6 +666,7 @@ function renderDayDetail(){
     .sort((a,b)=>(a.time||"").localeCompare(b.time||""));
   const dayShifts=shifts.filter(s=>s.startDate===selectedDate);
   const ems=getDayEmojis(selectedDate);
+  const notes=getDayNotes(selectedDate);
 
   const records=[];
 
@@ -678,16 +706,35 @@ function renderDayDetail(){
         <p class="eyebrow">SEÇİLİ GÜN</p>
         <h3>${fmtTR(day)}</h3>
       </div>
-      <button id="dayEmojiBtn" class="emoji-add-btn" type="button">＋ Emoji</button>
+      <div class="day-detail-actions">
+        <button id="dayEmojiBtn" class="emoji-add-btn" type="button">＋ Emoji</button>
+        <button id="dayNoteBtn" class="note-add-btn" type="button">＋ Not</button>
+      </div>
     </div>
 
     ${ems.length ? `
       <div class="selected-day-emojis">
         ${ems.map(e=>`
           <button class="selected-emoji-chip" data-remove-emoji="${safe(e)}" type="button" title="Emojiyi kaldır">
-            <b>${safe(e)}</b><span>×</span>
+            <b>${emojiVisual(e)}</b><span>×</span>
           </button>
         `).join("")}
+      </div>
+    ` : ""}
+
+    ${notes.length ? `
+      <div class="day-notes-block">
+        <div class="day-notes-title"><span>📝</span><strong>Notlar</strong><small>${notes.length}</small></div>
+        <div class="day-notes-list">
+          ${notes.map(n=>`
+            <article class="day-note-card">
+              <button class="day-note-main" data-note-edit="${safe(n.id)}" type="button">
+                <span>${safe(n.text).replace(/\n/g,"<br>")}</span>
+              </button>
+              <button class="day-note-delete" data-note-delete="${safe(n.id)}" type="button" aria-label="Notu sil">×</button>
+            </article>
+          `).join("")}
+        </div>
       </div>
     ` : ""}
 
@@ -697,7 +744,74 @@ function renderDayDetail(){
   `;
 
   $("#dayEmojiBtn").onclick=()=>openDayEmojiPicker(selectedDate);
+  $("#dayNoteBtn").onclick=()=>openDayNoteEditor(selectedDate);
   $$("[data-remove-emoji]",el).forEach(b=>b.onclick=()=>removeDayEmoji(selectedDate,b.dataset.removeEmoji));
+  $$("[data-note-edit]",el).forEach(b=>b.onclick=()=>openDayNoteEditor(selectedDate,b.dataset.noteEdit));
+  $$("[data-note-delete]",el).forEach(b=>b.onclick=()=>deleteDayNote(selectedDate,b.dataset.noteDelete));
+}
+
+function getDayNotes(date){
+  const v=dayNotes[date];
+  if(!v)return [];
+  return Array.isArray(v)?v:[v];
+}
+async function syncDayNotes(){
+  if(!db||!currentUser)return false;
+  try{
+    await setDoc(pairDoc("shared","dayNotes"),{values:dayNotes,updatedAt:serverTimestamp()},{merge:false});
+    markSync("● canlı");
+    return true;
+  }catch(e){
+    console.warn(e);markSync("● senkron hatası");return false;
+  }
+}
+function openDayNoteEditor(date,id=null){
+  const existing=id?getDayNotes(date).find(n=>n.id===id):null;
+  const label=new Intl.DateTimeFormat("tr-TR",{day:"numeric",month:"long",weekday:"long"}).format(new Date(date+"T12:00:00"));
+  openGeneric(`
+    <div class="modal-head">
+      <div><p class="eyebrow">TAKVİM NOTU</p><h3>${existing?"Notu düzenle":"Not ekle"}</h3></div>
+      <button class="icon-btn close-generic" type="button">×</button>
+    </div>
+    <div class="calendar-note-editor">
+      <div class="calendar-note-date">🗓️ ${safe(label)}</div>
+      <textarea id="calendarNoteText" rows="7" maxlength="800" placeholder="Bugüne küçük bir not bırak…">${safe(existing?.text||"")}</textarea>
+      <div class="calendar-note-editor-foot">
+        <small>Bu not E.log'da bu tarihe bağlı kalır.</small>
+        <button id="calendarNoteSaveBtn" class="primary-btn" type="button">${existing?"Kaydet":"Notu ekle"}</button>
+      </div>
+    </div>
+  `,()=>{
+    const input=$("#calendarNoteText");
+    setTimeout(()=>input?.focus(),80);
+    $("#calendarNoteSaveBtn").onclick=async()=>{
+      const text=input.value.trim();
+      if(!text){input.focus();return}
+      const list=getDayNotes(date);
+      if(existing){
+        const ix=list.findIndex(n=>n.id===existing.id);
+        if(ix>=0)list[ix]={...list[ix],text,updatedAt:Date.now()};
+      }else{
+        list.push({id:uuid(),text,createdAt:Date.now(),updatedAt:Date.now()});
+      }
+      dayNotes[date]=list;
+      saveLocal();
+      renderCalendar();
+      renderDayDetail();
+      $("#genericDialog").close();
+      await syncDayNotes();
+    };
+  });
+}
+async function deleteDayNote(date,id){
+  if(!confirm("Bu not silinsin mi?"))return;
+  const list=getDayNotes(date).filter(n=>n.id!==id);
+  if(list.length)dayNotes[date]=list;
+  else delete dayNotes[date];
+  saveLocal();
+  renderCalendar();
+  renderDayDetail();
+  await syncDayNotes();
 }
 
 function getDayEmojis(date){const v=dayEmojis[date];return !v?[]:(Array.isArray(v)?v:[v])}
