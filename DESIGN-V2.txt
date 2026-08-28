@@ -1,0 +1,9 @@
+E.log Design V2
+- Premium glass bottom navigation
+- New dark-sage home hero
+- Compact productivity cards
+- Refined calendar and day detail
+- Dedicated visual personality for Eroland, Work, Sport and AI
+- Native-feeling dialogs and inputs
+- Mobile spacing and motion refinements
+- Functional JS/Firebase logic preserved

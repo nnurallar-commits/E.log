@@ -1,4 +1,4 @@
-const VERSION="20260828-auth-emoji-fix2";
+const VERSION="20260828-design-v2-show";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
