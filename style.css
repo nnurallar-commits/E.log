@@ -2987,3 +2987,184 @@ body::after{
  #view-more .more-tile{min-height:125px;padding:16px!important}
  #view-more .more-tile span{font-size:15px!important}
 }
+
+
+/* =========================================================
+   E.LOG GREEN LIGHT / DARK THEME
+   Modern, minimal, green accent. No blue accents.
+   ========================================================= */
+:root{
+  --elog-bg:#f5f4ef;
+  --elog-surface:#fbfaf6;
+  --elog-surface-2:#f1f3ed;
+  --elog-card:#ffffff;
+  --elog-text:#18201b;
+  --elog-muted:#6f786f;
+  --elog-line:rgba(30,42,34,.09);
+  --elog-accent:#8fb27f;
+  --elog-accent-strong:#587d4d;
+  --elog-accent-soft:#e6f0df;
+  --elog-nav:#fbfaf6;
+  --elog-shadow:0 12px 30px rgba(34,45,37,.07);
+  --elog-radius:24px;
+}
+
+html[data-theme="dark"]{
+  --elog-bg:#0d1210;
+  --elog-surface:#141a17;
+  --elog-surface-2:#1a211d;
+  --elog-card:#171e1a;
+  --elog-text:#f3f6f2;
+  --elog-muted:#9ea79f;
+  --elog-line:rgba(255,255,255,.07);
+  --elog-accent:#a9f48d;
+  --elog-accent-strong:#c4ffae;
+  --elog-accent-soft:rgba(169,244,141,.13);
+  --elog-nav:#101512;
+  --elog-shadow:0 14px 38px rgba(0,0,0,.28);
+}
+
+/* Foundation */
+html,body{
+  background:var(--elog-bg)!important;
+  color:var(--elog-text)!important;
+}
+body{
+  transition:background-color .22s ease,color .22s ease;
+}
+.app,.shell,.page,.view,.screen,.content,.main{
+  color:var(--elog-text);
+}
+.card,.panel,.sheet,.modal-card,.settings-list,.calendar-card,
+.day-detail,.emoji-card,.memory-card,.stat-card,.more-card,
+[class*="card"]:not(.emoji-preset){
+  background:var(--elog-card)!important;
+  color:var(--elog-text)!important;
+  border-color:var(--elog-line)!important;
+  box-shadow:var(--elog-shadow);
+}
+input,textarea,select{
+  background:var(--elog-surface-2)!important;
+  color:var(--elog-text)!important;
+  border-color:var(--elog-line)!important;
+}
+input::placeholder,textarea::placeholder{
+  color:var(--elog-muted)!important;
+}
+small,.muted,.sub,.hint,.caption,.secondary{
+  color:var(--elog-muted)!important;
+}
+button{
+  -webkit-tap-highlight-color:transparent;
+}
+a,[role="button"]{
+  color:inherit;
+}
+
+/* Green accent overrides */
+.active,.selected,[aria-selected="true"],
+.nav-item.active,.bottom-nav .active,
+.calendar-day.selected,.day.selected,.date.selected,
+button.primary,.btn-primary,.save-btn{
+  --accent:var(--elog-accent);
+}
+button.primary,.btn-primary,.save-btn,.fab,
+.add-btn,.floating-add{
+  background:var(--elog-accent)!important;
+  color:#101810!important;
+  border-color:transparent!important;
+}
+html[data-theme="light"] button.primary,
+html:not([data-theme]) button.primary{
+  color:#173014!important;
+}
+.calendar-day.selected,.day.selected,.date.selected,
+.day-cell.selected,.is-selected{
+  background:var(--elog-accent-soft)!important;
+  color:var(--elog-text)!important;
+  border-color:var(--elog-accent)!important;
+}
+.nav-item.active,.bottom-nav .active,
+.nav-item.active svg,.bottom-nav .active svg{
+  color:var(--elog-accent-strong)!important;
+  fill:currentColor;
+}
+a.link,.link,.text-link{
+  color:var(--elog-accent-strong)!important;
+}
+
+/* Navigation / fixed surfaces */
+.bottom-nav,.nav-bottom,.tabbar{
+  background:color-mix(in srgb,var(--elog-nav) 92%,transparent)!important;
+  border-color:var(--elog-line)!important;
+  backdrop-filter:blur(18px);
+}
+html[data-theme="dark"] .bottom-nav,
+html[data-theme="dark"] .nav-bottom,
+html[data-theme="dark"] .tabbar{
+  box-shadow:0 -10px 30px rgba(0,0,0,.18);
+}
+
+/* Keep emojis vivid and untouched */
+.emoji-preset,.emoji-choice,.emoji-chip{
+  background:var(--elog-surface-2)!important;
+  border-color:var(--elog-line)!important;
+  color:var(--elog-text)!important;
+}
+.emoji-glyph,img[src*="elog-heart"],img[src*="woohoo-heart"]{
+  filter:none!important;
+  opacity:1!important;
+}
+
+/* Modern theme toggle */
+.elog-theme-toggle{
+  position:fixed;
+  z-index:9999;
+  top:14px;
+  right:14px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  height:38px;
+  padding:0 12px;
+  border:1px solid var(--elog-line);
+  border-radius:999px;
+  background:color-mix(in srgb,var(--elog-card) 86%,transparent);
+  color:var(--elog-text);
+  box-shadow:0 8px 22px rgba(20,30,24,.08);
+  backdrop-filter:blur(16px);
+  font:600 12px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  letter-spacing:.01em;
+}
+.elog-theme-icon{font-size:16px;line-height:1}
+.elog-theme-toggle:active{transform:scale(.97)}
+html[data-theme="dark"] .elog-theme-toggle{
+  box-shadow:0 8px 24px rgba(0,0,0,.28);
+}
+
+/* Modal overlays */
+.modal,.overlay,.dialog-backdrop{
+  background-color:rgba(0,0,0,.42);
+}
+html[data-theme="dark"] .modal,
+html[data-theme="dark"] .overlay,
+html[data-theme="dark"] .dialog-backdrop{
+  background-color:rgba(0,0,0,.68);
+}
+
+/* Remove accidental blue-ish controls */
+html[data-theme="dark"] :is(.icon-btn,.pill,.chip):not(.emoji-preset),
+html[data-theme="light"] :is(.icon-btn,.pill,.chip):not(.emoji-preset){
+  border-color:var(--elog-line)!important;
+}
+
+/* Mobile spacing so toggle doesn't cover content */
+@media(max-width:650px){
+  .elog-theme-toggle{
+    top:10px;
+    right:10px;
+    height:34px;
+    padding:0 10px;
+  }
+  .elog-theme-text{display:none}
+}

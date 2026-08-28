@@ -1,3 +1,51 @@
+
+/* E.log theme: light / dark, persisted locally */
+(function(){
+  const KEY="elog-theme-v1";
+
+  function getTheme(){
+    const saved=localStorage.getItem(KEY);
+    if(saved==="light" || saved==="dark") return saved;
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme",theme);
+    const btn=document.getElementById("elogThemeToggle");
+    if(btn){
+      const icon=btn.querySelector(".elog-theme-icon");
+      const text=btn.querySelector(".elog-theme-text");
+      const next=theme==="dark" ? "light" : "dark";
+      if(icon) icon.textContent=theme==="dark" ? "☀︎" : "☾";
+      if(text) text.textContent=theme==="dark" ? "Açık" : "Koyu";
+      btn.setAttribute("aria-label", next==="dark" ? "Koyu temaya geç" : "Açık temaya geç");
+      btn.title=btn.getAttribute("aria-label");
+    }
+    const meta=document.querySelector('meta[name="theme-color"]');
+    if(meta) meta.setAttribute("content",theme==="dark" ? "#0d1210" : "#f5f4ef");
+  }
+
+  function initTheme(){
+    applyTheme(getTheme());
+    const btn=document.getElementById("elogThemeToggle");
+    if(btn){
+      btn.addEventListener("click",()=>{
+        const current=document.documentElement.getAttribute("data-theme")==="dark" ? "dark" : "light";
+        const next=current==="dark" ? "light" : "dark";
+        localStorage.setItem(KEY,next);
+        applyTheme(next);
+      });
+    }
+  }
+
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded",initTheme,{once:true});
+  }else{
+    initTheme();
+  }
+})();
+
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getFirestore, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
