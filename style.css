@@ -2950,14 +2950,40 @@ body::after{
 .place-editor{display:grid;gap:11px}.place-editor label{display:grid;gap:5px;color:#657168;font-size:10px;font-weight:800}.place-map-box{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-radius:20px;background:linear-gradient(145deg,#e7efe4,#f8f6ee)}.place-map-box strong,.place-map-box small{display:block}.place-map-box strong{color:#294638}.place-map-box small{max-width:280px;margin-top:3px;color:#7e8981;font-size:9px;line-height:1.35}.place-map-box button{flex:0 0 auto;border:0;border-radius:999px;padding:9px 11px;background:#315442;color:#fff;font-size:10px;font-weight:800}.place-coords{display:grid;grid-template-columns:1fr 1fr;gap:8px}.place-location-message{min-height:16px;color:#64806d;font-size:10px;font-weight:800}
 @media(max-width:430px){.places-cover{min-height:165px;padding:19px}.places-cover h2{font-size:23px}.places-cover{align-items:flex-start;flex-direction:column}.place-map-box{align-items:flex-start;flex-direction:column}}
 
-/* More feature buttons: reliable tap target */
-.more-feature-btn{
-  cursor:pointer;
-  touch-action:manipulation;
-  pointer-events:auto!important;
-  position:relative;
-  z-index:2;
-}
-.more-feature-btn:active{
-  transform:scale(.985);
+/* =========================================================
+   DAHA FAZLA · FEATURE GALLERY
+   ========================================================= */
+#view-more .section-head{margin-bottom:16px}
+#view-more .section-head h2{font-family:ui-serif,Georgia,serif;font-size:42px;letter-spacing:-.045em}
+#view-more .settings-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible!important}
+#view-more .settings-list>button{margin:0!important;border:1px solid rgba(42,65,53,.075)!important;box-shadow:0 10px 25px rgba(40,58,48,.045)!important}
+#view-more .settings-list>button::after{content:"↗";right:15px;top:15px;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.55);opacity:.72}
+#view-more .more-feature{min-height:190px;align-items:flex-start!important;padding:23px!important;border-radius:29px!important;text-align:left;position:relative;overflow:hidden}
+#view-more .more-feature span{max-width:75%;font-family:ui-serif,Georgia,serif;font-size:24px!important;line-height:1.05}
+#view-more .more-month{background:radial-gradient(circle at 85% 12%,rgba(255,255,255,.7),transparent 28%),linear-gradient(145deg,#f1dfe5,#f8eee9)!important}
+#view-more .more-places{background:radial-gradient(circle at 85% 12%,rgba(255,255,255,.65),transparent 28%),linear-gradient(145deg,#dfeceb,#edf3ee)!important}
+#view-more .more-feature b{display:none}
+#view-more .more-feature::before{position:absolute;left:23px;bottom:22px;font-size:11px;font-weight:700;color:#78817b}
+#view-more .more-month::before{content:"Fotoğraflar · planlar · hikâyemiz"}
+#view-more .more-places::before{content:"Sevdiğimiz yerler haritada"}
+#view-more .more-tile{min-height:145px;align-items:flex-start!important;padding:20px!important;border-radius:25px!important;position:relative;overflow:hidden}
+#view-more .more-tile span{max-width:72%;font-size:18px!important;line-height:1.15}
+#view-more .more-sport{background:linear-gradient(145deg,#e4efe1,#f7f7ef)!important}
+#view-more .more-shift{background:linear-gradient(145deg,#e4edf5,#f6f7f4)!important}
+#view-more .more-overtime{background:linear-gradient(145deg,#f6e7d4,#faf5eb)!important}
+#view-more .more-stats{background:linear-gradient(145deg,#e2eee0,#f6f6ef)!important}
+#view-more .more-tile b{display:none}
+#view-more .more-tool{grid-column:1/-1;min-height:72px!important;border-radius:21px!important;padding:0 18px!important;background:rgba(255,254,250,.8)!important}
+#view-more .more-tool span{font-size:16px!important}
+#view-more .more-tool b{display:none}
+#view-more .more-tool::after{top:50%!important;transform:translateY(-50%)}
+#view-more .more-feature:active,#view-more .more-tile:active,#view-more .more-tool:active{transform:scale(.985)}
+@media(max-width:650px){
+ #view-more .section-head h2{font-size:36px}
+ #view-more .settings-list{gap:9px}
+ #view-more .more-feature{min-height:165px;padding:18px!important}
+ #view-more .more-feature span{font-size:21px!important}
+ #view-more .more-feature::before{left:18px;bottom:18px;max-width:70%;font-size:9px}
+ #view-more .more-tile{min-height:125px;padding:16px!important}
+ #view-more .more-tile span{font-size:15px!important}
 }

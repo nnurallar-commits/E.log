@@ -1950,28 +1950,15 @@ document.addEventListener("click",e=>{
 });
 
 
-function wireMoreFeatureButtons(){
-  const monthBtn=$("#monthReplayBtn");
-  if(monthBtn){
-    monthBtn.onclick=(e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      openMonthReplay();
-    };
-  }
-  const placesBtn=$("#ourPlacesBtn");
-  if(placesBtn){
-    placesBtn.onclick=(e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      openOurPlaces();
-    };
-  }
+function wireRedesignedMore(){
+  const m=document.getElementById("monthReplayBtn");
+  if(m && typeof openMonthReplay==="function")m.onclick=(e)=>{e.preventDefault();openMonthReplay()};
+  const p=document.getElementById("ourPlacesBtn");
+  if(p && typeof openOurPlaces==="function")p.onclick=(e)=>{e.preventDefault();openOurPlaces()};
 }
-document.addEventListener("DOMContentLoaded",()=>setTimeout(wireMoreFeatureButtons,0));
+document.addEventListener("DOMContentLoaded",()=>setTimeout(wireRedesignedMore,50));
 document.addEventListener("click",e=>{
-  const more=e.target.closest?.('[data-view="more"],[data-target="more"],[data-nav="more"]');
-  if(more)setTimeout(wireMoreFeatureButtons,0);
+  if(e.target.closest?.('[data-view="more"],[data-target="more"],[data-nav="more"]'))setTimeout(wireRedesignedMore,50);
 });
 
 initFirebase();
