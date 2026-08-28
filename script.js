@@ -1274,7 +1274,50 @@ async function addItem(
   saveLocal();
 
   renderAll();
+function renderShiftMini(){
 
+  const target = $("#shiftMini");
+
+  if(!target) return;
+
+  const now = new Date();
+
+  const upcoming = shifts
+    .map(shift => {
+
+      const startTime =
+        time24(shift.startTime || "08:30");
+
+      const d = new Date(
+        `${shift.startDate}T${startTime}:00`
+      );
+
+      return {
+        ...shift,
+        _date:d
+      };
+
+    })
+    .filter(shift =>
+      !Number.isNaN(shift._date.getTime())
+      &&
+      shift._date >= now
+    )
+    .sort((a,b) => a._date - b._date);
+
+  if(!upcoming.length){
+
+    target.textContent =
+      "Yaklaşan nöbet yok";
+
+    return;
+  }
+
+  const next = upcoming[0];
+
+  target.textContent =
+    `${formatDateTR(next.startDate)} · 08:30 → ertesi gün 08:30`;
+}
   await cloudSave(
     name,
     item
@@ -5087,7 +5130,7 @@ function renderAll(){
 
 
   renderProductivityHome();
-
+renderShiftMini();
   renderTodayTimeline();
 
   renderCalendar();
