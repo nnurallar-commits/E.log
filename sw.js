@@ -1,4 +1,4 @@
-const VERSION="20260828-green-dark-readable";
+const VERSION="20260828-real-openai-ai";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",

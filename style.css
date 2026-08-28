@@ -3251,3 +3251,8 @@ html[data-theme="dark"] img[src*="elog-heart"],
 html[data-theme="dark"] img[src*="woohoo-heart"]{
   filter:none!important;
 }
+
+/* REAL AI */
+.ai-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.real-ai-chip{background:var(--elog-accent-soft)!important;color:var(--elog-accent-strong)!important}
+.ai-typing{opacity:.72;font-style:italic}

@@ -1565,10 +1565,105 @@ async function askAI(message){
 
   addBubble(text,"user");
 
-  // E.log için önce kendi takvim verisini doğal şekilde yorumla.
-  // "yarın", "nöbetim?", "mesaim?" gibi şeyler internet/API beklemeden cevaplanır.
-  const answer=simpleLocalAI(text);
-  setTimeout(()=>addBubble(answer,"ai"),120);
+  const typing=document.createElement("div");
+  typing.className="bubble ai ai-typing";
+  typing.textContent="Düşünüyorum…";
+  $("#chat").appendChild(typing);
+  typing.scrollIntoView({behavior:"smooth",block:"end"});
+
+  const status=$("#realAiStatus");
+  if(status)status.textContent="✦ düşünüyor";
+
+  try{
+    const context=buildRealAIContext();
+    const history=[...$("#chat").querySelectorAll(".bubble")]
+      .filter(x=>!x.classList.contains("ai-typing"))
+      .slice(-12)
+      .map(x=>({
+        role:x.classList.contains("user")?"user":"assistant",
+        content:x.textContent||""
+      }));
+
+    const r=await fetch("/api/ai",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message:text,context,history})
+    });
+
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data?.error||`AI ${r.status}`);
+
+    typing.remove();
+    addBubble(data.reply||"Şu an cevap üretemedim.","ai");
+    if(status)status.textContent="✦ Gerçek AI";
+  }catch(err){
+    console.warn("Real AI fallback:",err);
+    typing.remove();
+
+    // GitHub Pages / backend henüz bağlı değilse E.log'ın eski yerel zekâsı ölmez.
+    // Kullanıcıya aynı anda teknik hata dökmek yerine işine yarayan cevabı verir.
+    addBubble(localSmartReply(text),"ai");
+    if(status){
+      status.textContent="○ yerel mod";
+      status.title="Gerçek AI backend'i bağlı değil. Vercel üzerinde /api/ai çalıştırılmalı.";
+    }
+  }
+}
+
+function buildRealAIContext(){
+  const now=today();
+  const cutoffPast=new Date();
+  cutoffPast.setDate(cutoffPast.getDate()-30);
+  const pastIso=isoDate(cutoffPast);
+
+  const cleanEntry=e=>({
+    date:e.date||"",time:e.time||"",endTime:e.endTime||"",
+    title:e.title||"",note:e.note||"",category:e.category||"",kind:e.kind||"",done:!!e.done
+  });
+  const cleanShift=s=>({startDate:s.startDate||"",endDate:s.endDate||""});
+  const cleanMemory=m=>({date:m.date||"",title:m.title||"",note:m.note||"",category:m.category||""});
+  const cleanSport=s=>({date:s.date||"",weight:s.weight??"",fat:s.fat??"",note:s.note||""});
+
+  const relevantEntries=[...entries]
+    .filter(e=>e.date>=pastIso)
+    .sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")))
+    .slice(-80)
+    .map(cleanEntry);
+
+  const relevantShifts=[...shifts]
+    .filter(s=>(s.endDate||s.startDate||"")>=pastIso)
+    .sort((a,b)=>(a.startDate||"").localeCompare(b.startDate||""))
+    .slice(-40)
+    .map(cleanShift);
+
+  const relevantMemories=[...memories]
+    .filter(m=>(m.date||"")>=pastIso)
+    .sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+    .slice(-30)
+    .map(cleanMemory);
+
+  const notes=Object.entries(dayNotes||{})
+    .filter(([date])=>date>=pastIso)
+    .sort((a,b)=>a[0].localeCompare(b[0]))
+    .slice(-35);
+
+  const emojis=Object.entries(dayEmojis||{})
+    .filter(([date])=>date>=pastIso)
+    .sort((a,b)=>a[0].localeCompare(b[0]))
+    .slice(-35);
+
+  return {
+    today:now,
+    user:{name:profile?.name||"",role:profile?.role||""},
+    entries:relevantEntries,
+    shifts:relevantShifts,
+    routines:(routines||[]).slice(0,30),
+    memories:relevantMemories,
+    sportMetrics:[...sportMetrics].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).slice(-15).map(cleanSport),
+    dayNotes:notes,
+    dayEmojis:emojis,
+    places:(ourPlaces||[]).slice(-25).map(p=>({name:p.name||p.title||"",category:p.category||"",note:p.note||"",address:p.address||""}))
+  };
 }
 function addBubble(text,type){const d=document.createElement("div");d.className=`bubble ${type}`;d.textContent=text;$("#chat").appendChild(d);d.scrollIntoView({behavior:"smooth",block:"end"})}
 
