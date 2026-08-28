@@ -2949,3 +2949,15 @@ body::after{
 .places-empty{min-height:220px;display:grid;place-items:center;align-content:center;text-align:center;margin-top:12px;padding:30px;border-radius:25px;background:#f5f3ec}.places-empty span{font-size:32px}.places-empty strong{margin-top:8px;color:#294638}.places-empty p{max-width:260px;color:#858d87;font-size:11px}
 .place-editor{display:grid;gap:11px}.place-editor label{display:grid;gap:5px;color:#657168;font-size:10px;font-weight:800}.place-map-box{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-radius:20px;background:linear-gradient(145deg,#e7efe4,#f8f6ee)}.place-map-box strong,.place-map-box small{display:block}.place-map-box strong{color:#294638}.place-map-box small{max-width:280px;margin-top:3px;color:#7e8981;font-size:9px;line-height:1.35}.place-map-box button{flex:0 0 auto;border:0;border-radius:999px;padding:9px 11px;background:#315442;color:#fff;font-size:10px;font-weight:800}.place-coords{display:grid;grid-template-columns:1fr 1fr;gap:8px}.place-location-message{min-height:16px;color:#64806d;font-size:10px;font-weight:800}
 @media(max-width:430px){.places-cover{min-height:165px;padding:19px}.places-cover h2{font-size:23px}.places-cover{align-items:flex-start;flex-direction:column}.place-map-box{align-items:flex-start;flex-direction:column}}
+
+/* More feature buttons: reliable tap target */
+.more-feature-btn{
+  cursor:pointer;
+  touch-action:manipulation;
+  pointer-events:auto!important;
+  position:relative;
+  z-index:2;
+}
+.more-feature-btn:active{
+  transform:scale(.985);
+}

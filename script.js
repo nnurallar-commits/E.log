@@ -1949,6 +1949,31 @@ document.addEventListener("click",e=>{
   if(e.target.closest?.("#ourPlacesBtn"))openOurPlaces();
 });
 
+
+function wireMoreFeatureButtons(){
+  const monthBtn=$("#monthReplayBtn");
+  if(monthBtn){
+    monthBtn.onclick=(e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      openMonthReplay();
+    };
+  }
+  const placesBtn=$("#ourPlacesBtn");
+  if(placesBtn){
+    placesBtn.onclick=(e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      openOurPlaces();
+    };
+  }
+}
+document.addEventListener("DOMContentLoaded",()=>setTimeout(wireMoreFeatureButtons,0));
+document.addEventListener("click",e=>{
+  const more=e.target.closest?.('[data-view="more"],[data-target="more"],[data-nav="more"]');
+  if(more)setTimeout(wireMoreFeatureButtons,0);
+});
+
 initFirebase();
     clearTimeout(syncTimer);
     const el=$("#syncStatus");

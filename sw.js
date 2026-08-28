@@ -1,4 +1,4 @@
-const VERSION="20260828-bizim-yerlerimiz";
+const VERSION="20260828-more-buttons-click-fix";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
