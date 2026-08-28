@@ -16,7 +16,7 @@ const time24=v=>String(v||"").replace(/\s*(AM|PM)\s*/ig,"");
 
 let app,auth,db,functions,storage,currentUser=null,profile=null;
 let calendarCursor=new Date(),selectedDate=today();
-let entries=[],shifts=[],routines=[],memories=[],rules=[],dayEmojis={};
+let entries=[],shifts=[],routines=[],memories=[],rules=[],sportMetrics=[],dayEmojis={};
 let unsubs=[],activeMemoryFilter="all";
 
 const LOCAL="elog-stable-v2";
@@ -47,7 +47,7 @@ function loadLocal(){
     }
   }catch{}
 
-  let merged={entries:[],shifts:[],routines:[],memories:[],rules:[]};
+  let merged={entries:[],shifts:[],routines:[],memories:[],rules:[],sportMetrics:[]};
 
   const mergeById=(target,items=[])=>{
     const map=new Map(target.map(x=>[x.id||JSON.stringify(x),x]));
@@ -63,6 +63,7 @@ function loadLocal(){
       merged.routines=mergeById(merged.routines,x.routines||[]);
       merged.memories=mergeById(merged.memories,x.memories||[]);
       merged.rules=mergeById(merged.rules,x.rules||[]);
+      merged.sportMetrics=mergeById(merged.sportMetrics,x.sportMetrics||[]);
     }catch{}
   }
 
@@ -71,6 +72,7 @@ function loadLocal(){
   routines=merged.routines;
   memories=merged.memories;
   rules=merged.rules;
+  sportMetrics=merged.sportMetrics;
 
   // Normalize old shift records.
   shifts=shifts.map(x=>({
@@ -99,11 +101,11 @@ function loadLocal(){
   saveLocal();
 }
 function saveLocal(){
-  localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules}));
+  localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics}));
   localStorage.setItem(sharedLocalKey(EMOJI_KEY),JSON.stringify(dayEmojis));
 }
-function arr(name){return ({entries,shifts,routines,memories,rules})[name]}
-function setArr(name,v){if(name==="entries")entries=v;if(name==="shifts")shifts=v;if(name==="routines")routines=v;if(name==="memories")memories=v;if(name==="rules")rules=v}
+function arr(name){return ({entries,shifts,routines,memories,rules,sportMetrics})[name]}
+function setArr(name,v){if(name==="entries")entries=v;if(name==="shifts")shifts=v;if(name==="routines")routines=v;if(name==="memories")memories=v;if(name==="rules")rules=v;if(name==="sportMetrics")sportMetrics=v}
 function mergeCloud(name,cloud){
   const localPending=(arr(name)||[]).filter(x=>x._pending);
   const m=new Map(cloud.map(x=>[x.id,x]));
@@ -259,7 +261,7 @@ function pairCol(name){return collection(db,"pairs",pairId(),name)}
 function pairDoc(name,id){return doc(db,"pairs",pairId(),name,id)}
 function startRealtime(){
   clearListeners();
-  [["entries","date"],["shifts","startDate"],["routines","name"],["memories","date"],["rules","name"]].forEach(([name,sort])=>{
+  [["entries","date"],["shifts","startDate"],["routines","name"],["memories","date"],["rules","name"],["sportMetrics","date"]].forEach(([name,sort])=>{
     try{
       const q=query(pairCol(name),orderBy(sort));
       unsubs.push(onSnapshot(q,snap=>{mergeCloud(name,snap.docs.map(d=>({id:d.id,...d.data(),_pending:false})));markSync("● canlı")},err=>{console.warn(err);markSync("● senkron hatası")}));
@@ -282,11 +284,159 @@ async function cloudSave(name,item){
   catch(e){console.warn(e);item._pending=true;saveLocal();markSync("● senkron hatası");return false}
 }
 async function flushPending(){
-  for(const name of ["entries","shifts","routines","memories","rules"]){
+  for(const name of ["entries","shifts","routines","memories","rules","sportMetrics"]){
     for(const item of (arr(name)||[]).filter(x=>x._pending))await cloudSave(name,item);
   }
 }
 
+
+
+/* ===== Spor & Vücut ===== */
+function sportNum(v){
+  const n=Number(String(v??"").replace(",","."));
+  return Number.isFinite(n)?n:null;
+}
+function sportSorted(){
+  return [...sportMetrics]
+    .filter(x=>x.date && sportNum(x.weight)!==null && sportNum(x.fat)!==null)
+    .sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+}
+function signedDelta(n,unit){
+  if(!Number.isFinite(n) || Math.abs(n)<0.05)return `Değişim yok`;
+  const sign=n>0?"+":"";
+  return `${sign}${n.toFixed(1).replace(".",",")} ${unit}`;
+}
+function renderSport(){
+  const weightNow=$("#sportWeightNow");
+  const fatNow=$("#sportFatNow");
+  const weightDelta=$("#sportWeightDelta");
+  const fatDelta=$("#sportFatDelta");
+  const trend=$("#sportTrend");
+  const history=$("#sportHistory");
+  if(!weightNow||!fatNow||!weightDelta||!fatDelta||!trend||!history)return;
+
+  const list=sportSorted();
+  const latest=list.at(-1);
+  const prev=list.at(-2);
+
+  if(!latest){
+    weightNow.textContent="—";
+    fatNow.textContent="—";
+    weightDelta.textContent="Henüz ölçüm yok";
+    fatDelta.textContent="Henüz ölçüm yok";
+    $("#sportProgressHint").textContent="Kayıt ekledikçe görünür";
+    trend.innerHTML='<div class="sport-empty"><span>↗</span><strong>İlk ölçümünü ekle</strong><small>Kilo ve yağ oranı burada birlikte görünecek.</small></div>';
+    history.innerHTML='<div class="empty">Henüz spor ölçümü yok.</div>';
+    return;
+  }
+
+  const lw=sportNum(latest.weight), lf=sportNum(latest.fat);
+  weightNow.textContent=`${lw.toFixed(1).replace(".",",")} kg`;
+  fatNow.textContent=`%${lf.toFixed(1).replace(".",",")}`;
+
+  if(prev){
+    const pw=sportNum(prev.weight), pf=sportNum(prev.fat);
+    const dw=lw-pw, df=lf-pf;
+    weightDelta.textContent=`Önceki ölçüme göre ${signedDelta(dw,"kg")}`;
+    fatDelta.textContent=`Önceki ölçüme göre ${signedDelta(df,"%")}`;
+    weightDelta.className=dw<0?"good":dw>0?"up":"";
+    fatDelta.className=df<0?"good":df>0?"up":"";
+  }else{
+    weightDelta.textContent="İlk ölçüm";
+    fatDelta.textContent="İlk ölçüm";
+  }
+
+  const recent=list.slice(-8);
+  const weights=recent.map(x=>sportNum(x.weight));
+  const fats=recent.map(x=>sportNum(x.fat));
+  const minW=Math.min(...weights), maxW=Math.max(...weights);
+  const minF=Math.min(...fats), maxF=Math.max(...fats);
+  const scale=(v,min,max)=>max===min?58:24+((v-min)/(max-min))*58;
+
+  trend.innerHTML=`
+    <div class="sport-chart-legend"><span><i class="legend-weight"></i>Kilo</span><span><i class="legend-fat"></i>Yağ %</span></div>
+    <div class="sport-chart">
+      ${recent.map((x,i)=>{
+        const w=sportNum(x.weight),f=sportNum(x.fat);
+        return `<div class="sport-chart-col" title="${safe(x.date)} · ${w.toFixed(1)} kg · %${f.toFixed(1)}">
+          <div class="sport-bars">
+            <span class="sport-bar weight" style="height:${scale(w,minW,maxW)}%"></span>
+            <span class="sport-bar fat" style="height:${scale(f,minF,maxF)}%"></span>
+          </div>
+          <small>${safe(x.date.slice(5).replace("-","/"))}</small>
+        </div>`;
+      }).join("")}
+    </div>`;
+  $("#sportProgressHint").textContent=`Son ${recent.length} ölçüm`;
+
+  history.innerHTML=[...list].reverse().map(x=>`
+    <article class="sport-history-row">
+      <button class="sport-history-main" data-sport-edit="${safe(x.id)}" type="button">
+        <span class="sport-date-badge">${safe(formatDateTR(x.date))}</span>
+        <span class="sport-history-values">
+          <strong>${sportNum(x.weight).toFixed(1).replace(".",",")} kg</strong>
+          <small>%${sportNum(x.fat).toFixed(1).replace(".",",")} yağ${x.note?` · ${safe(x.note)}`:""}</small>
+        </span>
+      </button>
+      <button class="icon-btn sport-delete" data-sport-delete="${safe(x.id)}" type="button" aria-label="Sil">×</button>
+    </article>
+  `).join("");
+
+  $$("[data-sport-edit]",history).forEach(b=>b.onclick=()=>openSportForm(b.dataset.sportEdit));
+  $$("[data-sport-delete]",history).forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.sportDelete;
+    if(!confirm("Bu ölçüm silinsin mi?"))return;
+    sportMetrics=sportMetrics.filter(x=>x.id!==id);
+    saveLocal();renderSport();
+    if(db)try{await deleteDoc(pairDoc("sportMetrics",id));markSync("● canlı")}catch(e){console.warn(e);markSync("● senkron hatası")}
+  });
+}
+function openSportForm(id=null){
+  const item=id?sportMetrics.find(x=>x.id===id):null;
+  $("#sportDialogTitle").textContent=item?"Ölçümü düzenle":"Yeni ölçüm";
+  $("#sportEditId").value=item?.id||"";
+  $("#sportDate").value=item?.date||today();
+  $("#sportWeight").value=item?.weight??"";
+  $("#sportFat").value=item?.fat??"";
+  $("#sportNote").value=item?.note||"";
+  $("#sportFormMsg").textContent="";
+  $("#sportDialog").showModal();
+  setTimeout(()=>$("#sportWeight")?.focus(),80);
+}
+async function saveSportForm(e){
+  e.preventDefault();
+  const id=$("#sportEditId").value||uuid();
+  const weight=sportNum($("#sportWeight").value);
+  const fat=sportNum($("#sportFat").value);
+  const date=$("#sportDate").value;
+  if(!date||weight===null||fat===null){
+    $("#sportFormMsg").textContent="Kilo ve yağ oranını doldur.";
+    return;
+  }
+  if(weight<20||weight>300||fat<2||fat>70){
+    $("#sportFormMsg").textContent="Değerleri kontrol et.";
+    return;
+  }
+  const old=sportMetrics.find(x=>x.id===id);
+  const item={
+    ...(old||{}),
+    id,date,
+    weight:Number(weight.toFixed(1)),
+    fat:Number(fat.toFixed(1)),
+    note:$("#sportNote").value.trim(),
+    _pending:true
+  };
+  const ix=sportMetrics.findIndex(x=>x.id===id);
+  if(ix>=0)sportMetrics[ix]=item;else sportMetrics.push(item);
+  saveLocal();renderSport();
+  $("#sportDialog").close();
+  await cloudSave("sportMetrics",item);
+}
+function wireSport(){
+  $("#sportAddBtn")?.addEventListener("click",()=>openSportForm());
+  $("#sportForm")?.addEventListener("submit",saveSportForm);
+  $(".close-sport-dialog")?.addEventListener("click",()=>$("#sportDialog")?.close());
+}
 
 function nextScheduledItem(){
   const now=new Date(),c=[];
@@ -311,7 +461,7 @@ function renderAll(){
   renderProductivityHome();
   if($("#todayLabel"))$("#todayLabel").textContent=fmtTR(new Date());
   if($("#heroGreeting"))$("#heroGreeting").textContent=`Merhaba ${profile?.name||"Erol"} 👋`;
-  renderToday();renderCalendar();renderMemories(activeMemoryFilter);renderSmart();renderShiftMini();renderWorkPage();checkReminders();checkShiftNotifications();
+  renderToday();renderCalendar();renderMemories(activeMemoryFilter);renderSmart();renderShiftMini();renderWorkPage();renderSport();checkReminders();checkShiftNotifications();
 }
 function categoryName(c){return ({work:"İş",sport:"Spor",food:"Yemek",us:"Nilsu ♡",personal:"Kişisel",general:"Genel"})[c]||"Genel"}
 function categoryIcon(c){return ({work:"💼",sport:"🏋️",food:"🍽️",us:"❤️",personal:"✨",general:"•"})[c]||"•"}
@@ -1193,7 +1343,7 @@ function openNotifications(){openGeneric(`<div class="modal-head"><h3>🔔 Bildi
 function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görünümü</h3><button class="icon-btn close-generic">×</button></div><div class="panel-row"><strong>Pair ID</strong><small>${safe(pairId())}</small></div>`)}
 function openModule(n){if(n==="shifts")openShifts();if(n==="overtime")openOvertime();if(n==="pair")openPairInfo();if(n==="routines")openRoutines();if(n==="brain")openBrain();if(n==="stats")openStats();if(n==="notifications")openNotifications();if(n==="partner")openPartner();if(n==="eroland")switchView("eroland")}
 function openGeneric(html,after){$("#genericContent").innerHTML=html;$("#genericDialog").showModal();$(".close-generic")?.addEventListener("click",()=>$("#genericDialog").close());after?.()}
-function switchView(name){const t=document.getElementById(`view-${name}`);if(!t)return;$$(".view").forEach(v=>v.classList.remove("active"));t.classList.add("active");$$(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="calendar")renderCalendar();if(name==="shifts")renderWorkPage();if(name==="eroland")renderMemories(activeMemoryFilter);window.scrollTo(0,0)}
+function switchView(name){const t=document.getElementById(`view-${name}`);if(!t)return;$$(".view").forEach(v=>v.classList.remove("active"));t.classList.add("active");$$(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="calendar")renderCalendar();if(name==="shifts")renderWorkPage();if(name==="eroland")renderMemories(activeMemoryFilter);if(name==="sport")renderSport();window.scrollTo(0,0)}
 async function googleLogin(){const p=new GoogleAuthProvider();try{/iPhone|iPad|Android/i.test(navigator.userAgent)?await signInWithRedirect(auth,p):await signInWithPopup(auth,p)}catch(e){$("#authMessage").textContent=e.message}}
 
 function wire(){
@@ -1271,6 +1421,7 @@ async function boot(){
   try{
     wire();
     wireWorkPage();
+    wireSport();
   }catch(e){
     console.error("Arayüz bağlantı hatası:",e);
   }
@@ -1294,7 +1445,7 @@ setInterval(()=>{flushPending();checkReminders();checkShiftNotifications()},60*6
 
 document.addEventListener("DOMContentLoaded",()=>{
   $("#quickPlanBtn")?.addEventListener("click",()=>$("#quickAddBtn")?.click());
-  $("#quickSportBtn")?.addEventListener("click",()=>{$("#quickAddBtn")?.click();setTimeout(()=>{if($("#entryTitle"))$("#entryTitle").value="Spor"},60)});
+  $("#quickSportBtn")?.addEventListener("click",()=>switchView("sport"));
   $("#quickMemoryBtn")?.addEventListener("click",()=>{switchView("eroland");setTimeout(()=>$("#addMemoryBtn")?.click(),80)});
   $("#nextItemCard")?.addEventListener("click",()=>switchView("calendar"));
   setTimeout(renderProductivityHome,300);
@@ -1314,14 +1465,7 @@ document.addEventListener("click", function(e){
 
   if(btn.id==="quickSportBtn"){
     e.preventDefault(); e.stopPropagation();
-    const q=document.getElementById("quickAddBtn");
-    if(q){
-      q.click();
-      setTimeout(()=>{
-        const t=document.getElementById("entryTitle");
-        if(t){t.value="Spor";t.dispatchEvent(new Event("input",{bubbles:true}));}
-      },100);
-    }
+    switchView("sport");
     return;
   }
 

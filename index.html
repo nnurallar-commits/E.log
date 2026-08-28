@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta name="elog-version" content="20260828-eroland-banner-kids1">
+  <meta name="elog-version" content="20260828-sport-pro1">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#23352b" />
   <title>E.log</title>
-  <link rel="manifest" href="manifest.json?v=20260828-eroland-banner-kids1" />
-  <link rel="stylesheet" href="style.css?v=20260828-eroland-banner-kids1" />
+  <link rel="manifest" href="manifest.json?v=20260828-sport-pro1" />
+  <link rel="stylesheet" href="style.css?v=20260828-sport-pro1" />
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260827-logo-final3">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-logo-final3">
@@ -165,6 +165,53 @@
         <div id="memoryGrid" class="memory-grid"></div>
       </section>
 
+
+      <section id="view-sport" class="view sport-view">
+        <div class="section-head sport-head">
+          <div><p class="eyebrow">SPOR & VÜCUT</p><h2>Gelişim</h2></div>
+          <button id="sportAddBtn" class="primary-btn small" type="button">+ Ölçüm</button>
+        </div>
+
+        <section class="sport-hero">
+          <div class="sport-hero-copy">
+            <span class="tag">E.log Fit</span>
+            <h3>Rakamları değil, gelişimi takip et.</h3>
+            <p>Kilo ve yağ oranını tarih tarih kaydet. Değişimi E.log senin için özetlesin.</p>
+          </div>
+          <div class="sport-ring" aria-hidden="true"><span>↗</span></div>
+        </section>
+
+        <div class="sport-metric-grid">
+          <article class="sport-metric-card">
+            <span class="sport-metric-icon">⚖️</span>
+            <small>Güncel kilo</small>
+            <strong id="sportWeightNow">—</strong>
+            <p id="sportWeightDelta">Henüz ölçüm yok</p>
+          </article>
+          <article class="sport-metric-card">
+            <span class="sport-metric-icon">◔</span>
+            <small>Yağ oranı</small>
+            <strong id="sportFatNow">—</strong>
+            <p id="sportFatDelta">Henüz ölçüm yok</p>
+          </article>
+        </div>
+
+        <section class="sport-progress-card">
+          <div class="section-head compact">
+            <div><p class="eyebrow">SON ÖLÇÜMLER</p><h3>Gelişim çizgisi</h3></div>
+            <small id="sportProgressHint">Kayıt ekledikçe görünür</small>
+          </div>
+          <div id="sportTrend" class="sport-trend"></div>
+        </section>
+
+        <section class="sport-history-card">
+          <div class="section-head compact">
+            <div><p class="eyebrow">GEÇMİŞ</p><h3>Ölçüm geçmişi</h3></div>
+          </div>
+          <div id="sportHistory" class="sport-history"></div>
+        </section>
+      </section>
+
       <section id="view-ai" class="view ai-view">
         <div class="section-head">
           <div><p class="eyebrow">E.log AI</p><h2>Seni tanıyan asistan</h2></div>
@@ -180,6 +227,7 @@
       <section id="view-more" class="view">
         <div class="section-head"><div><p class="eyebrow">E.log</p><h2>Daha fazla</h2></div></div>
         <div class="settings-list">
+          <button data-go-view="sport" type="button"><span>🏋️ Spor & Vücut</span><b>›</b></button>
           <button data-go-view="shifts" type="button"><span>🩻 Nöbetlerim</span><b>›</b></button>
           <button data-open="overtime" type="button"><span>💼 Ekstra Mesai</span><b>›</b></button>
           <button data-open="pair" type="button"><span>🔗 Ortak E.log</span><b>›</b></button>
@@ -202,6 +250,32 @@
       <button class="nav-btn" data-view="more" type="button"><span>•••</span><small>Daha fazla</small></button>
     </nav>
   </div>
+
+
+  <dialog id="sportDialog" class="modal">
+    <form id="sportForm" class="modal-card sport-form-card">
+      <div class="modal-head">
+        <div><p class="eyebrow">SPOR & VÜCUT</p><h3 id="sportDialogTitle">Yeni ölçüm</h3></div>
+        <button class="icon-btn close-sport-dialog" type="button">×</button>
+      </div>
+      <input id="sportEditId" type="hidden">
+      <label>Tarih<input id="sportDate" type="date" required></label>
+      <div class="sport-form-grid">
+        <label>
+          <span>Kilo <small>kg</small></span>
+          <input id="sportWeight" type="number" inputmode="decimal" min="20" max="300" step="0.1" placeholder="Örn. 78.4" required>
+        </label>
+        <label>
+          <span>Yağ oranı <small>%</small></span>
+          <input id="sportFat" type="number" inputmode="decimal" min="2" max="70" step="0.1" placeholder="Örn. 18.2" required>
+        </label>
+      </div>
+      <label>Not <small>(isteğe bağlı)</small><input id="sportNote" maxlength="100" placeholder="Örn. Sabah, aç karnına"></label>
+      <div class="sport-form-tip">Aynı koşullarda ölçmek, değişimi daha anlamlı gösterir.</div>
+      <button class="primary-btn full" type="submit">Ölçümü kaydet</button>
+      <p id="sportFormMsg" class="form-message"></p>
+    </form>
+  </dialog>
 
   <dialog id="entryDialog" class="modal">
     <form id="entryForm" class="modal-card">
@@ -226,6 +300,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="script.js?v=20260828-eroland-banner-kids1"></script>
+  <script type="module" src="script.js?v=20260828-sport-pro1"></script>
 </body>
 </html>
