@@ -918,3 +918,161 @@ input:focus,textarea:focus,select:focus{
   }
   .calendar-toolbar strong{font-size:18px}
 }
+
+
+/* ===== Eroland media + visible edit controls ===== */
+.memory-grid{
+  align-items:start;
+}
+
+.memory-card{
+  padding:0!important;
+  overflow:hidden!important;
+  min-height:0!important;
+  background:var(--paper,#fffdf8);
+}
+
+.memory-main{
+  appearance:none;
+  border:0;
+  padding:0;
+  margin:0;
+  background:transparent;
+  color:inherit;
+  text-align:left;
+  width:100%;
+  cursor:pointer;
+  display:block;
+}
+
+.memory-cover-wrap{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/10;
+  overflow:hidden;
+  background:linear-gradient(145deg,#edf2e9,#f6f1e7);
+}
+
+.memory-cover{
+  width:100%!important;
+  height:100%!important;
+  display:block!important;
+  object-fit:cover!important;
+  border-radius:0!important;
+  margin:0!important;
+  background:#e8ece5;
+}
+
+.memory-no-media{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(145deg,#edf2e9,#f6f1e7);
+}
+
+.memory-no-media span{
+  font-size:42px;
+  color:var(--deep,#29483a);
+}
+
+.memory-heart{
+  position:absolute;
+  left:12px;
+  top:12px;
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  background:rgba(255,253,248,.92);
+  backdrop-filter:blur(8px);
+  font-size:21px;
+  box-shadow:0 6px 18px rgba(36,54,46,.12);
+}
+
+.memory-card-body{
+  padding:14px 16px 12px;
+}
+
+.memory-card-body h4{
+  margin:9px 0 5px!important;
+  font-size:18px;
+}
+
+.memory-note-preview{
+  margin:0 0 7px!important;
+  color:var(--muted);
+  font-size:13px!important;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+.memory-date{
+  margin:0!important;
+  font-size:12px!important;
+  color:var(--muted);
+}
+
+.memory-card-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  padding:0 12px 12px;
+}
+
+.memory-action-btn{
+  border:1px solid var(--line);
+  background:#f3f6ef;
+  color:var(--green);
+  min-height:40px;
+  border-radius:13px;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.memory-action-btn.danger{
+  background:#fbf2ef;
+  color:#8a4d45;
+  border-color:#ead8d3;
+}
+
+.memory-delete-modal{
+  color:#8a4d45!important;
+}
+
+.memory-modal-media{
+  display:grid;
+  gap:10px;
+}
+
+.media-error .memory-cover-wrap:after{
+  content:"Fotoğraf yüklenemedi";
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  color:var(--muted);
+  font-size:12px;
+}
+
+/* AI daha sade: sohbet balonları okunaklı */
+#view-ai .chat{
+  gap:12px;
+}
+
+#view-ai .bubble{
+  max-width:82%;
+}
+
+@media(max-width:520px){
+  .memory-grid{
+    grid-template-columns:1fr!important;
+  }
+  .memory-cover-wrap{
+    aspect-ratio:16/9;
+  }
+}

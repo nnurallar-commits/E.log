@@ -610,6 +610,56 @@ function openShifts(){
   });
 }
 
+
+function normalizeMemoryMedia(m){
+  if(!m) return [];
+
+  const out=[];
+
+  const pushMedia=(url,type="image",name="")=>{
+    if(!url || typeof url!=="string") return;
+    if(out.some(x=>x.url===url)) return;
+    out.push({url,type:type||"image",name:name||""});
+  };
+
+  if(Array.isArray(m.media)){
+    m.media.forEach(x=>{
+      if(typeof x==="string") pushMedia(x,"image");
+      else if(x?.url) pushMedia(x.url,x.type||"image",x.name||"");
+      else if(x?.downloadURL) pushMedia(x.downloadURL,x.type||"image",x.name||"");
+    });
+  }
+
+  // Eski sürümlerde kullanılmış olabilecek alanları da oku
+  pushMedia(m.photoURL,"image");
+  pushMedia(m.photoUrl,"image");
+  pushMedia(m.imageURL,"image");
+  pushMedia(m.imageUrl,"image");
+  pushMedia(m.image,"image");
+  pushMedia(m.photo,"image");
+
+  if(m.videoURL) pushMedia(m.videoURL,"video");
+  if(m.videoUrl) pushMedia(m.videoUrl,"video");
+  if(m.video) pushMedia(m.video,"video");
+
+  if(Array.isArray(m.photos)) m.photos.forEach(x=>pushMedia(typeof x==="string"?x:x?.url,"image"));
+  if(Array.isArray(m.images)) m.images.forEach(x=>pushMedia(typeof x==="string"?x:x?.url,"image"));
+
+  return out;
+}
+
+function memoryCoverHtml(m){
+  const media=normalizeMemoryMedia(m);
+  const first=media[0];
+  if(!first) return `<div class="memory-no-media"><span>${safe(m?.emoji||"♡")}</span></div>`;
+
+  if(first.type==="video"){
+    return `<video class="memory-cover" src="${safe(first.url)}" muted playsinline preload="metadata"></video>`;
+  }
+
+  return `<img class="memory-cover" src="${safe(first.url)}" alt="${safe(m?.title||"Eroland anısı")}" loading="lazy" onerror="this.closest('.memory-card')?.classList.add('media-error');this.style.display='none'">`;
+}
+
 function memoryTypeName(t){return ({memory:"Anı",plan:"Plan",place:"Yer"})[t]||"Anı"}
 function calcReminder(date,mode,custom){
   const d=new Date(date+"T12:00:00");
@@ -627,10 +677,76 @@ async function uploadMedia(memoryId,files){
   return out;
 }
 function renderMemories(filter="all"){
-  activeMemoryFilter=filter;const grid=$("#memoryGrid");if(!grid)return;
-  const list=memories.filter(m=>filter==="all"||m.type===filter).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  grid.innerHTML=list.length?list.map(m=>`<button class="memory-card memory-click" data-memory-id="${m.id}" type="button"><div class="emoji">${safe(m.emoji||"♡")}</div>${m.media?.[0]?.type==="image"?`<img class="memory-cover" src="${safe(m.media[0].url)}">`:m.media?.[0]?.type==="video"?`<video class="memory-cover" src="${safe(m.media[0].url)}" muted></video>`:""}<span class="memory-kind">${memoryTypeName(m.type)}</span><h4>${safe(m.title)}</h4><p>${safe(m.date||"")}</p>${m.reminderDate?`<small>🔔 ${safe(m.reminderDate)}</small>`:""}</button>`).join(""):'<div class="empty">Henüz bir şey yok. + Anı ile ekleyebilirsin.</div>';
-  $$("[data-memory-id]",grid).forEach(b=>b.onclick=()=>openMemoryActions(b.dataset.memoryId));
+  activeMemoryFilter=filter;
+  const grid=$("#memoryGrid");
+  if(!grid)return;
+
+  const list=memories
+    .filter(m=>filter==="all"||m.type===filter)
+    .sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+
+  grid.innerHTML=list.length
+    ? list.map(m=>`
+      <article class="memory-card" data-memory-card="${safe(m.id)}">
+        <button class="memory-main memory-click" data-memory-id="${safe(m.id)}" type="button">
+          <div class="memory-cover-wrap">
+            ${memoryCoverHtml(m)}
+            <span class="memory-heart">${safe(m.emoji||"♡")}</span>
+          </div>
+
+          <div class="memory-card-body">
+            <span class="memory-kind">${memoryTypeName(m.type)}</span>
+            <h4>${safe(m.title)}</h4>
+            ${m.note?`<p class="memory-note-preview">${safe(m.note)}</p>`:""}
+            <p class="memory-date">${safe(m.date||"")}</p>
+            ${m.reminderDate?`<small>🔔 ${safe(m.reminderDate)}</small>`:""}
+          </div>
+        </button>
+
+        <div class="memory-card-actions">
+          <button class="memory-action-btn" data-edit-memory="${safe(m.id)}" type="button">✏️ Düzenle</button>
+          <button class="memory-action-btn danger" data-delete-memory="${safe(m.id)}" type="button">🗑 Sil</button>
+        </div>
+      </article>
+    `).join("")
+    : '<div class="empty">Henüz bir şey yok. + Anı ile ekleyebilirsin.</div>';
+
+  $$("[data-memory-id]",grid).forEach(b=>{
+    b.onclick=()=>openMemoryActions(b.dataset.memoryId);
+  });
+
+  $$("[data-edit-memory]",grid).forEach(b=>{
+    b.onclick=e=>{
+      e.stopPropagation();
+      const item=memories.find(x=>x.id===b.dataset.editMemory);
+      if(item) openMemoryForm(item);
+    };
+  });
+
+  $$("[data-delete-memory]",grid).forEach(b=>{
+    b.onclick=async e=>{
+      e.stopPropagation();
+      const id=b.dataset.deleteMemory;
+      const item=memories.find(x=>x.id===id);
+      if(!item)return;
+
+      if(!confirm(`"${item.title||"Bu kayıt"}" silinsin mi?`))return;
+
+      memories=memories.filter(x=>x.id!==id);
+      saveLocal();
+      renderAll();
+
+      if(db){
+        try{
+          await deleteDoc(pairDoc("memories",id));
+          markSync("● canlı");
+        }catch(err){
+          console.warn("Anı silinemedi:",err);
+          markSync("● senkron hatası");
+        }
+      }
+    };
+  });
 }
 function openMemoryForm(existing=null){
   openGeneric(`<div class="modal-head"><h3>${existing?"Düzenle":"♡ Eroland'a ekle"}</h3><button class="icon-btn close-generic" type="button">×</button></div>
@@ -653,10 +769,46 @@ function openMemoryForm(existing=null){
   });
 }
 function openMemoryActions(id){
-  const m=memories.find(x=>x.id===id);if(!m)return;
-  openGeneric(`<div class="modal-head"><h3>${safe(m.emoji||"♡")} ${safe(m.title)}</h3><button class="icon-btn close-generic" type="button">×</button></div>${m.note?`<p>${safe(m.note)}</p>`:""}${(m.media||[]).map(x=>x.type==="video"?`<video class="memory-media" controls src="${safe(x.url)}"></video>`:`<img class="memory-media" src="${safe(x.url)}">`).join("")}<button id="editMemory" class="secondary-btn full">Düzenle</button><button id="deleteMemory" class="secondary-btn full">Sil</button>`,()=>{
-    $("#editMemory").onclick=()=>{$("#genericDialog").close();openMemoryForm(m)};
-    $("#deleteMemory").onclick=async()=>{memories=memories.filter(x=>x.id!==id);saveLocal();renderAll();if(db)try{await deleteDoc(pairDoc("memories",id))}catch{}$("#genericDialog").close()};
+  const m=memories.find(x=>x.id===id);
+  if(!m)return;
+
+  const media=normalizeMemoryMedia(m);
+
+  openGeneric(`
+    <div class="modal-head">
+      <h3>${safe(m.emoji||"♡")} ${safe(m.title)}</h3>
+      <button class="icon-btn close-generic" type="button">×</button>
+    </div>
+
+    ${m.note?`<p>${safe(m.note)}</p>`:""}
+
+    <div class="memory-modal-media">
+      ${media.map(x=>
+        x.type==="video"
+          ? `<video class="memory-media" controls playsinline src="${safe(x.url)}"></video>`
+          : `<img class="memory-media" src="${safe(x.url)}" alt="${safe(m.title||"Anı")}">`
+      ).join("")}
+    </div>
+
+    <button id="editMemory" class="primary-btn full" type="button">✏️ Düzenle</button>
+    <button id="deleteMemory" class="secondary-btn full memory-delete-modal" type="button">🗑 Sil</button>
+  `,()=>{
+    $("#editMemory").onclick=()=>{
+      $("#genericDialog").close();
+      openMemoryForm(m);
+    };
+
+    $("#deleteMemory").onclick=async()=>{
+      if(!confirm(`"${m.title||"Bu kayıt"}" silinsin mi?`))return;
+      memories=memories.filter(x=>x.id!==id);
+      saveLocal();
+      renderAll();
+      if(db){
+        try{await deleteDoc(pairDoc("memories",id));}
+        catch(err){console.warn(err);}
+      }
+      $("#genericDialog").close();
+    };
   });
 }
 
@@ -797,39 +949,143 @@ function localSmartReply(q){
 
   return "Bana doğal şekilde yazabilirsin: “yarın 8.30-16 ekstra mesai”, “salı 18 spor”, “pzt ne yapacağım?” gibi.";
 }
+
+function parseNaturalDay(text){
+  const q=String(text||"").toLocaleLowerCase("tr-TR").trim();
+  const base=new Date();
+
+  if(/\bbugün\b/.test(q)) return today();
+
+  if(/\byarın\b/.test(q)){
+    base.setDate(base.getDate()+1);
+    return isoDate(base);
+  }
+
+  if(/\böbür gün\b|\bert(e)?si gün\b/.test(q)){
+    base.setDate(base.getDate()+2);
+    return isoDate(base);
+  }
+
+  const weekdays={
+    "pazartesi":1,"salı":2,"sali":2,"çarşamba":3,"carsamba":3,
+    "perşembe":4,"persembe":4,"cuma":5,"cumartesi":6,"pazar":0
+  };
+
+  for(const [name,target] of Object.entries(weekdays)){
+    if(q.includes(name)){
+      const d=new Date();
+      let diff=(target-d.getDay()+7)%7;
+      if(diff===0 && !q.includes("bugün")) diff=7;
+      d.setDate(d.getDate()+diff);
+      return isoDate(d);
+    }
+  }
+
+  const iso=q.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  if(iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  return null;
+}
+
+function dayWorkSummary(date){
+  const dayEntries=entries
+    .filter(e=>e.date===date)
+    .sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+
+  const dayShifts=shifts.filter(sh=>sh.startDate===date);
+
+  const lines=[];
+
+  dayShifts.forEach(()=>{
+    lines.push("🩻 08:30 Nöbet başlıyor, ertesi gün 08:30'da bitiyor.");
+  });
+
+  dayEntries.forEach(e=>{
+    const t=time24(e.time)||"";
+    const end=e.endTime?`–${time24(e.endTime)}`:"";
+    const icon=e.kind==="overtime"?"💼":categoryIcon(e.category);
+    lines.push(`${icon} ${t}${end}${t||end?" ":""}${e.title||"Plan"}${e.note?` · ${e.note}`:""}`);
+  });
+
+  return lines;
+}
+
+function nextShiftText(){
+  const sorted=[...shifts]
+    .filter(x=>x.startDate)
+    .sort((a,b)=>a.startDate.localeCompare(b.startDate));
+
+  const next=sorted.find(x=>x.startDate>=today());
+  if(!next)return "Yaklaşan kayıtlı nöbetin yok.";
+  return `En yakın nöbetin ${formatDateTR(next.startDate)}. 08:30'da başlıyor, ertesi gün 08:30'da bitiyor.`;
+}
+
+function overtimeText(){
+  const future=entries
+    .filter(e=>e.kind==="overtime" && e.date>=today())
+    .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time))
+    .slice(0,5);
+
+  if(!future.length)return "Yaklaşan ekstra mesai görünmüyor.";
+
+  return future.map(e=>`💼 ${formatDateTR(e.date)} · ${time24(e.time)}–${time24(e.endTime)}`).join("\n");
+}
+
+function simpleLocalAI(message){
+  const raw=String(message||"").trim();
+  const q=raw.toLocaleLowerCase("tr-TR");
+  const date=parseNaturalDay(q);
+
+  if(/\bnöbet(im|lerim)?\b/.test(q) && !date){
+    return nextShiftText();
+  }
+
+  if(/\b(mesai|ekstra)\b/.test(q) && !date){
+    return overtimeText();
+  }
+
+  if(date){
+    const lines=dayWorkSummary(date);
+    const label=date===today()
+      ?"Bugün"
+      :date===(()=>{const d=new Date();d.setDate(d.getDate()+1);return isoDate(d)})()
+        ?"Yarın"
+        :formatDateTR(date);
+
+    if(/\bboş\b/.test(q)){
+      return lines.length
+        ? `${label} tamamen boş değilsin:\n${lines.join("\n")}`
+        : `${label} takviminde kayıt görünmüyor. 🌿`;
+    }
+
+    if(!lines.length){
+      return `${label} için kayıtlı bir planın görünmüyor.`;
+    }
+
+    return `${label}:\n${lines.join("\n")}`;
+  }
+
+  if(/\b(ne yapacağım|ne yapicam|ne yapcam|planla|program)\b/.test(q)){
+    const lines=dayWorkSummary(today());
+    return lines.length
+      ? `Bugünkü planın:\n${lines.join("\n")}`
+      : "Bugün için kayıtlı bir planın görünmüyor.";
+  }
+
+  // Yardım metni artık uzun ve öğretici değil
+  return "Bana “yarın”, “bugün”, “nöbetim ne zaman?”, “mesaim?”, “cuma boş muyum?” gibi direkt yazabilirsin.";
+}
+
 async function askAI(message){
-  addBubble(message,"user");
-  $("#aiInput").value="";
+  const text=String(message||"").trim();
+  if(!text)return;
 
-  const x=normalizeTR(message);
-  const commandLike=/ekstra mesai|fazla mesai|mesai|spor|kahve|yemek|iş|toplantı|diş|doktor|buluş/.test(x);
-  const hasActionDate=!!resolveNaturalDate(x);
-  const times=extractTimeRange(x);
+  addBubble(text,"user");
 
-  if(commandLike&&hasActionDate&&times.start&&!/\b(ne yap|ne var|program|planım|ne yapt)/.test(x)){
-    const item=await addNaturalEntryFromText(message);
-    if(item){
-      addBubble(`✓ ${formatDateTR(item.date)} için ${item.title} eklendi: ${time24(item.time)}${item.endTime?`–${time24(item.endTime)}`:""}.`,"ai");
-      return;
-    }
-  }
-
-  const localReply=localSmartReply(message);
-  addBubble(localReply,"ai");
-
-  try{
-    if(functions){
-      const fn=httpsCallable(functions,"elogAssistant");
-      const res=await Promise.race([
-        fn({message}),
-        new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),1800))
-      ]);
-      const remote=res?.data?.reply?.trim();
-      if(remote&&remote!==localReply)addBubble(remote,"ai");
-    }
-  }catch(e){
-    console.warn("AI backend yok; yerel asistan kullanılıyor.",e);
-  }
+  // E.log için önce kendi takvim verisini doğal şekilde yorumla.
+  // "yarın", "nöbetim?", "mesaim?" gibi şeyler internet/API beklemeden cevaplanır.
+  const answer=simpleLocalAI(text);
+  setTimeout(()=>addBubble(answer,"ai"),120);
 }
 function addBubble(text,type){const d=document.createElement("div");d.className=`bubble ${type}`;d.textContent=text;$("#chat").appendChild(d);d.scrollIntoView({behavior:"smooth",block:"end"})}
 

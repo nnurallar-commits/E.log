@@ -1,4 +1,4 @@
-const VERSION="20260828-stable-no-errors3";
+const VERSION="20260828-ai-eroland-final4";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
