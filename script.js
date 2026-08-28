@@ -392,7 +392,7 @@ function renderSport(){
     </div>`;
   $("#sportProgressHint").textContent=`Son ${recent.length} ölçüm`;
 
-  history.innerHTML=[...list].reverse().map(x=>`
+  history.innerHTML=[...list].reverse().slice(0,4).map(x=>`
     <article class="sport-history-row">
       <button class="sport-history-main" data-sport-edit="${safe(x.id)}" type="button">
         <span class="sport-date-badge">${safe(formatDateTR(x.date))}</span>
@@ -414,6 +414,69 @@ function renderSport(){
     if(db)try{await deleteDoc(pairDoc("sportMetrics",id));markSync("● canlı")}catch(e){console.warn(e);markSync("● senkron hatası")}
   });
 }
+
+function openAllSportHistory(){
+  const list=sportSorted();
+  const desc=[...list].reverse();
+  const first=list[0], latest=list.at(-1);
+  const delta=(a,b,key)=>{
+    if(!a||!b)return null;
+    const av=sportNum(a[key]), bv=sportNum(b[key]);
+    return av==null||bv==null?null:bv-av;
+  };
+  const dw=delta(first,latest,"weight");
+  const df=delta(first,latest,"fat");
+  const signed=(v,unit)=>v==null?"—":`${v>0?"+":""}${v.toFixed(1).replace(".",",")} ${unit}`;
+
+  openGeneric(`
+    <div class="modal-head">
+      <div><p class="eyebrow">SPOR · GEÇMİŞ</p><h3>Tüm ölçümler</h3></div>
+      <button class="icon-btn close-generic" type="button">×</button>
+    </div>
+    ${desc.length?`
+      <div class="sport-history-summary">
+        <div><small>Başlangıçtan beri</small><strong>${signed(dw,"kg")}</strong><span>Kilo değişimi</span></div>
+        <div><small>Başlangıçtan beri</small><strong>${signed(df,"%")}</strong><span>Yağ değişimi</span></div>
+      </div>
+      <div class="sport-full-history-list">
+        ${desc.map((x,i)=>{
+          const older=desc[i+1];
+          const w=sportNum(x.weight), f=sportNum(x.fat);
+          const ow=older?sportNum(older.weight):null, of=older?sportNum(older.fat):null;
+          const wdiff=ow==null?null:w-ow, fdiff=of==null?null:f-of;
+          return `<article class="sport-full-history-row">
+            <button class="sport-full-history-main" data-full-sport-edit="${safe(x.id)}" type="button">
+              <div class="sport-full-date"><span>${safe(formatDateTR(x.date))}</span>${i===0?`<b>SON ÖLÇÜM</b>`:""}</div>
+              <div class="sport-full-values">
+                <div><small>Kilo</small><strong>${w.toFixed(1).replace(".",",")} kg</strong>${wdiff==null?"":`<em class="${wdiff<=0?"good":"up"}">${wdiff>0?"+":""}${wdiff.toFixed(1).replace(".",",")} kg</em>`}</div>
+                <div><small>Yağ</small><strong>%${f.toFixed(1).replace(".",",")}</strong>${fdiff==null?"":`<em class="${fdiff<=0?"good":"up"}">${fdiff>0?"+":""}${fdiff.toFixed(1).replace(".",",")} %</em>`}</div>
+              </div>
+              ${x.note?`<p>${safe(x.note)}</p>`:""}
+            </button>
+            <button class="sport-full-delete" data-full-sport-delete="${safe(x.id)}" type="button" aria-label="Sil">×</button>
+          </article>`;
+        }).join("")}
+      </div>
+    `:`<div class="sport-history-empty"><span>📈</span><strong>Henüz ölçüm yok</strong><p>İlk ölçümünü eklediğinde geçmişin burada oluşacak.</p></div>`}
+  `,()=>{
+    $$("[data-full-sport-edit]").forEach(b=>b.onclick=()=>{
+      $("#genericDialog").close();
+      openSportForm(b.dataset.fullSportEdit);
+    });
+    $$("[data-full-sport-delete]").forEach(b=>b.onclick=async()=>{
+      if(!confirm("Bu ölçüm silinsin mi?"))return;
+      const id=b.dataset.fullSportDelete;
+      sportMetrics=sportMetrics.filter(x=>x.id!==id);
+      saveLocal();renderSport();
+      if(db)try{await deleteDoc(pairDoc("sportMetrics",id));markSync("● canlı")}catch(e){console.warn(e);markSync("● senkron hatası")}
+      openAllSportHistory();
+    });
+  });
+}
+document.addEventListener("click",e=>{
+  if(e.target.closest?.("#viewAllSportHistoryBtn"))openAllSportHistory();
+});
+
 function openSportForm(id=null){
   const item=id?sportMetrics.find(x=>x.id===id):null;
   $("#sportDialogTitle").textContent=item?"Ölçümü düzenle":"Yeni ölçüm";

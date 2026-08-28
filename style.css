@@ -2887,3 +2887,26 @@ body::after{
   border-radius:11px;
   box-shadow:0 4px 10px rgba(40,59,49,.06)!important;
 }
+
+/* Full sport history */
+.sport-view-all-btn{width:100%;margin-top:12px;min-height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 15px 0 17px;border:1px solid rgba(44,69,56,.08);border-radius:18px;background:linear-gradient(145deg,#fffefa,#eef4eb);color:#294638;font-weight:850;box-shadow:0 7px 18px rgba(38,58,48,.04)}
+.sport-view-all-btn b{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#dce7d8;font-size:16px}
+.sport-history-summary{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
+.sport-history-summary>div{padding:15px;border-radius:21px;background:linear-gradient(145deg,#eef5eb,#fffdf8);border:1px solid rgba(44,69,56,.07)}
+.sport-history-summary small,.sport-history-summary span{display:block;color:#849087;font-size:9px;font-weight:800}
+.sport-history-summary strong{display:block;margin:5px 0 3px;font-family:ui-serif,Georgia,serif;font-size:21px;color:#294638}
+.sport-full-history-list{display:grid;gap:9px;max-height:min(62vh,650px);overflow:auto;padding:1px 2px 8px}
+.sport-full-history-row{position:relative;display:grid;grid-template-columns:1fr 36px;border-radius:21px;background:#fffefa;border:1px solid rgba(44,69,56,.075);overflow:hidden;box-shadow:0 6px 18px rgba(38,58,48,.035)}
+.sport-full-history-main{border:0;background:transparent;text-align:left;padding:14px;color:inherit}
+.sport-full-date{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid rgba(44,69,56,.065);font-size:11px;font-weight:800;color:#6f7a73}
+.sport-full-date b{padding:4px 7px;border-radius:999px;background:#dce8d8;color:#385744;font-size:7px;letter-spacing:.1em}
+.sport-full-values{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sport-full-values>div{padding:10px;border-radius:15px;background:#f7f6f0}
+.sport-full-values small{display:block;color:#929890;font-size:9px;font-weight:800}
+.sport-full-values strong{display:block;margin-top:3px;color:#263f33;font-size:16px}
+.sport-full-values em{display:inline-block;margin-top:4px;padding:3px 6px;border-radius:999px;font-size:9px;font-style:normal;font-weight:850}
+.sport-full-values em.good{background:#e2ecde;color:#54745d}.sport-full-values em.up{background:#f1e3df;color:#9b665d}
+.sport-full-history-main p{margin:10px 0 0;color:#7d857f;font-size:11px}
+.sport-full-delete{border:0;background:#faf8f1;color:#aaa49a;font-size:20px}
+.sport-history-empty{min-height:220px;display:grid;place-items:center;align-content:center;text-align:center;padding:30px;border-radius:24px;background:#f7f6f0}
+.sport-history-empty span{font-size:30px}.sport-history-empty strong{margin-top:8px;color:#294638}.sport-history-empty p{max-width:250px;color:#858c87;font-size:12px}

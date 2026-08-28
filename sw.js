@@ -1,4 +1,4 @@
-const VERSION="20260828-calendar-notes-icon-fix";
+const VERSION="20260828-sport-full-history";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
