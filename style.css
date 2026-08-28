@@ -3168,3 +3168,86 @@ html[data-theme="light"] :is(.icon-btn,.pill,.chip):not(.emoji-preset){
   }
   .elog-theme-text{display:none}
 }
+
+
+/* =========================================================
+   DARK MODE READABILITY + MODERN TYPE FIX
+   ========================================================= */
+html[data-theme="dark"] body,
+html[data-theme="dark"] button,
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select,
+html[data-theme="dark"] .view,
+html[data-theme="dark"] .screen{
+  font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;
+}
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] .hero-title,
+html[data-theme="dark"] .section-title,
+html[data-theme="dark"] .brand{
+  font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;
+  color:#f4f7f4!important;
+  letter-spacing:-.025em;
+}
+html[data-theme="dark"] p,
+html[data-theme="dark"] label,
+html[data-theme="dark"] .helper,
+html[data-theme="dark"] .help,
+html[data-theme="dark"] .description,
+html[data-theme="dark"] .empty,
+html[data-theme="dark"] .empty-state,
+html[data-theme="dark"] .ai-empty,
+html[data-theme="dark"] .ai-hint,
+html[data-theme="dark"] .placeholder,
+html[data-theme="dark"] [class*="hint"],
+html[data-theme="dark"] [class*="desc"]{
+  color:#aab4ac!important;
+}
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select,
+html[data-theme="dark"] .input,
+html[data-theme="dark"] .textarea,
+html[data-theme="dark"] .composer,
+html[data-theme="dark"] .chat-input,
+html[data-theme="dark"] [contenteditable="true"]{
+  background:#171e1a!important;
+  color:#f4f7f4!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  box-shadow:none!important;
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder{
+  color:#77827a!important;
+  opacity:1!important;
+}
+/* White legacy surfaces were the source of white-on-white text */
+html[data-theme="dark"] .ai-card,
+html[data-theme="dark"] .ai-panel,
+html[data-theme="dark"] .chat-card,
+html[data-theme="dark"] .chat-empty,
+html[data-theme="dark"] .prompt-card,
+html[data-theme="dark"] .quick-card,
+html[data-theme="dark"] .bubble:not(.mine),
+html[data-theme="dark"] [class*="prompt"],
+html[data-theme="dark"] [class*="empty-card"]{
+  background:#151c18!important;
+  color:#dce3dd!important;
+  border-color:rgba(255,255,255,.07)!important;
+}
+html[data-theme="dark"] .bubble.mine,
+html[data-theme="dark"] .message.mine,
+html[data-theme="dark"] .user-message{
+  background:#294d3c!important;
+  color:#f6fff8!important;
+}
+/* Preserve emoji artwork */
+html[data-theme="dark"] .emoji-glyph,
+html[data-theme="dark"] img[src*="elog-heart"],
+html[data-theme="dark"] img[src*="woohoo-heart"]{
+  filter:none!important;
+}

@@ -1,4 +1,4 @@
-const VERSION="20260828-green-light-dark";
+const VERSION="20260828-green-dark-readable";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
