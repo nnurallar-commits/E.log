@@ -1,4 +1,4 @@
-const VERSION="20260828-ai-eroland-final4";
+const VERSION="20260828-eroland-banner-kids1";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
