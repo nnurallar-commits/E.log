@@ -1713,7 +1713,102 @@ async function boot(){
   },3500);
 
   try{
-    await initFirebase();
+    await 
+/* ===== AYIMIZ: monthly E.log replay ===== */
+function monthKeyOf(date){
+  return String(date||"").slice(0,7);
+}
+function monthReplayData(key){
+  const plans=entries.filter(x=>monthKeyOf(x.date)===key && x.kind!=="overtime");
+  const overtime=entries.filter(x=>monthKeyOf(x.date)===key && x.kind==="overtime");
+  const monthShifts=shifts.filter(x=>monthKeyOf(x.date)===key);
+  const sports=sportMetrics.filter(x=>monthKeyOf(x.date)===key);
+  const monthMemories=memories.filter(x=>monthKeyOf(x.date||x.createdAt)===key);
+  const woohoo=Object.entries(dayEmojis).filter(([d,arr])=>monthKeyOf(d)===key && (Array.isArray(arr)?arr:[arr]).includes("💖")).length;
+  const notes=Object.entries(dayNotes||{}).filter(([d,arr])=>monthKeyOf(d)===key).reduce((n,[,arr])=>n+(Array.isArray(arr)?arr.length:1),0);
+  return {plans,overtime,shifts:monthShifts,sports,memories:monthMemories,woohoo,notes};
+}
+function monthReplayKeys(){
+  const keys=new Set();
+  entries.forEach(x=>x.date&&keys.add(monthKeyOf(x.date)));
+  shifts.forEach(x=>x.date&&keys.add(monthKeyOf(x.date)));
+  sportMetrics.forEach(x=>x.date&&keys.add(monthKeyOf(x.date)));
+  memories.forEach(x=>x.date&&keys.add(monthKeyOf(x.date)));
+  Object.keys(dayEmojis||{}).forEach(d=>keys.add(monthKeyOf(d)));
+  Object.keys(dayNotes||{}).forEach(d=>keys.add(monthKeyOf(d)));
+  keys.add(new Date().toISOString().slice(0,7));
+  return [...keys].filter(Boolean).sort().reverse();
+}
+function monthReplayTitle(key){
+  const [y,m]=key.split("-").map(Number);
+  return new Intl.DateTimeFormat("tr-TR",{month:"long",year:"numeric"}).format(new Date(y,m-1,1));
+}
+function memoryMediaHtml(m){
+  const src=m.url||m.mediaUrl||m.image||m.photo||"";
+  if(!src)return "";
+  const safeSrc=safe(src);
+  if(/\.(mp4|mov|webm)(\?|$)/i.test(src)||m.type==="video") return `<video src="${safeSrc}" muted playsinline></video>`;
+  return `<img src="${safeSrc}" alt="">`;
+}
+function openMonthReplay(key=monthReplayKeys()[0]){
+  const d=monthReplayData(key);
+  const keys=monthReplayKeys();
+  const total=d.plans.length+d.overtime.length+d.shifts.length+d.sports.length+d.memories.length+d.woohoo+d.notes;
+  const photos=d.memories.filter(m=>memoryMediaHtml(m)).slice(0,6);
+
+  openGeneric(`
+    <div class="modal-head replay-head">
+      <div><p class="eyebrow">E.LOG REPLAY</p><h3>Ayımız ✦</h3></div>
+      <button class="icon-btn close-generic" type="button">×</button>
+    </div>
+    <div class="replay-month-picker">
+      <button id="replayPrevBtn" type="button">‹</button>
+      <strong>${safe(monthReplayTitle(key))}</strong>
+      <button id="replayNextBtn" type="button">›</button>
+    </div>
+
+    <section class="replay-cover">
+      <span class="replay-kicker">BİZİM AYIMIZ</span>
+      <h2>${safe(monthReplayTitle(key))}</h2>
+      <p>${total?`Bu ay E.log'da ${total} küçük iz bıraktınız.`:"Bu ayın sayfası henüz bomboş. İlk izi siz bırakın."}</p>
+      <i>✦</i>
+    </section>
+
+    <div class="replay-stats">
+      <article><span>📅</span><strong>${d.plans.length}</strong><small>plan</small></article>
+      <article><span>🩻</span><strong>${d.shifts.length}</strong><small>nöbet</small></article>
+      <article><span>💼</span><strong>${d.overtime.length}</strong><small>mesai</small></article>
+      <article><span>🏋️</span><strong>${d.sports.length}</strong><small>spor</small></article>
+      <article class="replay-woohoo"><img src="./elog-heart.png" alt=""><strong>${d.woohoo}</strong><small>Woohoo</small></article>
+      <article><span>♡</span><strong>${d.memories.length}</strong><small>anı</small></article>
+      <article><span>📝</span><strong>${d.notes}</strong><small>not</small></article>
+    </div>
+
+    ${photos.length?`
+      <section class="replay-memories">
+        <div class="replay-section-title"><div><small>EROLAND'DAN</small><strong>Ayın kareleri</strong></div><span>${photos.length}</span></div>
+        <div class="replay-photo-grid">
+          ${photos.map((m,i)=>`<div class="replay-photo replay-photo-${i+1}">${memoryMediaHtml(m)}</div>`).join("")}
+        </div>
+      </section>
+    `:""}
+
+    <section class="replay-footer-card">
+      <span>✦ E.log</span>
+      <p>${d.woohoo?`${d.woohoo} Woohoo, ${d.plans.length} plan ve ${d.memories.length} anı. Fena bir ay değil.`:`${d.plans.length} plan, ${d.shifts.length} nöbet, ${d.sports.length} spor kaydı. Bu da sizin ${safe(monthReplayTitle(key))} hikâyeniz.`}</p>
+    </section>
+  `,()=>{
+    const ix=keys.indexOf(key);
+    const prev=$("#replayPrevBtn"), next=$("#replayNextBtn");
+    if(prev){prev.disabled=ix>=keys.length-1;prev.onclick=()=>{if(ix<keys.length-1)openMonthReplay(keys[ix+1])}}
+    if(next){next.disabled=ix<=0;next.onclick=()=>{if(ix>0)openMonthReplay(keys[ix-1])}}
+  });
+}
+document.addEventListener("click",e=>{
+  if(e.target.closest?.("#monthReplayBtn"))openMonthReplay();
+});
+
+initFirebase();
     clearTimeout(syncTimer);
     const el=$("#syncStatus");
     if(el && /bağlanıyor|hazırlanıyor|telefonda/i.test(el.textContent||"")){

@@ -2910,3 +2910,29 @@ body::after{
 .sport-full-delete{border:0;background:#faf8f1;color:#aaa49a;font-size:20px}
 .sport-history-empty{min-height:220px;display:grid;place-items:center;align-content:center;text-align:center;padding:30px;border-radius:24px;background:#f7f6f0}
 .sport-history-empty span{font-size:30px}.sport-history-empty strong{margin-top:8px;color:#294638}.sport-history-empty p{max-width:250px;color:#858c87;font-size:12px}
+
+/* =========================================================
+   AYIMIZ · MONTHLY REPLAY
+   ========================================================= */
+.replay-head h3{font-family:ui-serif,Georgia,serif;font-size:28px}
+.replay-month-picker{display:grid;grid-template-columns:42px 1fr 42px;align-items:center;gap:8px;margin-bottom:11px}
+.replay-month-picker button{width:42px;height:42px;border:1px solid rgba(45,66,55,.08);border-radius:50%;background:#f5f4ed;color:#294638;font-size:22px}
+.replay-month-picker button:disabled{opacity:.22}
+.replay-month-picker strong{text-align:center;font-family:ui-serif,Georgia,serif;text-transform:capitalize;color:#405247}
+.replay-cover{position:relative;overflow:hidden;min-height:190px;padding:26px;border-radius:31px;color:#fff;background:radial-gradient(circle at 85% 12%,rgba(255,255,255,.19),transparent 24%),linear-gradient(140deg,#193c30,#426650 70%,#76907c);box-shadow:0 20px 50px rgba(31,59,46,.18)}
+.replay-cover:after{content:"";position:absolute;width:180px;height:180px;right:-80px;bottom:-100px;border-radius:50%;border:1px solid rgba(255,255,255,.16);box-shadow:0 0 0 25px rgba(255,255,255,.025),0 0 0 52px rgba(255,255,255,.018)}
+.replay-cover .replay-kicker{font-size:8px;font-weight:900;letter-spacing:.2em;color:rgba(255,255,255,.62)}
+.replay-cover h2{margin:28px 0 7px;font-family:ui-serif,Georgia,serif;font-size:34px;line-height:.95;text-transform:capitalize;letter-spacing:-.045em}
+.replay-cover p{max-width:320px;margin:0;color:rgba(255,255,255,.7);font-size:12px}
+.replay-cover i{position:absolute;right:24px;top:17px;font-style:normal;font-size:35px;color:rgba(255,255,255,.3)}
+.replay-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:11px 0}
+.replay-stats article{min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 5px;border:1px solid rgba(44,67,55,.07);border-radius:21px;background:#fffefa;box-shadow:0 7px 18px rgba(38,58,48,.035)}
+.replay-stats article:nth-child(2n){background:#f7f2ed}.replay-stats article:nth-child(3n){background:#eef4ec}
+.replay-stats article>span{font-size:20px}.replay-stats strong{margin-top:4px;font-family:ui-serif,Georgia,serif;font-size:23px;color:#294638}.replay-stats small{font-size:9px;font-weight:800;color:#8b928d}
+.replay-woohoo img{width:25px;height:25px;object-fit:contain;filter:drop-shadow(0 4px 6px rgba(120,70,78,.1))}
+.replay-memories{margin-top:13px;padding:15px;border-radius:27px;background:#f4eee8}
+.replay-section-title{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:11px}.replay-section-title small{display:block;font-size:7px;font-weight:900;letter-spacing:.15em;color:#a08d85}.replay-section-title strong{font-family:ui-serif,Georgia,serif;font-size:19px;color:#4e4945}.replay-section-title>span{width:26px;height:26px;display:grid;place-items:center;border-radius:50%;background:#fffefa;color:#907d75;font-size:10px;font-weight:800}
+.replay-photo-grid{display:grid;grid-template-columns:1.25fr .75fr .75fr;grid-template-rows:105px 105px;gap:6px}
+.replay-photo{overflow:hidden;border-radius:16px;background:#e4ddd7}.replay-photo:first-child{grid-row:1/3}.replay-photo img,.replay-photo video{width:100%;height:100%;object-fit:cover}
+.replay-footer-card{margin-top:11px;padding:17px 18px;border-radius:22px;background:linear-gradient(145deg,#f2f5ed,#fffefa);border:1px solid rgba(44,67,55,.07)}.replay-footer-card span{font-size:9px;font-weight:900;letter-spacing:.12em;color:#6e8375}.replay-footer-card p{margin:7px 0 0;font-family:ui-serif,Georgia,serif;font-size:15px;line-height:1.35;color:#3e5046}
+@media(max-width:430px){.replay-stats{grid-template-columns:repeat(3,1fr)}.replay-cover{min-height:175px;padding:22px}.replay-cover h2{font-size:29px}.replay-photo-grid{grid-template-columns:1.2fr .8fr;grid-template-rows:95px 95px}.replay-photo:first-child{grid-row:1/3}.replay-photo:nth-child(n+4){display:none}}
