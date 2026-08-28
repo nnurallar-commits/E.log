@@ -1,4 +1,4 @@
-const VERSION="20260828-sport-emoji";
+const VERSION="20260828-fishing-emoji";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
