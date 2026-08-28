@@ -1303,3 +1303,42 @@ input:focus,textarea:focus,select:focus{
 @media(max-width:560px){
   .emoji-preset-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+
+/* ===== Spor görünürlüğü ===== */
+.sport-home-card{
+  background:linear-gradient(145deg,#edf3e8,#f9f7ee)!important;
+  border:1px solid rgba(37,78,57,.12)!important;
+}
+.sport-home-card .home-card-icon{
+  display:block;
+  font-size:24px;
+  margin-bottom:13px;
+}
+.sport-home-card strong{
+  display:block;
+  color:#214534;
+  font-size:18px;
+  margin-bottom:5px;
+}
+.sport-home-card small{
+  display:block;
+  color:#7b8981;
+}
+.bottom-nav .nav-item[data-view="sport"],
+.nav-item[data-view="sport"]{
+  min-width:0;
+}
+.nav-item[data-view="sport"] .nav-icon{
+  font-size:18px;
+}
+@media(max-width:620px){
+  .bottom-nav{
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .bottom-nav::-webkit-scrollbar{display:none}
+  .bottom-nav .nav-item{
+    flex:0 0 64px;
+  }
+}
