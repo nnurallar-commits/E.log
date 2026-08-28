@@ -552,6 +552,13 @@ function renderToday(){
   el.innerHTML=list.length?list.map(e=>`<button class="timeline-item" data-entry="${e.id}" type="button"><span class="time">${safe(time24(e.time)||"--:--")}${e.endTime?`–${safe(time24(e.endTime))}`:""}</span><span><strong>${safe(e.title)}</strong><small>${safe(e.note||categoryName(e.category))}</small></span><i class="status-dot ${e.done?"done":""}"></i></button>`).join(""):'<div class="empty">Bugün henüz kayıt yok.</div>';
   $$("[data-entry]",el).forEach(b=>b.onclick=()=>openEntryActions(b.dataset.entry));
 }
+
+function emojiVisual(e){
+  return e==="💖"
+    ? `<img class="elog-special-emoji" src="./elog-heart.png" alt="Woohoo">`
+    : safe(e);
+}
+
 function renderCalendar(){
   const grid=$("#calendarGrid"), title=$("#monthTitle");
   if(!grid||!title)return;
@@ -597,7 +604,7 @@ function renderCalendar(){
 
         ${shown.length ? `
           <span class="calendar-emoji-row" aria-hidden="true">
-            ${shown.map(e=>`<span class="calendar-emoji">${safe(e)}</span>`).join("")}
+            ${shown.map(e=>`<span class="calendar-emoji">${emojiVisual(e)}</span>`).join("")}
           </span>
         ` : `<span class="calendar-empty-mark" aria-hidden="true"></span>`}
 

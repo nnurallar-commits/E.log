@@ -2679,3 +2679,17 @@ body::after{
   }
   .hero-card h2{font-size:31px}
 }
+
+
+/* Woohoo custom calendar icon */
+.calendar-emoji .elog-special-emoji,
+.elog-special-emoji{
+  width:1.18em;
+  height:1.18em;
+  object-fit:contain;
+  display:inline-block;
+  vertical-align:-.18em;
+  border-radius:0;
+  background:transparent;
+  filter:drop-shadow(0 3px 4px rgba(120,70,78,.10));
+}
