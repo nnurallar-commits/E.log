@@ -1,4 +1,4 @@
-const VERSION="20260828-sport-open-fix1";
+const VERSION="20260828-auth-emoji-fix2";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",

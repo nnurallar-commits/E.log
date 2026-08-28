@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { getFirestore, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js";
@@ -118,7 +118,8 @@ async function initFirebase(){
   try{
     const cfg=(await import("./firebase-config.js")).firebaseConfig;
     app=initializeApp(cfg);auth=getAuth(app);db=getFirestore(app);functions=getFunctions(app,"europe-west1");storage=getStorage(app);
-    try{await getRedirectResult(auth)}catch{}
+    try{await setPersistence(auth,browserLocalPersistence)}catch(e){console.warn("Auth persistence:",e)}
+    try{await getRedirectResult(auth)}catch(e){console.warn("Redirect sonucu:",e)}
     onAuthStateChanged(auth,handleAuth);
     console.log("Firebase hazır:", cfg.projectId);
   }catch(e){console.error("Firebase başlatılamadı:",e);markSync("● bağlantı hatası");}
@@ -129,12 +130,12 @@ async function handleAuth(user){
   if(!user){
     profile = null;
     clearListeners();
-    $("#authDialog")?.showModal();
+    if($("#authDialog") && !$("#authDialog").open) $("#authDialog").showModal();
     markSync("● giriş yok");
     return;
   }
 
-  $("#authDialog")?.close();
+  if($("#authDialog")?.open) $("#authDialog").close();
   markSync("● bağlanıyor");
 
   try{
@@ -271,7 +272,7 @@ function startRealtime(){
   try{
     unsubs.push(onSnapshot(pairDoc("shared","dayEmojis"),snap=>{
       if(snap.exists()){
-        dayEmojis=snap.data().values||{};
+        dayEmojis=snap.data().value||snap.data().values||{};
         saveLocal();renderCalendar();renderDayDetail();
       }
       markSync("● canlı");
@@ -1424,7 +1425,23 @@ function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görü
 function openModule(n){if(n==="shifts")openShifts();if(n==="overtime")openOvertime();if(n==="pair")openPairInfo();if(n==="routines")openRoutines();if(n==="brain")openBrain();if(n==="stats")openStats();if(n==="notifications")openNotifications();if(n==="partner")openPartner();if(n==="eroland")switchView("eroland")}
 function openGeneric(html,after){$("#genericContent").innerHTML=html;$("#genericDialog").showModal();$(".close-generic")?.addEventListener("click",()=>$("#genericDialog").close());after?.()}
 function switchView(name){const t=document.getElementById(`view-${name}`);if(!t)return;$$(".view").forEach(v=>v.classList.remove("active"));t.classList.add("active");$$("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="calendar")renderCalendar();if(name==="shifts")renderWorkPage();if(name==="eroland")renderMemories(activeMemoryFilter);if(name==="sport")renderSport();window.scrollTo(0,0)}
-async function googleLogin(){const p=new GoogleAuthProvider();try{/iPhone|iPad|Android/i.test(navigator.userAgent)?await signInWithRedirect(auth,p):await signInWithPopup(auth,p)}catch(e){$("#authMessage").textContent=e.message}}
+async function googleLogin(){
+  const p=new GoogleAuthProvider();
+  const msg=$("#authMessage");
+  if(msg) msg.textContent="";
+  try{
+    await setPersistence(auth,browserLocalPersistence);
+    await signInWithPopup(auth,p);
+  }catch(e){
+    const code=e?.code||"";
+    if(["auth/popup-blocked","auth/operation-not-supported-in-this-environment","auth/cancelled-popup-request"].includes(code)){
+      try{ await signInWithRedirect(auth,p); }
+      catch(err){ if(msg) msg.textContent=err?.message||"Google girişi başlatılamadı."; }
+    }else if(code!=="auth/popup-closed-by-user"){
+      if(msg) msg.textContent=e?.message||"Google girişi yapılamadı.";
+    }
+  }
+}
 
 function wire(){
   $$("[data-view]").forEach(b=>{
