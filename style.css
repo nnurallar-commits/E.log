@@ -2858,3 +2858,32 @@ body::after{
     align-items:flex-end;
   }
 }
+
+
+/* Clean custom calendar navigation icon */
+.nav-calendar-svg{
+  width:19px;
+  height:19px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.65;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.nav-btn.active .nav-calendar-svg{
+  stroke:#214437;
+}
+.nav-btn[data-view="calendar"] span,
+.nav-btn[data-target="calendar"] span,
+.nav-btn[data-nav="calendar"] span{
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.nav-btn.active[data-view="calendar"] span,
+.nav-btn.active[data-target="calendar"] span,
+.nav-btn.active[data-nav="calendar"] span{
+  background:rgba(255,255,255,.78)!important;
+  border-radius:11px;
+  box-shadow:0 4px 10px rgba(40,59,49,.06)!important;
+}

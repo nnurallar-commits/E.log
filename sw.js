@@ -1,4 +1,4 @@
-const VERSION="20260828-creative-v3-calendar-notes";
+const VERSION="20260828-calendar-notes-icon-fix";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
