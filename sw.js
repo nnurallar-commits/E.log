@@ -1,4 +1,4 @@
-const VERSION="20260828-design-v2-show";
+const VERSION="20260828-creative-v3";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",

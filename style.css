@@ -2144,3 +2144,538 @@ input:focus,textarea:focus,select:focus{
   .nav-btn{padding-inline:0}
   .nav-btn small{font-size:7px}
 }
+
+
+/* =========================================================
+   E.LOG CREATIVE V3
+   Digital diary + premium iOS + tiny shared universe
+   ========================================================= */
+
+:root{
+  --c3-paper:#f7f3ea;
+  --c3-paper2:#eee8dc;
+  --c3-ink:#1f3027;
+  --c3-deep:#173c30;
+  --c3-green:#54745f;
+  --c3-sage:#dce6d7;
+  --c3-rose:#ead7d2;
+  --c3-sky:#dfe9ec;
+  --c3-sun:#eadfbe;
+  --c3-line:rgba(31,54,43,.08);
+  --c3-shadow:0 18px 44px rgba(36,52,44,.065);
+}
+
+/* subtle living background */
+body{
+  background:
+    radial-gradient(800px 420px at -5% -8%, rgba(208,225,204,.95), transparent 62%),
+    radial-gradient(650px 360px at 108% 6%, rgba(239,219,207,.72), transparent 60%),
+    radial-gradient(520px 340px at 48% 108%, rgba(224,232,219,.50), transparent 67%),
+    linear-gradient(180deg,#faf7f0,#f2eee5 52%,#efeae1);
+}
+
+body::after{
+  content:"✦   ·   ✦";
+  position:fixed;
+  right:-18px;
+  top:34%;
+  z-index:-1;
+  writing-mode:vertical-rl;
+  font-size:11px;
+  letter-spacing:.7em;
+  color:rgba(50,77,62,.075);
+}
+
+/* logo / top area */
+.topbar{
+  border-bottom:0;
+}
+
+.topbar h1{
+  position:relative;
+  font-size:34px;
+}
+
+.topbar h1::before{
+  content:"";
+  position:absolute;
+  left:-6px;
+  bottom:-7px;
+  width:42px;
+  height:6px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#77947d,transparent);
+  opacity:.32;
+}
+
+#profileBtn{
+  position:relative;
+  overflow:visible;
+}
+
+#profileBtn::after{
+  content:"";
+  position:absolute;
+  width:8px;height:8px;
+  right:-1px;top:-1px;
+  border-radius:50%;
+  background:#c8a96b;
+  border:2px solid #f7f3ea;
+}
+
+/* Home hero: journal cover */
+.hero-card{
+  min-height:220px;
+  padding:31px;
+  border-radius:40px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 82% 18%,rgba(255,255,255,.17),transparent 19%),
+    radial-gradient(circle at 4% 104%,rgba(196,219,194,.26),transparent 37%),
+    linear-gradient(135deg,#173b2f 0%,#2e5a47 53%,#668773 100%);
+  box-shadow:0 28px 85px rgba(24,57,43,.23);
+}
+
+.hero-card::before{
+  width:210px;
+  height:210px;
+  right:-82px;
+  bottom:-102px;
+  box-shadow:
+    0 0 0 23px rgba(255,255,255,.035),
+    0 0 0 49px rgba(255,255,255,.018),
+    0 0 0 76px rgba(255,255,255,.012);
+}
+
+.hero-card::after{
+  content:"✦";
+  font-size:46px;
+  top:14px;
+  right:25px;
+  transform:rotate(12deg);
+}
+
+.hero-card h2{
+  max-width:470px;
+  font-size:40px;
+  line-height:.98;
+  letter-spacing:-.058em;
+}
+
+.hero-card p{
+  max-width:400px;
+  font-size:14px;
+  line-height:1.55;
+}
+
+.hero-card .tag{
+  padding:7px 11px;
+  border-radius:999px;
+  text-transform:uppercase;
+  font-size:9px;
+  letter-spacing:.12em;
+}
+
+.hero-card .primary-btn{
+  border-radius:999px;
+  padding:12px 17px;
+}
+
+/* little "postcard" feeling */
+.next-card{
+  border-radius:29px;
+  padding:21px;
+  transform:rotate(-.25deg);
+}
+
+.next-card::before{
+  content:"";
+  position:absolute;
+  left:18px;
+  bottom:13px;
+  width:44px;
+  height:3px;
+  border-radius:999px;
+  background:rgba(76,105,87,.16);
+}
+
+.next-card::after{
+  content:"↗";
+  transform:rotate(3deg);
+}
+
+.quick-actions button{
+  border-radius:23px;
+  position:relative;
+}
+
+.quick-actions button:nth-child(1) span{background:#dce8dc}
+.quick-actions button:nth-child(2) span{background:#ece0d9}
+.quick-actions button:nth-child(3) span{background:#dfe8eb}
+.quick-actions button:nth-child(4) span{background:#eee5c8}
+
+.quick-actions button:nth-child(odd){
+  transform:rotate(.45deg);
+}
+.quick-actions button:nth-child(even){
+  transform:rotate(-.45deg);
+}
+
+/* timeline as soft diary entries */
+.today-compact{
+  border-radius:31px;
+  position:relative;
+}
+
+.today-compact::before{
+  content:"TODAY";
+  position:absolute;
+  right:16px;
+  top:12px;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.18em;
+  color:rgba(58,81,68,.23);
+}
+
+.timeline-item{
+  border-radius:20px;
+}
+
+.timeline-item:nth-child(3n+1){
+  background:linear-gradient(90deg,#fffefa,#f4f7ef);
+}
+.timeline-item:nth-child(3n+2){
+  background:linear-gradient(90deg,#fffefa,#faf2ee);
+}
+.timeline-item:nth-child(3n+3){
+  background:linear-gradient(90deg,#fffefa,#f0f5f6);
+}
+
+/* modules become little worlds */
+.module-card{
+  border-radius:27px;
+}
+
+.module-card:nth-child(1){
+  background:linear-gradient(145deg,#fffdfa,#eef4ec);
+}
+.module-card:nth-child(2){
+  background:linear-gradient(145deg,#fffdfa,#f7eeeb);
+}
+.module-card:nth-child(3){
+  background:linear-gradient(145deg,#fffdfa,#eef3f4);
+}
+
+.module-card::before{
+  content:"";
+  position:absolute;
+  width:45px;height:45px;
+  left:-20px;top:-20px;
+  border-radius:50%;
+  border:1px solid rgba(49,74,61,.07);
+}
+
+/* Calendar: polaroid-meets-planner */
+#view-calendar .calendar-toolbar{
+  border-radius:24px;
+}
+
+.calendar-weekdays{
+  color:#8b928d;
+}
+
+.day-cell{
+  border-radius:18px;
+  transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.day-cell:nth-child(7n+1),
+.day-cell:nth-child(7n+7){
+  background:rgba(248,242,235,.88);
+}
+
+.day-cell.selected{
+  transform:translateY(-2px) rotate(-.4deg);
+  background:
+    radial-gradient(circle at 80% 15%,rgba(255,255,255,.12),transparent 30%),
+    linear-gradient(145deg,#1d4033,#466a56);
+}
+
+.day-cell.selected::after{
+  content:"✦";
+  position:absolute;
+  top:7px;
+  right:8px;
+  font-size:9px;
+  opacity:.48;
+}
+
+.day-detail{
+  border-radius:30px;
+}
+
+.emoji-chooser{
+  border-radius:30px;
+  position:relative;
+}
+
+.emoji-chooser::before{
+  content:"pick a mood";
+  display:block;
+  margin-bottom:10px;
+  font-family:ui-serif,Georgia,serif;
+  font-size:16px;
+  font-style:italic;
+  color:#708077;
+}
+
+.emoji-preset{
+  border-radius:20px;
+  transition:transform .12s ease;
+}
+
+.emoji-preset:active{
+  transform:scale(.91) rotate(-2deg);
+}
+
+.emoji-preset.special{
+  position:relative;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 75% 20%,rgba(255,255,255,.8),transparent 30%),
+    linear-gradient(145deg,#f4e2de,#fff8f2);
+}
+
+.emoji-preset.special::after{
+  content:"ours";
+  position:absolute;
+  right:5px;
+  top:5px;
+  font-size:7px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:#a68078;
+}
+
+/* Work: cool clinical paper */
+.work-hero{
+  border-radius:32px;
+  background:
+    linear-gradient(90deg,rgba(255,255,255,.32),transparent 55%),
+    linear-gradient(145deg,#dbe7ea,#f6f4ec);
+}
+
+.work-hero::before{
+  content:"ON DUTY";
+  position:absolute;
+  top:17px;
+  right:20px;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.18em;
+  color:rgba(64,86,90,.24);
+}
+
+.work-panel{
+  border-radius:28px;
+}
+
+/* SPORT: athletic editorial card */
+.sport-hero{
+  min-height:205px;
+  border-radius:35px!important;
+}
+
+.sport-hero::after{
+  content:"MOVE";
+  position:absolute;
+  right:20px;
+  bottom:14px;
+  font-size:42px;
+  font-weight:950;
+  letter-spacing:-.08em;
+  color:rgba(255,255,255,.055);
+}
+
+.sport-metric-card:nth-child(1){background:linear-gradient(145deg,#fffdf8,#eef4eb)!important}
+.sport-metric-card:nth-child(2){background:linear-gradient(145deg,#fffdf8,#f3ede9)!important}
+.sport-metric-card:nth-child(3){background:linear-gradient(145deg,#fffdf8,#edf2f4)!important}
+
+/* Eroland: scrapbook / film diary */
+#view-eroland{
+  position:relative;
+}
+
+#view-eroland::before{
+  content:"♡";
+  position:absolute;
+  right:6px;
+  top:4px;
+  font-family:Georgia,serif;
+  font-size:55px;
+  color:rgba(157,112,103,.09);
+  transform:rotate(-8deg);
+}
+
+.eroland-banner{
+  min-height:215px;
+  border-radius:38px;
+  transform:rotate(-.18deg);
+  box-shadow:0 26px 65px rgba(75,54,48,.13);
+}
+
+.eroland-banner::after{
+  content:"our little archive";
+  position:absolute;
+  right:18px;
+  top:15px;
+  z-index:4;
+  padding:6px 9px;
+  border-radius:999px;
+  background:rgba(255,250,245,.74);
+  backdrop-filter:blur(10px);
+  color:#765e59;
+  font-size:8px;
+  font-weight:850;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+}
+
+.eroland-banner-copy p{
+  font-family:ui-serif,Georgia,serif;
+  font-size:29px;
+  line-height:.98;
+}
+
+.memory-card{
+  border-radius:27px;
+}
+
+.memory-card:nth-child(3n+1){transform:rotate(-.35deg)}
+.memory-card:nth-child(3n+2){transform:rotate(.28deg)}
+.memory-card:nth-child(3n+3){transform:rotate(-.12deg)}
+
+.memory-card::after{
+  content:"";
+  position:absolute;
+  top:9px;
+  left:50%;
+  width:36px;
+  height:9px;
+  transform:translateX(-50%) rotate(-2deg);
+  background:rgba(235,219,185,.32);
+  border-radius:2px;
+  pointer-events:none;
+}
+
+/* AI: quiet oracle */
+.ai-view .section-head h2::after{
+  content:" ✦";
+  color:#7f9a84;
+}
+
+.bubble.ai{
+  border-radius:21px 21px 21px 7px!important;
+}
+
+.bubble.user{
+  border-radius:21px 21px 7px 21px!important;
+}
+
+.composer{
+  border-radius:25px;
+}
+
+/* Settings: library cards */
+.settings-list button{
+  border-radius:21px;
+  position:relative;
+  overflow:hidden;
+}
+
+.settings-list button::after{
+  content:"→";
+  position:absolute;
+  right:16px;
+  opacity:.32;
+}
+
+/* nav: floating dock with active capsule */
+.bottom-nav{
+  border-radius:31px;
+  padding:7px 8px;
+  box-shadow:
+    0 18px 50px rgba(27,43,35,.17),
+    inset 0 1px 0 rgba(255,255,255,.76);
+}
+
+.nav-btn{
+  border-radius:21px;
+}
+
+.nav-btn.active{
+  background:
+    radial-gradient(circle at 50% 10%,rgba(255,255,255,.75),transparent 45%),
+    linear-gradient(145deg,#dfe9db,#cedcc9);
+}
+
+.nav-btn.active span{
+  transform:translateY(-1px);
+}
+
+/* delightful micro-motion */
+@media(prefers-reduced-motion:no-preference){
+  .hero-card::after{
+    animation:c3Twinkle 3.4s ease-in-out infinite;
+  }
+  @keyframes c3Twinkle{
+    0%,100%{opacity:.22;transform:rotate(12deg) scale(.9)}
+    50%{opacity:.48;transform:rotate(17deg) scale(1.08)}
+  }
+
+  .calendar-emoji{
+    display:inline-block;
+    animation:c3EmojiPop .28s cubic-bezier(.2,.9,.2,1);
+  }
+  @keyframes c3EmojiPop{
+    from{transform:scale(.5) rotate(-8deg);opacity:0}
+    to{transform:none;opacity:1}
+  }
+
+  .module-icon{
+    transition:transform .18s ease;
+  }
+  .module-card:hover .module-icon{
+    transform:rotate(-5deg) scale(1.06);
+  }
+}
+
+/* special image emoji visual polish */
+.emoji-preset.special img,
+.elog-special-emoji{
+  filter:drop-shadow(0 6px 8px rgba(138,96,90,.12));
+}
+
+/* mobile */
+@media(max-width:680px){
+  .hero-card{
+    min-height:198px;
+    border-radius:33px;
+    padding:25px;
+  }
+  .hero-card h2{font-size:33px}
+  .eroland-banner{min-height:188px;border-radius:32px}
+  .eroland-banner-copy p{font-size:25px}
+}
+
+@media(max-width:430px){
+  .quick-actions button:nth-child(odd),
+  .quick-actions button:nth-child(even){
+    transform:none;
+  }
+  .memory-card:nth-child(n){
+    transform:none;
+  }
+  .hero-card h2{font-size:31px}
+}
