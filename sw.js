@@ -1,4 +1,4 @@
-const VERSION="20260828-calendar-shift-fix";
+const VERSION="20260828-shifts-tab-final1";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",

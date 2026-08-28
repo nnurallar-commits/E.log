@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta name="elog-version" content="20260827-firebase-final">
+  <meta name="elog-version" content="20260828-shifts-tab-final1">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#23352b" />
   <title>E.log</title>
-  <link rel="manifest" href="manifest.json?v=20260827-shared-sync2" />
-  <link rel="stylesheet" href="style.css?v=20260827-shared-sync2" />
+  <link rel="manifest" href="manifest.json?v=20260828-shifts-tab-final1" />
+  <link rel="stylesheet" href="style.css?v=20260828-shifts-tab-final1" />
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260827-logo-final3">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-logo-final3">
@@ -45,7 +45,7 @@
             <small id="nextItemMeta">Takvimine bakıyorum</small>
           </button>
           <div class="quick-actions">
-            <button data-open="overtime" type="button"><span>💼</span><small>Mesai</small></button>
+            <button data-go-view="shifts" data-work-open="overtime" type="button"><span>💼</span><small>Mesai</small></button>
             <button id="quickPlanBtn" type="button"><span>＋</span><small>Plan</small></button>
             <button id="quickSportBtn" type="button"><span>🏋️</span><small>Spor</small></button>
             <button id="quickMemoryBtn" type="button"><span>♡</span><small>Anı</small></button>
@@ -70,7 +70,7 @@
         </section>
 
         <section class="two-col">
-          <button class="module-card" data-open="shifts" type="button">
+          <button class="module-card" data-go-view="shifts" type="button">
             <span class="module-icon">🩻</span><strong>Nöbetler</strong><small id="shiftMini">Yaklaşan nöbet yok</small>
           </button>
           <button class="module-card" data-open="eroland" type="button">
@@ -95,6 +95,53 @@
         <div class="calendar-weekdays"><span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span></div>
         <div id="calendarGrid" class="calendar-grid"></div>
         <div id="calendarDayDetail" class="day-detail"></div>
+      </section>
+
+
+      <section id="view-shifts" class="view">
+        <div class="section-head">
+          <div><p class="eyebrow">İŞ PLANI</p><h2>Nöbetler & Mesai</h2></div>
+        </div>
+
+        <section class="work-hero">
+          <div>
+            <span class="tag">Ortak kayıt</span>
+            <h3 id="shiftPageNext">Yaklaşan çalışma yok</h3>
+            <p id="shiftPageNextMeta">Nöbet veya ekstra mesai ekleyebilirsin.</p>
+          </div>
+        </section>
+
+        <div class="work-tabs">
+          <button class="work-tab active" data-work-tab="shift" type="button">🩻 Nöbet</button>
+          <button class="work-tab" data-work-tab="overtime" type="button">💼 Ekstra Mesai</button>
+        </div>
+
+        <section id="shiftTabPanel" class="work-panel">
+          <div class="rule-card"><strong>Nöbet saati sabit</strong><p>08:30'da başlar → ertesi gün 08:30'da biter.</p></div>
+          <form id="shiftPageForm" class="work-form">
+            <label>Nöbet tarihi<input id="shiftPageDate" type="date" required></label>
+            <button class="primary-btn full" type="submit">+ Nöbet kaydet</button>
+            <p id="shiftPageMsg" class="form-message"></p>
+          </form>
+          <div class="section-head compact"><div><p class="eyebrow">KAYITLAR</p><h3>Nöbet listesi</h3></div></div>
+          <div id="shiftPageList" class="panel-list"></div>
+        </section>
+
+        <section id="overtimeTabPanel" class="work-panel" hidden>
+          <div class="rule-card"><strong>Ekstra mesai</strong><p>Nöbetten ayrı saat aralığıyla kaydedilir.</p></div>
+          <form id="overtimePageForm" class="work-form">
+            <label>Tarih<input id="overtimePageDate" type="date" required></label>
+            <div class="form-row">
+              <label>Başlangıç<select id="overtimePageStart"></select></label>
+              <label>Bitiş<select id="overtimePageEnd"></select></label>
+            </div>
+            <label>Not<input id="overtimePageNote" placeholder="Örn. Ekstra çağrıldım"></label>
+            <button class="primary-btn full" type="submit">+ Ekstra mesai kaydet</button>
+            <p id="overtimePageMsg" class="form-message"></p>
+          </form>
+          <div class="section-head compact"><div><p class="eyebrow">KAYITLAR</p><h3>Ekstra mesai listesi</h3></div></div>
+          <div id="overtimePageList" class="panel-list"></div>
+        </section>
       </section>
 
       <section id="view-eroland" class="view">
@@ -130,7 +177,7 @@
       <section id="view-more" class="view">
         <div class="section-head"><div><p class="eyebrow">E.log</p><h2>Daha fazla</h2></div></div>
         <div class="settings-list">
-          <button data-open="shifts" type="button"><span>🩻 Nöbetlerim</span><b>›</b></button>
+          <button data-go-view="shifts" type="button"><span>🩻 Nöbetlerim</span><b>›</b></button>
           <button data-open="overtime" type="button"><span>💼 Ekstra Mesai</span><b>›</b></button>
           <button data-open="pair" type="button"><span>🔗 Ortak E.log</span><b>›</b></button>
           <button data-open="routines" type="button"><span>↻ Rutinler & Kurallar</span><b>›</b></button>
@@ -146,6 +193,7 @@
     <nav class="bottom-nav">
       <button class="nav-btn active" data-view="home" type="button" aria-current="page"><span>⌂</span><small>Bugün</small></button>
       <button class="nav-btn" data-view="calendar" type="button"><span>▣</span><small>Takvim</small></button>
+      <button class="nav-btn" data-view="shifts" type="button"><span>🩻</span><small>Nöbet</small></button>
       <button class="nav-btn" data-view="eroland" type="button"><span>♡</span><small>Eroland</small></button>
       <button class="nav-btn" data-view="ai" type="button"><span>✦</span><small>AI</small></button>
       <button class="nav-btn" data-view="more" type="button"><span>•••</span><small>Daha fazla</small></button>
@@ -175,6 +223,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="script.js?v=20260827-firebase-final"></script>
+  <script type="module" src="script.js?v=20260828-shifts-tab-final1"></script>
 </body>
 </html>
