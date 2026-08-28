@@ -15,7 +15,7 @@ const safe=s=>String(s??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"
 const time24=v=>String(v||"").replace(/\s*(AM|PM)\s*/ig,"");
 
 let app,auth,db,functions,storage,currentUser=null,profile=null;
-let calendarCursor=new Date(),selectedDate=today(); selectedEmojiDate=today(); renderEmojiChooser(selectedEmojiDate);
+let calendarCursor=new Date(),selectedDate=today();
 let entries=[],shifts=[],routines=[],memories=[],rules=[],sportMetrics=[],dayEmojis={};
 let selectedEmojiDate=today();
 let unsubs=[],activeMemoryFilter="all";
