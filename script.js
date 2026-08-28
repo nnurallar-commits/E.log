@@ -1490,35 +1490,39 @@ function wire(){
 }
 
 async function boot(){
-  markSync("● hazırlanıyor");
-
+  // Ekranı Firebase'i bekletmeden aç.
   try{
     loadLocal();
-  }catch(e){
-    console.warn("Yerel veriler yüklenemedi:",e);
-  }
-
-  try{
     wire();
     wireWorkPage();
     wireSport();
     wireEmojiChooser();
-  }catch(e){
-    console.error("Arayüz bağlantı hatası:",e);
-  }
-
-  try{
     renderAll();
+    markSync("● bağlanıyor");
   }catch(e){
-    console.error("İlk çizim hatası:",e);
+    console.error("E.log local boot",e);
   }
 
-  try{
-    addBubble("Merhaba. E.log takvimini, nöbetlerini ve Eroland kayıtlarını okuyabiliyorum. ✦","ai");
-  }catch{}
+  // Firebase arka planda bağlansın; uygulama bu sırada kullanılabilir.
+  const syncTimer=setTimeout(()=>{
+    const el=$("#syncStatus");
+    if(el && /bağlanıyor|hazırlanıyor/i.test(el.textContent||"")){
+      markSync("● telefonda");
+    }
+  },3500);
 
-  // Firebase her durumda başlatılır. UI'daki tek hata senkronu durduramaz.
-  await initFirebase();
+  try{
+    await initFirebase();
+    clearTimeout(syncTimer);
+    const el=$("#syncStatus");
+    if(el && /bağlanıyor|hazırlanıyor|telefonda/i.test(el.textContent||"")){
+      markSync("● canlı");
+    }
+  }catch(e){
+    clearTimeout(syncTimer);
+    console.error("Firebase başlatma",e);
+    markSync("● telefonda");
+  }
 }
 
 boot();
