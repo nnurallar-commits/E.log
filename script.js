@@ -16,13 +16,14 @@ const time24=v=>String(v||"").replace(/\s*(AM|PM)\s*/ig,"");
 
 let app,auth,db,functions,storage,currentUser=null,profile=null;
 let calendarCursor=new Date(),selectedDate=today();
-let entries=[],shifts=[],routines=[],memories=[],rules=[],sportMetrics=[],dayEmojis={},dayNotes={};
+let entries=[],shifts=[],routines=[],memories=[],rules=[],sportMetrics=[],dayEmojis={},dayNotes={},ourPlaces=[];
 let selectedEmojiDate=today();
 let unsubs=[],activeMemoryFilter="all";
 
 const LOCAL="elog-stable-v2";
 const EMOJI_KEY="elog-day-emojis-v2";
 const NOTES_KEY="elog-day-notes-v1";
+const PLACES_KEY="elog-our-places-v1";
 function sharedLocalKey(base){return `${base}-${pairId()}`}
 
 const defaultRules=[
@@ -105,6 +106,14 @@ function loadLocal(){
   }catch{
     dayNotes={};
   }
+  try{
+    ourPlaces=JSON.parse(
+      localStorage.getItem(sharedLocalKey(PLACES_KEY))
+      || localStorage.getItem(PLACES_KEY)
+      || "[]"
+    );
+    if(!Array.isArray(ourPlaces))ourPlaces=[];
+  }catch{ourPlaces=[]}
 
   if(!rules.length){
     rules=defaultRules.map(x=>({...x,_pending:true}));
@@ -116,6 +125,7 @@ function saveLocal(){
   localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics}));
   localStorage.setItem(sharedLocalKey(EMOJI_KEY),JSON.stringify(dayEmojis));
   localStorage.setItem(sharedLocalKey(NOTES_KEY),JSON.stringify(dayNotes));
+  localStorage.setItem(sharedLocalKey(PLACES_KEY),JSON.stringify(ourPlaces));
 }
 function arr(name){return ({entries,shifts,routines,memories,rules,sportMetrics})[name]}
 function setArr(name,v){if(name==="entries")entries=v;if(name==="shifts")shifts=v;if(name==="routines")routines=v;if(name==="memories")memories=v;if(name==="rules")rules=v;if(name==="sportMetrics")sportMetrics=v}
@@ -295,6 +305,16 @@ function startRealtime(){
       if(snap.exists()){
         dayNotes=snap.data().values||snap.data().value||{};
         saveLocal();renderCalendar();renderDayDetail();
+      }
+      markSync("● canlı");
+    },err=>{console.warn(err);markSync("● senkron hatası")}));
+  }catch(e){console.warn(e)}
+  try{
+    unsubs.push(onSnapshot(pairDoc("shared","ourPlaces"),snap=>{
+      if(snap.exists()){
+        ourPlaces=snap.data().values||snap.data().value||[];
+        if(!Array.isArray(ourPlaces))ourPlaces=[];
+        saveLocal();
       }
       markSync("● canlı");
     },err=>{console.warn(err);markSync("● senkron hatası")}));
@@ -1806,6 +1826,127 @@ function openMonthReplay(key=monthReplayKeys()[0]){
 }
 document.addEventListener("click",e=>{
   if(e.target.closest?.("#monthReplayBtn"))openMonthReplay();
+});
+
+
+/* ===== BİZİM YERLERİMİZ ===== */
+async function syncOurPlaces(){
+  if(!db||!currentUser)return false;
+  try{
+    await setDoc(pairDoc("shared","ourPlaces"),{values:ourPlaces,updatedAt:serverTimestamp()},{merge:false});
+    markSync("● canlı"); return true;
+  }catch(e){console.warn(e);markSync("● senkron hatası");return false}
+}
+function placeMapUrl(p){
+  if(p.lat!=null&&p.lng!=null)return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lat+","+p.lng)}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name||p.address||"")}`;
+}
+function placeCategoryEmoji(cat){
+  return ({date:"♡",food:"🍽️",coffee:"☕",trip:"✈️",special:"✦",other:"📍"})[cat]||"📍";
+}
+function openOurPlaces(){
+  const rows=[...ourPlaces].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  openGeneric(`
+    <div class="modal-head places-head">
+      <div><p class="eyebrow">EROLAND · HARİTA</p><h3>Bizim Yerlerimiz</h3></div>
+      <button class="icon-btn close-generic" type="button">×</button>
+    </div>
+    <section class="places-cover">
+      <div><span>📍</span><small>BİZİM HARİTAMIZ</small><h2>${rows.length} yer, bir sürü hikâye.</h2><p>Sevdiğiniz yerleri E.log'a iğneleyin.</p></div>
+      <button id="addOurPlaceBtn" type="button">＋ Yer ekle</button>
+    </section>
+    ${rows.length?`
+      <div class="places-list">
+        ${rows.map(p=>`
+          <article class="place-card">
+            <button class="place-main" data-place-map="${safe(p.id)}" type="button">
+              <span class="place-pin">${placeCategoryEmoji(p.category)}</span>
+              <span class="place-copy"><strong>${safe(p.name)}</strong>${p.address?`<small>${safe(p.address)}</small>`:""}${p.note?`<em>${safe(p.note)}</em>`:""}</span>
+              <b>↗</b>
+            </button>
+            <div class="place-actions">
+              <button data-place-edit="${safe(p.id)}" type="button">Düzenle</button>
+              <button data-place-delete="${safe(p.id)}" type="button">Sil</button>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    `:`<div class="places-empty"><span>🗺️</span><strong>Haritanız henüz boş</strong><p>İlk buluşma, favori kahveci ya da tatilden bir yer ekleyin.</p></div>`}
+  `,()=>{
+    $("#addOurPlaceBtn").onclick=()=>openPlaceEditor();
+    $$("[data-place-map]").forEach(b=>b.onclick=()=>{
+      const p=ourPlaces.find(x=>x.id===b.dataset.placeMap);
+      if(p)window.open(placeMapUrl(p),"_blank","noopener");
+    });
+    $$("[data-place-edit]").forEach(b=>b.onclick=()=>openPlaceEditor(b.dataset.placeEdit));
+    $$("[data-place-delete]").forEach(b=>b.onclick=async()=>{
+      if(!confirm("Bu yer haritanızdan silinsin mi?"))return;
+      ourPlaces=ourPlaces.filter(x=>x.id!==b.dataset.placeDelete);
+      saveLocal(); await syncOurPlaces(); openOurPlaces();
+    });
+  });
+}
+function openPlaceEditor(id=null){
+  const p=id?ourPlaces.find(x=>x.id===id):null;
+  openGeneric(`
+    <div class="modal-head">
+      <div><p class="eyebrow">BİZİM YERLERİMİZ</p><h3>${p?"Yeri düzenle":"Yer ekle"}</h3></div>
+      <button class="icon-btn close-generic" type="button">×</button>
+    </div>
+    <div class="place-editor">
+      <label>Yer adı<input id="placeName" value="${safe(p?.name||"")}" placeholder="Mesela: İlk buluştuğumuz kafe"></label>
+      <label>Tür<select id="placeCategory">
+        <option value="date" ${p?.category==="date"?"selected":""}>♡ Date</option>
+        <option value="food" ${p?.category==="food"?"selected":""}>🍽️ Yemek</option>
+        <option value="coffee" ${p?.category==="coffee"?"selected":""}>☕ Kahve</option>
+        <option value="trip" ${p?.category==="trip"?"selected":""}>✈️ Gezi</option>
+        <option value="special" ${p?.category==="special"?"selected":""}>✦ Özel</option>
+        <option value="other" ${p?.category==="other"?"selected":""}>📍 Diğer</option>
+      </select></label>
+      <div class="place-map-box">
+        <div><strong>🗺️ Haritadan ekle</strong><small>Konumunu kullanabilir veya Google Maps'te bir yer seçip koordinatları buraya yapıştırabilirsin.</small></div>
+        <button id="useMyLocationBtn" type="button">Konumumu kullan</button>
+      </div>
+      <div class="place-coords">
+        <label>Enlem<input id="placeLat" inputmode="decimal" value="${p?.lat??""}" placeholder="38.4237"></label>
+        <label>Boylam<input id="placeLng" inputmode="decimal" value="${p?.lng??""}" placeholder="27.1428"></label>
+      </div>
+      <label>Adres<input id="placeAddress" value="${safe(p?.address||"")}" placeholder="İsteğe bağlı"></label>
+      <label>Bizim notumuz<textarea id="placeNote" rows="3" maxlength="300" placeholder="Burayı neden seviyoruz?">${safe(p?.note||"")}</textarea></label>
+      <div id="placeLocationMessage" class="place-location-message"></div>
+      <button id="savePlaceBtn" class="primary-btn full" type="button">${p?"Kaydet":"Haritaya ekle"}</button>
+    </div>
+  `,()=>{
+    $("#useMyLocationBtn").onclick=()=>{
+      const msg=$("#placeLocationMessage");
+      if(!navigator.geolocation){msg.textContent="Bu cihaz konum paylaşımını desteklemiyor.";return}
+      msg.textContent="Konum alınıyor…";
+      navigator.geolocation.getCurrentPosition(pos=>{
+        $("#placeLat").value=pos.coords.latitude.toFixed(6);
+        $("#placeLng").value=pos.coords.longitude.toFixed(6);
+        msg.textContent="✓ Konum eklendi";
+      },()=>msg.textContent="Konum alınamadı. Tarayıcıdan konum izni verebilirsin.",{enableHighAccuracy:true,timeout:10000});
+    };
+    $("#savePlaceBtn").onclick=async()=>{
+      const name=$("#placeName").value.trim();
+      if(!name){$("#placeName").focus();return}
+      const lat=parseFloat($("#placeLat").value.replace(",","."));
+      const lng=parseFloat($("#placeLng").value.replace(",","."));
+      const item={
+        id:p?.id||uuid(),name,
+        category:$("#placeCategory").value,
+        address:$("#placeAddress").value.trim(),
+        note:$("#placeNote").value.trim(),
+        lat:Number.isFinite(lat)?lat:null,lng:Number.isFinite(lng)?lng:null,
+        createdAt:p?.createdAt||Date.now(),updatedAt:Date.now()
+      };
+      if(p){const i=ourPlaces.findIndex(x=>x.id===p.id);ourPlaces[i]=item}else ourPlaces.push(item);
+      saveLocal();await syncOurPlaces();openOurPlaces();
+    };
+  });
+}
+document.addEventListener("click",e=>{
+  if(e.target.closest?.("#ourPlacesBtn"))openOurPlaces();
 });
 
 initFirebase();
