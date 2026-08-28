@@ -15,8 +15,9 @@ const safe=s=>String(s??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"
 const time24=v=>String(v||"").replace(/\s*(AM|PM)\s*/ig,"");
 
 let app,auth,db,functions,storage,currentUser=null,profile=null;
-let calendarCursor=new Date(),selectedDate=today();
+let calendarCursor=new Date(),selectedDate=today(); selectedEmojiDate=today(); renderEmojiChooser(selectedEmojiDate);
 let entries=[],shifts=[],routines=[],memories=[],rules=[],sportMetrics=[],dayEmojis={};
+let selectedEmojiDate=today();
 let unsubs=[],activeMemoryFilter="all";
 
 const LOCAL="elog-stable-v2";
@@ -438,6 +439,85 @@ function wireSport(){
   $(".close-sport-dialog")?.addEventListener("click",()=>$("#sportDialog")?.close());
 }
 
+
+/* ===== Takvim emoji seçici ===== */
+function emojiListForDate(date){
+  const v=dayEmojis?.[date];
+  if(Array.isArray(v)) return v;
+  if(typeof v==="string" && v) return [v];
+  return [];
+}
+async function persistDayEmojis(){
+  saveLocal();
+  renderCalendar();
+  renderEmojiChooser(selectedEmojiDate);
+  if(!db) return;
+  try{
+    await setDoc(pairDoc("shared","dayEmojis"), {value:dayEmojis,updatedAt:serverTimestamp()}, {merge:true});
+    markSync("● canlı");
+  }catch(e){
+    console.warn("emoji sync",e);
+    markSync("● senkron hatası");
+  }
+}
+async function addEmojiToDate(date,emoji){
+  emoji=(emoji||"").trim();
+  if(!date||!emoji)return;
+  const arr=emojiListForDate(date);
+  if(arr.length>=4){
+    const box=$("#customEmojiInput");
+    if(box){box.value="";box.placeholder="Bu günde 4 emoji var";}
+    return;
+  }
+  arr.push(emoji);
+  dayEmojis={...dayEmojis,[date]:arr};
+  await persistDayEmojis();
+}
+async function removeEmojiFromDate(date,index){
+  const arr=emojiListForDate(date);
+  arr.splice(index,1);
+  const next={...dayEmojis};
+  if(arr.length) next[date]=arr; else delete next[date];
+  dayEmojis=next;
+  await persistDayEmojis();
+}
+function renderEmojiChooser(date){
+  selectedEmojiDate=date||selectedEmojiDate||today();
+  const box=$("#emojiChooser");
+  if(!box)return;
+  box.hidden=false;
+  const current=emojiListForDate(selectedEmojiDate);
+  let chips=box.querySelector(".emoji-current");
+  if(!chips){
+    chips=document.createElement("div");
+    chips.className="emoji-current";
+    box.querySelector(".emoji-chooser-head")?.after(chips);
+  }
+  chips.innerHTML=current.length
+    ? current.map((e,i)=>`<button type="button" class="emoji-current-chip" data-remove-emoji="${i}" title="Kaldır">${safe(e)} <span>×</span></button>`).join("")
+    : `<span class="emoji-empty-note">Bu günde henüz emoji yok.</span>`;
+  $$("[data-remove-emoji]",chips).forEach(b=>b.onclick=()=>removeEmojiFromDate(selectedEmojiDate,Number(b.dataset.removeEmoji)));
+}
+function wireEmojiChooser(){
+  $$(".emoji-preset").forEach(btn=>{
+    btn.addEventListener("click",()=>addEmojiToDate(selectedEmojiDate,btn.dataset.emoji||""));
+  });
+  $("#customEmojiAddBtn")?.addEventListener("click",()=>{
+    const input=$("#customEmojiInput");
+    if(!input)return;
+    const value=input.value.trim();
+    if(!value)return;
+    addEmojiToDate(selectedEmojiDate,value);
+    input.value="";
+  });
+  $("#customEmojiInput")?.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){
+      e.preventDefault();
+      $("#customEmojiAddBtn")?.click();
+    }
+  });
+}
+
 function nextScheduledItem(){
   const now=new Date(),c=[];
   entries.forEach(e=>{
@@ -529,7 +609,7 @@ function renderCalendar(){
 
   $$("[data-date]",grid).forEach(button=>{
     button.onclick=()=>{
-      selectedDate=button.dataset.date;
+      selectedDate=button.dataset.date; selectedEmojiDate=button.dataset.date; renderEmojiChooser(selectedEmojiDate);
       renderCalendar();
       renderDayDetail();
     };
@@ -1422,6 +1502,7 @@ async function boot(){
     wire();
     wireWorkPage();
     wireSport();
+    wireEmojiChooser();
   }catch(e){
     console.error("Arayüz bağlantı hatası:",e);
   }
@@ -1492,3 +1573,13 @@ document.addEventListener("click", function(e){
     return;
   }
 }, true);
+
+// calendarGridEmojiDelegate
+document.addEventListener("click",e=>{
+  const cell=e.target.closest?.("[data-date]");
+  if(!cell)return;
+  const date=cell.dataset.date;
+  if(!date)return;
+  selectedEmojiDate=date;
+  setTimeout(()=>renderEmojiChooser(date),0);
+});

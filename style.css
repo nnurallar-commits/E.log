@@ -1257,3 +1257,49 @@ input:focus,textarea:focus,select:focus{
 @media(max-width:520px){
   .elog-heart-mascot{width:42px;height:42px}
 }
+
+
+/* ===== Takvim Emoji Seçici ===== */
+.emoji-chooser{
+  margin:14px 0;
+  padding:18px;
+  border:1px solid rgba(34,66,52,.09);
+  border-radius:24px;
+  background:rgba(255,253,247,.96);
+}
+.emoji-chooser[hidden]{display:none!important}
+.emoji-chooser-head{
+  display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:12px
+}
+.emoji-chooser-head h3{margin:2px 0 0;color:#284936}
+.emoji-chooser-head small{color:#7f8d85;font-weight:700}
+.emoji-current{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.emoji-current-chip{
+  border:1px solid rgba(34,66,52,.10);background:#f1f5ec;border-radius:999px;
+  min-width:44px;padding:8px 10px;font-size:20px;display:flex;gap:6px;align-items:center;justify-content:center
+}
+.emoji-current-chip span{font-size:13px;color:#87948c}
+.emoji-empty-note{font-size:12px;color:#87948c}
+.emoji-preset-grid{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:14px
+}
+.emoji-preset{
+  min-width:0;border:1px solid rgba(34,66,52,.09);background:#fffefa;border-radius:16px;
+  padding:10px 6px;display:grid;place-items:center;gap:5px;color:#3f5b4c;font-weight:800;font-size:11px
+}
+.emoji-preset:hover{background:#eff4ea}
+.emoji-preset .emoji-glyph{font-size:25px;line-height:1}
+.emoji-preset.special img{width:34px;height:34px;object-fit:contain}
+.emoji-keyboard-box{
+  padding:14px;border-radius:18px;background:#eef3e9
+}
+.emoji-keyboard-box label{display:block;margin-bottom:8px;font-weight:800;color:#355342}
+.emoji-keyboard-row{display:grid;grid-template-columns:1fr auto;gap:8px}
+.emoji-keyboard-row input{
+  width:100%;min-width:0;border:1px solid rgba(34,66,52,.12);border-radius:14px;
+  padding:12px 13px;background:#fff;font-size:20px
+}
+.emoji-keyboard-box>small{display:block;margin-top:7px;color:#79867f;line-height:1.4}
+@media(max-width:560px){
+  .emoji-preset-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}

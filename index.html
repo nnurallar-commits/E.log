@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta name="elog-version" content="20260828-heart-restored1">
+  <meta name="elog-version" content="20260828-emoji-picker2">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#23352b" />
   <title>E.log</title>
-  <link rel="manifest" href="manifest.json?v=20260828-heart-restored1" />
-  <link rel="stylesheet" href="style.css?v=20260828-heart-restored1" />
+  <link rel="manifest" href="manifest.json?v=20260828-emoji-picker2" />
+  <link rel="stylesheet" href="style.css?v=20260828-emoji-picker2" />
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260827-logo-final3">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-logo-final3">
@@ -23,7 +23,6 @@
       </div>
       <div class="top-actions">
         <button id="syncBadge" class="chip ghost" type="button">● hazırlanıyor</button>
-        <img class="elog-heart-mascot" src="./elog-heart.png?v=20260828-heart-restored1" alt="" aria-hidden="true">
         <button id="profileBtn" class="icon-btn" type="button" aria-label="Profil">E</button>
       </div>
     </header>
@@ -95,6 +94,36 @@
         </div>
         <div class="calendar-weekdays"><span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span></div>
         <div id="calendarGrid" class="calendar-grid"></div>
+        
+        <div id="emojiChooser" class="emoji-chooser" hidden>
+          <div class="emoji-chooser-head">
+            <div>
+              <p class="eyebrow">GÜN EMOJİSİ</p>
+              <h3>Emoji ekle</h3>
+            </div>
+            <small>Bir güne en fazla 4</small>
+          </div>
+
+          <div class="emoji-preset-grid">
+            <button class="emoji-preset special" type="button" data-emoji="💖" data-emoji-label="Woohoo" data-emoji-image="./woohoo-heart.png">
+              <img src="./woohoo-heart.png" alt="">
+              <span>Woohoo</span>
+            </button>
+            <button class="emoji-preset" type="button" data-emoji="🌊"><span class="emoji-glyph">🌊</span><span>Deniz</span></button>
+            <button class="emoji-preset" type="button" data-emoji="🔥"><span class="emoji-glyph">🔥</span><span>Mangal</span></button>
+            <button class="emoji-preset" type="button" data-emoji="🍽️"><span class="emoji-glyph">🍽️</span><span>Yemek</span></button>
+            <button class="emoji-preset" type="button" data-emoji="🎂"><span class="emoji-glyph">🎂</span><span>Doğum günü</span></button>
+          </div>
+
+          <div class="emoji-keyboard-box">
+            <label for="customEmojiInput">Kendi klavyenden emoji</label>
+            <div class="emoji-keyboard-row">
+              <input id="customEmojiInput" type="text" inputmode="text" maxlength="12" placeholder="😊 🌙 🐢 ✨">
+              <button id="customEmojiAddBtn" class="primary-btn small" type="button">Ekle</button>
+            </div>
+            <small>Telefondaki veya bilgisayardaki emoji klavyenden istediğini yazabilirsin.</small>
+          </div>
+        </div>
         <div id="calendarDayDetail" class="day-detail"></div>
       </section>
 
@@ -301,6 +330,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="script.js?v=20260828-heart-restored1"></script>
+  <script type="module" src="script.js?v=20260828-emoji-picker2"></script>
 </body>
 </html>
