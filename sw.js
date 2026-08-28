@@ -1,4 +1,4 @@
-const VERSION="20260827-shared-sync2";
+const VERSION="20260828-calendar-shift-fix";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
