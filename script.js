@@ -1721,7 +1721,7 @@ function renderCalendar(){
     $("#calendarGrid");
 
   const title =
-    $("#calendarMonth");
+    $("#monthTitle")
 
 
   if(
@@ -1945,7 +1945,7 @@ function renderCalendar(){
 function renderDayDetail(){
 
   const target =
-    $("#dayDetail");
+    $("#calendarDayDetail")
 
 
   if(!target){
