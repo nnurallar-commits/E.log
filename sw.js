@@ -1,4 +1,4 @@
-const VERSION="20260828-real-openai-ai";
+const VERSION="20260829-memory-button-fixed";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
