@@ -1,4 +1,4 @@
-const VERSION="20260829-memory-ai-more-clean";
+const VERSION="20260829-places-no-coordinates";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",

@@ -2031,6 +2031,8 @@ function openOurPlaces(){
 }
 function openPlaceEditor(id=null){
   const p=id?ourPlaces.find(x=>x.id===id):null;
+  let autoLat=p?.lat??null, autoLng=p?.lng??null;
+
   openGeneric(`
     <div class="modal-head">
       <div><p class="eyebrow">BİZİM YERLERİMİZ</p><h3>${p?"Yeri düzenle":"Yer ekle"}</h3></div>
@@ -2046,45 +2048,56 @@ function openPlaceEditor(id=null){
         <option value="special" ${p?.category==="special"?"selected":""}>✦ Özel</option>
         <option value="other" ${p?.category==="other"?"selected":""}>📍 Diğer</option>
       </select></label>
+
       <div class="place-map-box">
-        <div><strong>🗺️ Haritadan ekle</strong><small>Konumunu kullanabilir veya Google Maps'te bir yer seçip koordinatları buraya yapıştırabilirsin.</small></div>
-        <button id="useMyLocationBtn" type="button">Konumumu kullan</button>
+        <div>
+          <strong>📍 Konum</strong>
+          <small>Koordinatla uğraşma. İstersen konumunu tek tuşla ekle, istemezsen yer adı veya adres yeterli.</small>
+        </div>
+        <button id="useMyLocationBtn" type="button">${autoLat!=null&&autoLng!=null?"✓ Konum eklendi":"Konumumu kullan"}</button>
       </div>
-      <div class="place-coords">
-        <label>Enlem<input id="placeLat" inputmode="decimal" value="${p?.lat??""}" placeholder="38.4237"></label>
-        <label>Boylam<input id="placeLng" inputmode="decimal" value="${p?.lng??""}" placeholder="27.1428"></label>
-      </div>
-      <label>Adres<input id="placeAddress" value="${safe(p?.address||"")}" placeholder="İsteğe bağlı"></label>
+
+      <label>Adres<input id="placeAddress" value="${safe(p?.address||"")}" placeholder="Örn: Alsancak, İzmir (isteğe bağlı)"></label>
       <label>Bizim notumuz<textarea id="placeNote" rows="3" maxlength="300" placeholder="Burayı neden seviyoruz?">${safe(p?.note||"")}</textarea></label>
-      <div id="placeLocationMessage" class="place-location-message"></div>
+      <div id="placeLocationMessage" class="place-location-message">${autoLat!=null&&autoLng!=null?"✓ Harita konumu kayıtlı":""}</div>
       <button id="savePlaceBtn" class="primary-btn full" type="button">${p?"Kaydet":"Haritaya ekle"}</button>
     </div>
   `,()=>{
     $("#useMyLocationBtn").onclick=()=>{
       const msg=$("#placeLocationMessage");
-      if(!navigator.geolocation){msg.textContent="Bu cihaz konum paylaşımını desteklemiyor.";return}
+      const btn=$("#useMyLocationBtn");
+      if(!navigator.geolocation){msg.textContent="Konum alınamıyor, sorun değil. Yer adı veya adresle kaydedebilirsin.";return}
       msg.textContent="Konum alınıyor…";
       navigator.geolocation.getCurrentPosition(pos=>{
-        $("#placeLat").value=pos.coords.latitude.toFixed(6);
-        $("#placeLng").value=pos.coords.longitude.toFixed(6);
-        msg.textContent="✓ Konum eklendi";
-      },()=>msg.textContent="Konum alınamadı. Tarayıcıdan konum izni verebilirsin.",{enableHighAccuracy:true,timeout:10000});
+        autoLat=Number(pos.coords.latitude.toFixed(6));
+        autoLng=Number(pos.coords.longitude.toFixed(6));
+        btn.textContent="✓ Konum eklendi";
+        msg.textContent="✓ Harita konumu eklendi";
+      },()=>{
+        msg.textContent="Konum izni verilmedi. Sorun değil, yer adı veya adres yeterli.";
+      },{enableHighAccuracy:true,timeout:10000});
     };
+
     $("#savePlaceBtn").onclick=async()=>{
       const name=$("#placeName").value.trim();
       if(!name){$("#placeName").focus();return}
-      const lat=parseFloat($("#placeLat").value.replace(",","."));
-      const lng=parseFloat($("#placeLng").value.replace(",","."));
+
       const item={
         id:p?.id||uuid(),name,
         category:$("#placeCategory").value,
         address:$("#placeAddress").value.trim(),
         note:$("#placeNote").value.trim(),
-        lat:Number.isFinite(lat)?lat:null,lng:Number.isFinite(lng)?lng:null,
+        lat:autoLat!=null?autoLat:null,
+        lng:autoLng!=null?autoLng:null,
         createdAt:p?.createdAt||Date.now(),updatedAt:Date.now()
       };
-      if(p){const i=ourPlaces.findIndex(x=>x.id===p.id);ourPlaces[i]=item}else ourPlaces.push(item);
-      saveLocal();await syncOurPlaces();openOurPlaces();
+
+      if(p){const i=ourPlaces.findIndex(x=>x.id===p.id);ourPlaces[i]=item}
+      else ourPlaces.push(item);
+
+      saveLocal();
+      await syncOurPlaces();
+      openOurPlaces();
     };
   });
 }
