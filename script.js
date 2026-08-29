@@ -170,10 +170,15 @@ function loadLocal(){
   saveLocal();
 }
 function saveLocal(){
-  localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics}));
-  localStorage.setItem(sharedLocalKey(EMOJI_KEY),JSON.stringify(dayEmojis));
-  localStorage.setItem(sharedLocalKey(NOTES_KEY),JSON.stringify(dayNotes));
-  localStorage.setItem(sharedLocalKey(PLACES_KEY),JSON.stringify(ourPlaces));
+  // Fotoğraf içeren anılar localStorage kotasını aşsa bile uygulamanın geri kalanı çalışmaya devam etsin.
+  try{
+    localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics}));
+  }catch(err){
+    console.warn("Yerel kayıt kotası doldu; bulut kaydı kullanılacak.",err);
+  }
+  try{localStorage.setItem(sharedLocalKey(EMOJI_KEY),JSON.stringify(dayEmojis))}catch{}
+  try{localStorage.setItem(sharedLocalKey(NOTES_KEY),JSON.stringify(dayNotes))}catch{}
+  try{localStorage.setItem(sharedLocalKey(PLACES_KEY),JSON.stringify(ourPlaces))}catch{}
 }
 function arr(name){return ({entries,shifts,routines,memories,rules,sportMetrics})[name]}
 function setArr(name,v){if(name==="entries")entries=v;if(name==="shifts")shifts=v;if(name==="routines")routines=v;if(name==="memories")memories=v;if(name==="rules")rules=v;if(name==="sportMetrics")sportMetrics=v}
@@ -1149,23 +1154,36 @@ function calcReminder(date,mode,custom){
   if(mode==="1m")d.setMonth(d.getMonth()+1);else if(mode==="6m")d.setMonth(d.getMonth()+6);else if(mode==="1y")d.setFullYear(d.getFullYear()+1);else if(mode==="custom"&&custom)return custom;else return "";
   return isoDate(d);
 }
-function fileToCompressedDataUrl(file,maxSide=1600,quality=.78){
+function fileToDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(reader.error||new Error("Dosya okunamadı"));
+    reader.onload=()=>resolve(String(reader.result||""));
+    reader.readAsDataURL(file);
+  });
+}
+
+function fileToCompressedDataUrl(file,maxSide=1280,quality=.72){
   return new Promise((resolve,reject)=>{
     if(!file?.type?.startsWith("image/")){reject(new Error("Görsel dosyası değil"));return}
     const reader=new FileReader();
     reader.onerror=()=>reject(reader.error||new Error("Fotoğraf okunamadı"));
     reader.onload=()=>{
       const img=new Image();
-      img.onerror=()=>reject(new Error("Fotoğraf açılamadı"));
+      img.onerror=()=>reject(new Error("Fotoğraf tarayıcıda dönüştürülemedi"));
       img.onload=()=>{
-        let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
-        const scale=Math.min(1,maxSide/Math.max(w,h));
-        w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
-        const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
-        const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,w,h);
-        let q=quality,data=canvas.toDataURL("image/jpeg",q);
-        while(data.length>300000&&q>.45){q-=.08;data=canvas.toDataURL("image/jpeg",q)}
-        resolve(data);
+        try{
+          let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+          const scale=Math.min(1,maxSide/Math.max(w,h));
+          w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
+          const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
+          const ctx=canvas.getContext("2d");
+          if(!ctx) throw new Error("Canvas açılamadı");
+          ctx.drawImage(img,0,0,w,h);
+          let q=quality,data=canvas.toDataURL("image/jpeg",q);
+          while(data.length>220000&&q>.36){q-=.08;data=canvas.toDataURL("image/jpeg",q)}
+          resolve(data);
+        }catch(err){reject(err)}
       };
       img.src=reader.result;
     };
@@ -1173,30 +1191,57 @@ function fileToCompressedDataUrl(file,maxSide=1600,quality=.78){
   });
 }
 
-async function uploadMedia(memoryId,files){
-  const out=[];if(!files?.length)return out;
-  for(const file of files){
-    if(file.type?.startsWith("image/")){
-      try{
-        // Fotoğrafları sıkıştırılmış data URL olarak anının içine kaydet.
-        // Böylece Firebase Storage kuralı/CORS yüzünden fotoğrafın kaybolması engellenir.
-        const url=await fileToCompressedDataUrl(file);
-        out.push({url,type:"image",name:file.name,inline:true});
-        continue;
-      }catch(e){
-        console.error("photo encode",e);
-        throw new Error("Fotoğraf hazırlanamadı. Lütfen başka bir fotoğraf dene.");
-      }
-    }
-
+async function uploadOneImage(memoryId,file,index=0){
+  // 1) Önce gerçek dosyayı Firebase Storage'a yükle. Bu, fotoğrafı iki cihazda da görünür tutar.
+  if(storage && currentUser){
     try{
-      if(!storage) throw new Error("Storage hazır değil");
-      const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${file.name}`);
-      await uploadBytes(r,file);
-      out.push({url:await getDownloadURL(r),type:"video",name:file.name});
-    }catch(e){
-      console.error("video upload",e);
-      throw new Error("Video yüklenemedi. Fotoğraflar çalışır; video için Firebase Storage erişimi gerekiyor.");
+      const safeName=(file.name||`photo-${index}.jpg`).replace(/[^a-zA-Z0-9._-]+/g,"-");
+      const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${index}-${safeName}`);
+      await uploadBytes(r,file,{contentType:file.type||"image/jpeg"});
+      return {url:await getDownloadURL(r),type:"image",name:file.name||safeName,storage:true};
+    }catch(err){
+      console.warn("Storage upload başarısız, inline yedek deneniyor:",err);
+    }
+  }
+
+  // 2) Storage kullanılamazsa küçük bir inline görsel yedeği oluştur.
+  try{
+    const url=await fileToCompressedDataUrl(file);
+    if(url && url.length<700000) return {url,type:"image",name:file.name||"photo.jpg",inline:true};
+  }catch(err){
+    console.warn("Sıkıştırma başarısız:",err);
+  }
+
+  // 3) HEIC gibi canvas'ın açamadığı ama küçük olan dosyalarda ham data URL son çare.
+  try{
+    const raw=await fileToDataUrl(file);
+    if(raw && raw.length<700000) return {url:raw,type:"image",name:file.name||"photo",inline:true};
+  }catch{}
+
+  throw new Error("Fotoğraf yüklenemedi. İnternet bağlantısını kontrol edip tekrar dene.");
+}
+
+async function uploadMedia(memoryId,files,onProgress){
+  const out=[];
+  if(!files?.length)return out;
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
+    onProgress?.(i,files.length,file);
+    if(file.type?.startsWith("image/")){
+      out.push(await uploadOneImage(memoryId,file,i));
+      continue;
+    }
+    if(file.type?.startsWith("video/")){
+      try{
+        if(!storage || !currentUser) throw new Error("Storage hazır değil");
+        const safeName=(file.name||`video-${i}.mp4`).replace(/[^a-zA-Z0-9._-]+/g,"-");
+        const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${i}-${safeName}`);
+        await uploadBytes(r,file,{contentType:file.type||"video/mp4"});
+        out.push({url:await getDownloadURL(r),type:"video",name:file.name||safeName,storage:true});
+      }catch(err){
+        console.error("video upload",err);
+        throw new Error("Video yüklenemedi. Fotoğraf deneyebilirsin.");
+      }
     }
   }
   return out;
@@ -1280,29 +1325,52 @@ function openMemoryForm(existing=null){
   <div class="form-row"><label>Tarih<input id="memoryDate" type="date" value="${safe(existing?.date||today())}"></label><label>Emoji<input id="memoryEmoji" value="${safe(existing?.emoji||"♡")}" maxlength="8"></label></div>
   <label>Not<textarea id="memoryNote" rows="3">${safe(existing?.note||"")}</textarea></label>
   <label>Fotoğraf / video<input id="memoryMedia" type="file" accept="image/*,video/*" multiple><small id="memoryMediaStatus">Fotoğraf seçebilirsin.</small></label>
+  <div id="memoryMediaPreview" class="memory-upload-preview"></div>
   <label>Hatırlat<select id="memoryReminder"><option value="">Hatırlatma yok</option><option value="1m">1 ay sonra</option><option value="6m">6 ay sonra</option><option value="1y">1 yıl sonra</option><option value="custom">Özel tarih</option></select></label>
   <label id="customReminderWrap" style="display:none">Hatırlatma tarihi<input id="memoryReminderCustom" type="date"></label>
   <button class="primary-btn full" type="submit">Kaydet</button><p id="memoryMsg" class="form-message"></p></form>`,()=>{
     $("#memoryType").value=existing?.type||"memory";$("#memoryReminder").onchange=()=>$("#customReminderWrap").style.display=$("#memoryReminder").value==="custom"?"block":"none";
     $("#memoryMedia").onchange=()=>{
-      const n=$("#memoryMedia").files?.length||0;
+      const files=[...($("#memoryMedia").files||[])];
+      const n=files.length;
       $("#memoryMediaStatus").textContent=n?`${n} dosya seçildi ✓`:"Fotoğraf seçebilirsin.";
+      const preview=$("#memoryMediaPreview");
+      preview.innerHTML="";
+      files.forEach(file=>{
+        if(file.type?.startsWith("image/")){
+          const img=document.createElement("img");
+          img.src=URL.createObjectURL(file);
+          img.onload=()=>URL.revokeObjectURL(img.src);
+          img.alt="Seçilen fotoğraf";
+          preview.appendChild(img);
+        }
+      });
     };
     $("#memoryForm").onsubmit=async e=>{
       e.preventDefault();const id=existing?.id||uuid(),date=$("#memoryDate").value||today(),mode=$("#memoryReminder").value;
       const submit=$("#memoryForm button[type=submit]");
       try{
-        submit.disabled=true;$("#memoryMsg").textContent="Fotoğraf hazırlanıyor ve kaydediliyor...";
-        const media=[...normalizeMemoryMedia(existing||{}),...await uploadMedia(id,[...$("#memoryMedia").files])];
+        submit.disabled=true;
+        const selectedFiles=[...($("#memoryMedia").files||[])];
+        $("#memoryMsg").textContent=selectedFiles.length?"Fotoğraf yükleniyor...":"Anı kaydediliyor...";
+        const added=await uploadMedia(id,selectedFiles,(i,total)=>{
+          $("#memoryMsg").textContent=`Fotoğraf yükleniyor ${i+1}/${total}...`;
+        });
+        const media=[...normalizeMemoryMedia(existing||{}),...added];
         const item={id,title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||"♡",date,note:$("#memoryNote").value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom").value),createdBy:existing?.createdBy||currentUser?.uid||"local",_pending:true};
         const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);
-        saveLocal();renderAll();
+        renderAll();
+        saveLocal();
+        $("#memoryMsg").textContent="Kaydediliyor...";
         const synced=await cloudSave("memories",item);
         if(!synced&&currentUser){
-          $("#memoryMsg").textContent="Anı telefona kaydedildi ama buluta gönderilemedi.";
-          submit.disabled=false;
+          // Kartı ekranda bırak. Kullanıcı fotoğrafı hemen görsün; senkron daha sonra yeniden denenir.
+          renderAll();
+          $("#memoryMsg").textContent="Telefona kaydedildi. Bulut bağlantısı gelince tekrar eşitlenecek.";
+          setTimeout(()=>$("#genericDialog")?.close(),700);
           return;
         }
+        renderAll();
         $("#genericDialog").close();
       }catch(err){
         console.error(err);

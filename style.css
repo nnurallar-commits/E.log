@@ -3256,3 +3256,20 @@ html[data-theme="dark"] img[src*="woohoo-heart"]{
 .ai-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .real-ai-chip{background:var(--elog-accent-soft)!important;color:var(--elog-accent-strong)!important}
 .ai-typing{opacity:.72;font-style:italic}
+
+/* ===== Eroland upload preview / iPhone photo fix ===== */
+.memory-upload-preview{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin:8px 0 4px;
+}
+.memory-upload-preview:empty{display:none}
+.memory-upload-preview img{
+  width:100%;
+  aspect-ratio:1/1;
+  object-fit:cover;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:#eef1ea;
+}
