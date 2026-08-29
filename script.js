@@ -1149,13 +1149,55 @@ function calcReminder(date,mode,custom){
   if(mode==="1m")d.setMonth(d.getMonth()+1);else if(mode==="6m")d.setMonth(d.getMonth()+6);else if(mode==="1y")d.setFullYear(d.getFullYear()+1);else if(mode==="custom"&&custom)return custom;else return "";
   return isoDate(d);
 }
+function fileToCompressedDataUrl(file,maxSide=1600,quality=.78){
+  return new Promise((resolve,reject)=>{
+    if(!file?.type?.startsWith("image/")){reject(new Error("Görsel dosyası değil"));return}
+    const reader=new FileReader();
+    reader.onerror=()=>reject(reader.error||new Error("Fotoğraf okunamadı"));
+    reader.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>reject(new Error("Fotoğraf açılamadı"));
+      img.onload=()=>{
+        let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+        const scale=Math.min(1,maxSide/Math.max(w,h));
+        w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
+        const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
+        const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,w,h);
+        let q=quality,data=canvas.toDataURL("image/jpeg",q);
+        while(data.length>300000&&q>.45){q-=.08;data=canvas.toDataURL("image/jpeg",q)}
+        resolve(data);
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadMedia(memoryId,files){
   const out=[];if(!files?.length)return out;
   for(const file of files){
+    if(file.type?.startsWith("image/")){
+      try{
+        // Fotoğrafları sıkıştırılmış data URL olarak anının içine kaydet.
+        // Böylece Firebase Storage kuralı/CORS yüzünden fotoğrafın kaybolması engellenir.
+        const url=await fileToCompressedDataUrl(file);
+        out.push({url,type:"image",name:file.name,inline:true});
+        continue;
+      }catch(e){
+        console.error("photo encode",e);
+        throw new Error("Fotoğraf hazırlanamadı. Lütfen başka bir fotoğraf dene.");
+      }
+    }
+
     try{
+      if(!storage) throw new Error("Storage hazır değil");
       const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${file.name}`);
-      await uploadBytes(r,file);out.push({url:await getDownloadURL(r),type:file.type.startsWith("video/")?"video":"image",name:file.name});
-    }catch(e){console.error("media upload",e)}
+      await uploadBytes(r,file);
+      out.push({url:await getDownloadURL(r),type:"video",name:file.name});
+    }catch(e){
+      console.error("video upload",e);
+      throw new Error("Video yüklenemedi. Fotoğraflar çalışır; video için Firebase Storage erişimi gerekiyor.");
+    }
   }
   return out;
 }
@@ -1174,7 +1216,7 @@ function renderMemories(filter="all"){
         <button class="memory-main memory-click" data-memory-id="${safe(m.id)}" type="button">
           <div class="memory-cover-wrap">
             ${memoryCoverHtml(m)}
-            <span class="memory-heart">${safe(m.emoji||"♡")}</span>
+            ${normalizeMemoryMedia(m).length?"":`<span class="memory-heart">${safe(m.emoji||"♡")}</span>`}
           </div>
 
           <div class="memory-card-body">
@@ -1237,17 +1279,36 @@ function openMemoryForm(existing=null){
   <label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label>
   <div class="form-row"><label>Tarih<input id="memoryDate" type="date" value="${safe(existing?.date||today())}"></label><label>Emoji<input id="memoryEmoji" value="${safe(existing?.emoji||"♡")}" maxlength="8"></label></div>
   <label>Not<textarea id="memoryNote" rows="3">${safe(existing?.note||"")}</textarea></label>
-  <label>Fotoğraf / video<input id="memoryMedia" type="file" accept="image/*,video/*" multiple></label>
+  <label>Fotoğraf / video<input id="memoryMedia" type="file" accept="image/*,video/*" multiple><small id="memoryMediaStatus">Fotoğraf seçebilirsin.</small></label>
   <label>Hatırlat<select id="memoryReminder"><option value="">Hatırlatma yok</option><option value="1m">1 ay sonra</option><option value="6m">6 ay sonra</option><option value="1y">1 yıl sonra</option><option value="custom">Özel tarih</option></select></label>
   <label id="customReminderWrap" style="display:none">Hatırlatma tarihi<input id="memoryReminderCustom" type="date"></label>
   <button class="primary-btn full" type="submit">Kaydet</button><p id="memoryMsg" class="form-message"></p></form>`,()=>{
     $("#memoryType").value=existing?.type||"memory";$("#memoryReminder").onchange=()=>$("#customReminderWrap").style.display=$("#memoryReminder").value==="custom"?"block":"none";
+    $("#memoryMedia").onchange=()=>{
+      const n=$("#memoryMedia").files?.length||0;
+      $("#memoryMediaStatus").textContent=n?`${n} dosya seçildi ✓`:"Fotoğraf seçebilirsin.";
+    };
     $("#memoryForm").onsubmit=async e=>{
       e.preventDefault();const id=existing?.id||uuid(),date=$("#memoryDate").value||today(),mode=$("#memoryReminder").value;
-      $("#memoryMsg").textContent="Kaydediliyor...";
-      const media=[...(existing?.media||[]),...await uploadMedia(id,[...$("#memoryMedia").files])];
-      const item={id,title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||"♡",date,note:$("#memoryNote").value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom").value),createdBy:existing?.createdBy||currentUser?.uid||"local",_pending:true};
-      const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);saveLocal();renderAll();$("#genericDialog").close();await cloudSave("memories",item);
+      const submit=$("#memoryForm button[type=submit]");
+      try{
+        submit.disabled=true;$("#memoryMsg").textContent="Fotoğraf hazırlanıyor ve kaydediliyor...";
+        const media=[...normalizeMemoryMedia(existing||{}),...await uploadMedia(id,[...$("#memoryMedia").files])];
+        const item={id,title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||"♡",date,note:$("#memoryNote").value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom").value),createdBy:existing?.createdBy||currentUser?.uid||"local",_pending:true};
+        const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);
+        saveLocal();renderAll();
+        const synced=await cloudSave("memories",item);
+        if(!synced&&currentUser){
+          $("#memoryMsg").textContent="Anı telefona kaydedildi ama buluta gönderilemedi.";
+          submit.disabled=false;
+          return;
+        }
+        $("#genericDialog").close();
+      }catch(err){
+        console.error(err);
+        $("#memoryMsg").textContent=err?.message||"Fotoğraf kaydedilemedi.";
+        submit.disabled=false;
+      }
     };
   });
 }
@@ -1299,12 +1360,12 @@ function checkReminders(){
   const t=today();
   memories.filter(m=>m.reminderDate===t).forEach(m=>{
     const k=`elog-reminder-${m.id}-${t}`;if(localStorage.getItem(k))return;
-    if(notificationsEnabled())new Notification("Eroland hatırlatma ♡",{body:m.title,icon:"./icon-192.png"});
+    if("Notification" in window&&Notification.permission==="granted")new Notification("Eroland hatırlatma ♡",{body:m.title,icon:"./icon-192.png"});
     localStorage.setItem(k,"1");
   });
 }
 function checkShiftNotifications(){
-  if(!notificationsEnabled())return;
+  if(!("Notification" in window)||Notification.permission!=="granted")return;
   shifts.forEach(s=>{const mins=(new Date(`${s.startDate}T08:30:00`)-new Date())/60000;for(const [key,min,max,msg] of [["24",1380,1440,"Yarın 08:30'da nöbetin var 🩻"],["2",60,120,"Nöbetin 08:30'da başlıyor 🩻"]]){const k=`shift-${s.id}-${key}`;if(mins>min&&mins<=max&&!localStorage.getItem(k)){new Notification("E.log",{body:msg,icon:"./icon-192.png"});localStorage.setItem(k,"1")}}});
 }
 
@@ -1767,27 +1828,7 @@ function openOvertime(){
 function openRoutines(){openGeneric(`<div class="modal-head"><h3>↻ Rutinler & Kurallar</h3><button class="icon-btn close-generic">×</button></div>${rules.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p></div>`).join("")}`)}
 function openBrain(){openRoutines()}
 function openStats(){openGeneric(`<div class="modal-head"><h3>▥ Bu ay</h3><button class="icon-btn close-generic">×</button></div><div class="stat-grid"><div class="stat"><b>${entries.length}</b><span>Kayıt</span></div><div class="stat"><b>${shifts.length}</b><span>Nöbet</span></div><div class="stat"><b>${memories.length}</b><span>Eroland</span></div></div>`)}
-function notificationsEnabled(){
-  return localStorage.getItem("elog-notifications-enabled")==="1" &&
-    "Notification" in window && Notification.permission==="granted";
-}
-function openNotifications(){
-  const supported="Notification" in window;
-  const granted=supported && Notification.permission==="granted";
-  const enabled=localStorage.getItem("elog-notifications-enabled")==="1";
-  openGeneric(`<div class="modal-head"><h3>🔔 Bildirimler</h3><button class="icon-btn close-generic" type="button">×</button></div>
-    <div class="panel-row notification-row"><div><strong>Bildirimler</strong><small>${granted&&enabled?"Açık ✓":"Kapalı"}</small></div>
-    <button id="notifyBtn" class="${granted&&enabled?"secondary-btn":"primary-btn"}" type="button">${granted&&enabled?"Kapat":"Aç"}</button></div>`,()=>{
-      $("#notifyBtn").onclick=async()=>{
-        if(localStorage.getItem("elog-notifications-enabled")==="1"){localStorage.setItem("elog-notifications-enabled","0");openNotifications();return;}
-        if(!supported){alert("Bu cihaz bildirimleri desteklemiyor.");return;}
-        const permission=await Notification.requestPermission();
-        localStorage.setItem("elog-notifications-enabled",permission==="granted"?"1":"0");
-        if(permission==="granted")try{new Notification("E.log",{body:"Bildirimler açıldı ♡",icon:"./icon-192.png"})}catch{}
-        openNotifications();
-      };
-    });
-}
+function openNotifications(){openGeneric(`<div class="modal-head"><h3>🔔 Bildirimler</h3><button class="icon-btn close-generic">×</button></div><button id="notifyBtn" class="primary-btn full">Bildirimleri aç</button>`,()=>{$("#notifyBtn").onclick=async()=>{if("Notification" in window)await Notification.requestPermission();$("#genericDialog").close()}})}
 function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görünümü</h3><button class="icon-btn close-generic">×</button></div><div class="panel-row"><strong>Pair ID</strong><small>${safe(pairId())}</small></div>`)}
 function openModule(n){if(n==="shifts")openShifts();if(n==="overtime")openOvertime();if(n==="pair")openPairInfo();if(n==="routines")openRoutines();if(n==="brain")openBrain();if(n==="stats")openStats();if(n==="notifications")openNotifications();if(n==="partner")openPartner();if(n==="eroland")switchView("eroland")}
 function openGeneric(html,after){$("#genericContent").innerHTML=html;$("#genericDialog").showModal();$(".close-generic")?.addEventListener("click",()=>$("#genericDialog").close());after?.()}

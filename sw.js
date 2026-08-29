@@ -1,4 +1,4 @@
-const VERSION="20260829-places-no-coordinates";
+const VERSION="20260829-photo-memory-fix-2";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",

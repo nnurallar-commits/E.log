@@ -3256,26 +3256,3 @@ html[data-theme="dark"] img[src*="woohoo-heart"]{
 .ai-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .real-ai-chip{background:var(--elog-accent-soft)!important;color:var(--elog-accent-strong)!important}
 .ai-typing{opacity:.72;font-style:italic}
-
-
-/* 2026-08-29 usability hotfix */
-/* Takvim emojileri daha görünür */
-.calendar-day-icons .day-emoji{width:24px!important;height:24px!important;}
-.calendar-day-icons .day-emoji .calendar-emoji-char{font-size:20px!important;}
-.calendar-day-icons .day-emoji .calendar-sticker{width:24px!important;height:24px!important;}
-.calendar-day-icons span{font-size:19px!important;}
-.calendar-day-icons{max-height:34px!important;gap:2px!important;bottom:5px!important;}
-.day-cell{padding-bottom:34px!important;}
-
-/* Fotoğraf varsa kalp rozeti fotoğrafın üstünü kapatmasın */
-.memory-cover-wrap:has(.memory-cover) .memory-heart{display:none!important;}
-
-/* + Anı mobilde uca sıkışmasın, dokunma alanı büyük olsun */
-#view-eroland .section-head{align-items:center!important;gap:12px!important;}
-#memoryAddBtn{min-width:104px!important;min-height:48px!important;padding:12px 18px!important;touch-action:manipulation;position:relative;z-index:5;}
-.notification-row{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;}
-.notification-row #notifyBtn{min-width:92px;min-height:44px;}
-@media(max-width:520px){
-  #view-eroland .section-head{padding-right:4px!important;}
-  #memoryAddBtn{margin-right:6px!important;min-width:112px!important;min-height:50px!important;}
-}
