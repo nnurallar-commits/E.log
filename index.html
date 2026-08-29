@@ -1,355 +1,312 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="tr">
 <head>
-  <meta name="elog-version" content="20260828-more-gallery-redesign">
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#23352b" />
-  <title>E.log</title>
-  <link rel="manifest" href="manifest.json?v=20260829-memory-button-fixed" />
-  <link rel="stylesheet" href="style.css?v=20260829-memory-button-fixed" />
-
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260827-logo-final3">
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260827-logo-final3">
-  <link rel="apple-touch-icon-precomposed" sizes="180x180" href="apple-touch-icon.png?v=20260827-logo-final3">
-
-</head>
+<meta content="20260828-more-gallery-redesign" name="elog-version"/>
+<meta charset="utf-8">
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<meta content="#23352b" name="theme-color"/>
+<title>E.log</title>
+<link href="manifest.json?v=20260829-memory-ai-more-clean" rel="manifest"/>
+<link href="style.css?v=20260829-memory-ai-more-clean" rel="stylesheet"/>
+<link href="favicon.svg?v=20260827-logo-final3" rel="icon" type="image/svg+xml"/>
+<link href="apple-touch-icon.png?v=20260827-logo-final3" rel="apple-touch-icon" sizes="180x180"/>
+<link href="apple-touch-icon.png?v=20260827-logo-final3" rel="apple-touch-icon-precomposed" sizes="180x180"/>
+</meta></head>
 <body>
+<button aria-label="Tema değiştir" class="elog-theme-toggle" id="elogThemeToggle" title="Tema değiştir" type="button">
+<span aria-hidden="true" class="elog-theme-icon">☾</span>
+<span class="elog-theme-text">Koyu</span>
+</button>
+<div class="app-shell" id="app">
+<header class="topbar">
+<div>
+<p class="eyebrow" id="todayLabel">Bugün</p>
+<h1>E.log</h1>
+</div>
+<div class="top-actions">
+<button class="chip ghost" id="syncBadge" type="button">● bağlanıyor</button>
+<button aria-label="Profil" class="icon-btn" id="profileBtn" type="button">E</button>
+</div>
+</header>
+<main>
+<section class="view active" id="view-home">
+<div class="hero-card">
+<div>
+<span class="tag">Bugün senin günün</span>
+<h2 id="heroGreeting">Merhaba 👋</h2>
+<p id="heroSummary">Günün akışını birlikte toparlayalım.</p>
+</div>
+<button class="primary-btn" id="quickAddBtn" type="button">+ Hızlı ekle</button>
+</div>
+<section class="productivity-strip">
+<button class="next-card" id="nextItemCard" type="button">
+<span class="mini-label">SIRADAKİ</span>
+<strong id="nextItemTitle">Plan bulunuyor…</strong>
+<small id="nextItemMeta">Takvimine bakıyorum</small>
+</button>
+<div class="quick-actions">
+<button data-go-view="shifts" data-work-open="overtime" type="button"><span>💼</span><small>Mesai</small></button>
+<button id="quickPlanBtn" type="button"><span>＋</span><small>Plan</small></button>
+<button id="quickSportBtn" type="button"><span>🏋️</span><small>Spor</small></button>
+<button id="quickMemoryBtn" type="button"><span>♡</span><small>Anı</small></button>
+</div>
+</section>
+<section class="section-block today-compact">
+<div class="section-head">
+<div><p class="eyebrow">Akış</p><h3>Bugün</h3></div>
+<button class="text-btn" id="smartPlanBtn" type="button">✨ Planla</button>
+</div>
+<div class="timeline" id="todayTimeline"></div>
+</section>
+<section class="ai-shortcuts">
+<div><p class="eyebrow">E.LOG AI</p><strong>Tek dokunuşla sor</strong></div>
+<div class="ai-shortcut-buttons">
+<button data-ai-prompt="Bugün ne yapacağım?" type="button">Bugün</button>
+<button data-ai-prompt="Yarın ne var?" type="button">Yarın</button>
+<button data-ai-prompt="Boş saatlerimi bul" type="button">Boş saatler</button>
+</div>
+</section>
+<section class="two-col">
+<button class="module-card" data-go-view="shifts" type="button">
+<span class="module-icon">🩻</span><strong>Nöbetler</strong><small id="shiftMini">Yaklaşan nöbet yok</small>
+</button>
+<button class="module-card" data-open="eroland" type="button">
+<span class="module-icon">♡</span><strong>Eroland</strong><small>Anılar &amp; ortak planlar</small>
+</button>
+<button class="module-card" data-open="overtime" type="button">
+<span class="module-icon">💼</span><strong>Ekstra Mesai</strong><small>Saat aralığıyla kaydet</small>
+</button>
+</section>
+</section>
+<section class="view" id="view-calendar">
+<div class="section-head">
+<div><p class="eyebrow">Planla</p><h2>Takvim</h2></div>
+<button class="primary-btn small" id="calendarAddBtn" type="button">+ Ekle</button>
+</div>
+<div class="calendar-toolbar">
+<button class="icon-btn" id="prevMonth" type="button">‹</button>
+<strong id="monthTitle"></strong>
+<button class="icon-btn" id="nextMonth" type="button">›</button>
+</div>
+<div class="calendar-weekdays"><span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span></div>
+<div class="calendar-grid" id="calendarGrid"></div>
+<div class="emoji-chooser" hidden="" id="emojiChooser">
+<div class="emoji-chooser-head">
+<div>
+<p class="eyebrow">GÜN EMOJİSİ</p>
+<h3>Emoji ekle</h3>
+</div>
+<small>Bir güne en fazla 4</small>
+</div>
+<div class="emoji-preset-grid">
+<button class="emoji-preset special" data-emoji="💖" data-emoji-image="./elog-heart.png" data-emoji-label="Woohoo" type="button">
+<img alt="" src="./elog-heart.png"/>
+<span>Woohoo</span>
+</button>
+<button class="emoji-preset" data-emoji="🌊" type="button"><span class="emoji-glyph">🌊</span><span>Deniz</span></button>
+<button class="emoji-preset" data-emoji="🔥" type="button"><span class="emoji-glyph">🔥</span><span>Mangal</span></button>
+<button class="emoji-preset" data-emoji="🍽️" type="button"><span class="emoji-glyph">🍽️</span><span>Yemek</span></button>
+<button class="emoji-preset" data-emoji="🎂" type="button"><span class="emoji-glyph">🎂</span><span>Doğum günü</span></button>
+<button class="emoji-preset" data-emoji="🏋️" type="button"><span class="emoji-glyph">🏋️</span><span>Spor</span></button>
+<button class="emoji-preset" data-emoji="🎣" type="button"><span class="emoji-glyph">🎣</span><span>Balık</span></button>
+</div>
+<div class="emoji-keyboard-box">
+<label for="customEmojiInput">Kendi klavyenden emoji</label>
+<div class="emoji-keyboard-row">
+<input id="customEmojiInput" inputmode="text" maxlength="12" placeholder="😊 🌙 🐢 ✨" type="text"/>
+<button class="primary-btn small" id="customEmojiAddBtn" type="button">Ekle</button>
+</div>
+<small>Telefondaki veya bilgisayardaki emoji klavyenden istediğini yazabilirsin.</small>
+</div>
+</div>
+<div class="day-detail" id="calendarDayDetail"></div>
+</section>
+<section class="view" id="view-shifts">
+<div class="section-head">
+<div><p class="eyebrow">İŞ PLANI</p><h2>Nöbetler &amp; Mesai</h2></div>
+</div>
+<section class="work-hero">
+<div>
+<span class="tag">Ortak kayıt</span>
+<h3 id="shiftPageNext">Yaklaşan çalışma yok</h3>
+<p id="shiftPageNextMeta">Nöbet veya ekstra mesai ekleyebilirsin.</p>
+</div>
+</section>
+<div class="work-tabs">
+<button class="work-tab active" data-work-tab="shift" type="button">🩻 Nöbet</button>
+<button class="work-tab" data-work-tab="overtime" type="button">💼 Ekstra Mesai</button>
+</div>
+<section class="work-panel" id="shiftTabPanel">
+<div class="rule-card"><strong>Nöbet saati sabit</strong><p>08:30'da başlar → ertesi gün 08:30'da biter.</p></div>
+<form class="work-form" id="shiftPageForm">
+<label>Nöbet tarihi<input id="shiftPageDate" required="" type="date"/></label>
+<button class="primary-btn full" type="submit">+ Nöbet kaydet</button>
+<p class="form-message" id="shiftPageMsg"></p>
+</form>
+<div class="section-head compact"><div><p class="eyebrow">KAYITLAR</p><h3>Nöbet listesi</h3></div></div>
+<div class="panel-list" id="shiftPageList"></div>
+</section>
+<section class="work-panel" hidden="" id="overtimeTabPanel">
+<div class="rule-card"><strong>Ekstra mesai</strong><p>Nöbetten ayrı saat aralığıyla kaydedilir.</p></div>
+<form class="work-form" id="overtimePageForm">
+<label>Tarih<input id="overtimePageDate" required="" type="date"/></label>
+<div class="form-row">
+<label>Başlangıç<select id="overtimePageStart"></select></label>
+<label>Bitiş<select id="overtimePageEnd"></select></label>
+</div>
+<label>Not<input id="overtimePageNote" placeholder="Örn. Ekstra çağrıldım"/></label>
+<button class="primary-btn full" type="submit">+ Ekstra mesai kaydet</button>
+<p class="form-message" id="overtimePageMsg"></p>
+</form>
+<div class="section-head compact"><div><p class="eyebrow">KAYITLAR</p><h3>Ekstra mesai listesi</h3></div></div>
+<div class="panel-list" id="overtimePageList"></div>
+</section>
+</section>
+<section class="view" id="view-eroland">
+<div class="section-head">
+<div><p class="eyebrow">Size özel</p><h2>Eroland ♡</h2></div>
+<button class="primary-btn small" id="memoryAddBtn" type="button">+ Anı</button>
+</div>
+<div class="eroland-banner"><div class="eroland-banner-copy">
+<p>İyi planlar, daha güzel yarınlar.</p>
+<span>Sen + Erol</span>
+</div>
+<div aria-hidden="true" class="eroland-banner-art">
+<img alt="" src="./eroland-us.png?v=20260828-eroland-banner-kids1"/>
+</div></div>
+<div class="tabs-row">
+<button class="mini-tab active" data-memory-filter="all" type="button">Tümü</button>
+<button class="mini-tab" data-memory-filter="memory" type="button">Anılar</button>
+<button class="mini-tab" data-memory-filter="plan" type="button">Planlar</button>
+<button class="mini-tab" data-memory-filter="place" type="button">Yerler</button>
+</div>
+<div class="memory-grid" id="memoryGrid"></div>
+</section>
+<section class="view sport-view" id="view-sport">
+<div class="section-head sport-head">
+<div><p class="eyebrow">SPOR &amp; VÜCUT</p><h2>Gelişim</h2></div>
+<button class="primary-btn small" id="sportAddBtn" type="button">+ Ölçüm</button>
+</div>
+<section class="sport-hero">
+<div class="sport-hero-copy">
+<span class="tag">E.log Fit</span>
+<h3>Rakamları değil, gelişimi takip et.</h3>
+<p>Kilo ve yağ oranını tarih tarih kaydet. Değişimi E.log senin için özetlesin.</p>
+</div>
+<div aria-hidden="true" class="sport-ring"><span>↗</span></div>
+</section>
+<div class="sport-metric-grid">
+<article class="sport-metric-card">
+<span class="sport-metric-icon">⚖️</span>
+<small>Güncel kilo</small>
+<strong id="sportWeightNow">—</strong>
+<p id="sportWeightDelta">Henüz ölçüm yok</p>
+</article>
+<article class="sport-metric-card">
+<span class="sport-metric-icon">◔</span>
+<small>Yağ oranı</small>
+<strong id="sportFatNow">—</strong>
+<p id="sportFatDelta">Henüz ölçüm yok</p>
+</article>
+</div>
+<section class="sport-progress-card">
+<div class="section-head compact">
+<div><p class="eyebrow">SON ÖLÇÜMLER</p><h3>Gelişim çizgisi</h3></div>
+<small id="sportProgressHint">Kayıt ekledikçe görünür</small>
+</div>
+<div class="sport-trend" id="sportTrend"></div>
+</section>
+<section class="sport-history-card">
+<div class="section-head compact">
+<div><p class="eyebrow">GEÇMİŞ</p><h3>Ölçüm geçmişi</h3></div>
+</div>
+<div class="sport-history" id="sportHistory"></div>
+<button class="sport-view-all-btn" id="viewAllSportHistoryBtn" type="button">
+<span>Tümünü görüntüle</span><b>→</b>
+</button>
+</section>
+</section>
 
-<button id="elogThemeToggle" class="elog-theme-toggle" type="button" aria-label="Tema değiştir" title="Tema değiştir">
-  <span class="elog-theme-icon" aria-hidden="true">☾</span>
-  <span class="elog-theme-text">Koyu</span>
+<section class="view" id="view-more">
+<div class="section-head"><div><p class="eyebrow">E.log</p><h2>Daha fazla</h2></div></div>
+<div class="settings-list">
+<button data-go-view="sport" type="button"><span>🏋️ Spor &amp; Vücut</span><b>›</b></button>
+<button data-go-view="shifts" type="button"><span>🩻 Nöbetlerim</span><b>›</b></button>
+<button data-open="overtime" type="button"><span>💼 Ekstra Mesai</span><b>›</b></button>
+
+
+
+
+
+
+<button class="more-feature more-month" id="monthReplayBtn" type="button"><span>🎞️ Ayımız</span><b>›</b></button>
+<button class="more-feature more-places" id="ourPlacesBtn" type="button"><span>📍 Bizim Yerlerimiz</span><b>›</b></button>
+<button id="logoutBtn" type="button"><span>Çıkış yap</span><b>›</b></button>
+</div>
+</section>
+</main>
+<nav class="bottom-nav">
+<button aria-current="page" class="nav-btn active" data-view="home" type="button"><span>⌂</span><small>Bugün</small></button>
+<button class="nav-btn" data-view="calendar" type="button"><span><svg aria-hidden="true" class="nav-calendar-svg" viewbox="0 0 24 24">
+<rect height="14" rx="3" width="16" x="4" y="5.5"></rect>
+<path d="M8 3.5v4M16 3.5v4M4 9.5h16"></path>
+<path d="M8 13h2M12 13h2M16 13h1M8 16h2M12 16h2"></path>
+</svg></span><small>Takvim</small></button>
+<button class="nav-btn" data-view="shifts" type="button"><span>🩻</span><small>Nöbet</small></button>
+<button class="nav-btn" data-view="eroland" type="button"><span>♡</span><small>Eroland</small></button>
+<button class="nav-btn" data-view="sport" type="button">
+<span>🏋️</span><small>Spor</small>
 </button>
 
-  <div id="app" class="app-shell">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow" id="todayLabel">Bugün</p>
-        <h1>E.log</h1>
-      </div>
-      <div class="top-actions">
-        <button id="syncBadge" class="chip ghost" type="button">● bağlanıyor</button>
-        <button id="profileBtn" class="icon-btn" type="button" aria-label="Profil">E</button>
-      </div>
-    </header>
-
-    <main>
-      <section id="view-home" class="view active">
-        <div class="hero-card">
-          <div>
-            <span class="tag">Bugün senin günün</span>
-            <h2 id="heroGreeting">Merhaba 👋</h2>
-            <p id="heroSummary">Günün akışını birlikte toparlayalım.</p>
-          </div>
-          <button id="quickAddBtn" class="primary-btn" type="button">+ Hızlı ekle</button>
-        </div>
-
-        <section class="productivity-strip">
-          <button class="next-card" id="nextItemCard" type="button">
-            <span class="mini-label">SIRADAKİ</span>
-            <strong id="nextItemTitle">Plan bulunuyor…</strong>
-            <small id="nextItemMeta">Takvimine bakıyorum</small>
-          </button>
-          <div class="quick-actions">
-            <button data-go-view="shifts" data-work-open="overtime" type="button"><span>💼</span><small>Mesai</small></button>
-            <button id="quickPlanBtn" type="button"><span>＋</span><small>Plan</small></button>
-            <button id="quickSportBtn" type="button"><span>🏋️</span><small>Spor</small></button>
-            <button id="quickMemoryBtn" type="button"><span>♡</span><small>Anı</small></button>
-          </div>
-        </section>
-
-        <section class="section-block today-compact">
-          <div class="section-head">
-            <div><p class="eyebrow">Akış</p><h3>Bugün</h3></div>
-            <button id="smartPlanBtn" class="text-btn" type="button">✨ Planla</button>
-          </div>
-          <div id="todayTimeline" class="timeline"></div>
-        </section>
-
-        <section class="ai-shortcuts">
-          <div><p class="eyebrow">E.LOG AI</p><strong>Tek dokunuşla sor</strong></div>
-          <div class="ai-shortcut-buttons">
-            <button data-ai-prompt="Bugün ne yapacağım?" type="button">Bugün</button>
-            <button data-ai-prompt="Yarın ne var?" type="button">Yarın</button>
-            <button data-ai-prompt="Boş saatlerimi bul" type="button">Boş saatler</button>
-          </div>
-        </section>
-
-        <section class="two-col">
-          <button class="module-card" data-go-view="shifts" type="button">
-            <span class="module-icon">🩻</span><strong>Nöbetler</strong><small id="shiftMini">Yaklaşan nöbet yok</small>
-          </button>
-          <button class="module-card" data-open="eroland" type="button">
-            <span class="module-icon">♡</span><strong>Eroland</strong><small>Anılar & ortak planlar</small>
-          </button>
-          <button class="module-card" data-open="overtime" type="button">
-            <span class="module-icon">💼</span><strong>Ekstra Mesai</strong><small>Saat aralığıyla kaydet</small>
-          </button>
-        </section>
-      </section>
-
-      <section id="view-calendar" class="view">
-        <div class="section-head">
-          <div><p class="eyebrow">Planla</p><h2>Takvim</h2></div>
-          <button id="calendarAddBtn" class="primary-btn small" type="button">+ Ekle</button>
-        </div>
-        <div class="calendar-toolbar">
-          <button id="prevMonth" class="icon-btn" type="button">‹</button>
-          <strong id="monthTitle"></strong>
-          <button id="nextMonth" class="icon-btn" type="button">›</button>
-        </div>
-        <div class="calendar-weekdays"><span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span></div>
-        <div id="calendarGrid" class="calendar-grid"></div>
-        
-        <div id="emojiChooser" class="emoji-chooser" hidden>
-          <div class="emoji-chooser-head">
-            <div>
-              <p class="eyebrow">GÜN EMOJİSİ</p>
-              <h3>Emoji ekle</h3>
-            </div>
-            <small>Bir güne en fazla 4</small>
-          </div>
-
-          <div class="emoji-preset-grid">
-            <button class="emoji-preset special" type="button" data-emoji="💖" data-emoji-label="Woohoo" data-emoji-image="./elog-heart.png">
-              <img src="./elog-heart.png" alt="">
-              <span>Woohoo</span>
-            </button>
-            <button class="emoji-preset" type="button" data-emoji="🌊"><span class="emoji-glyph">🌊</span><span>Deniz</span></button>
-            <button class="emoji-preset" type="button" data-emoji="🔥"><span class="emoji-glyph">🔥</span><span>Mangal</span></button>
-            <button class="emoji-preset" type="button" data-emoji="🍽️"><span class="emoji-glyph">🍽️</span><span>Yemek</span></button>
-            <button class="emoji-preset" type="button" data-emoji="🎂"><span class="emoji-glyph">🎂</span><span>Doğum günü</span></button>
-            <button class="emoji-preset" type="button" data-emoji="🏋️"><span class="emoji-glyph">🏋️</span><span>Spor</span></button>
-            <button class="emoji-preset" type="button" data-emoji="🎣"><span class="emoji-glyph">🎣</span><span>Balık</span></button>
-          </div>
-
-          <div class="emoji-keyboard-box">
-            <label for="customEmojiInput">Kendi klavyenden emoji</label>
-            <div class="emoji-keyboard-row">
-              <input id="customEmojiInput" type="text" inputmode="text" maxlength="12" placeholder="😊 🌙 🐢 ✨">
-              <button id="customEmojiAddBtn" class="primary-btn small" type="button">Ekle</button>
-            </div>
-            <small>Telefondaki veya bilgisayardaki emoji klavyenden istediğini yazabilirsin.</small>
-          </div>
-        </div>
-        <div id="calendarDayDetail" class="day-detail"></div>
-      </section>
-
-
-      <section id="view-shifts" class="view">
-        <div class="section-head">
-          <div><p class="eyebrow">İŞ PLANI</p><h2>Nöbetler & Mesai</h2></div>
-        </div>
-
-        <section class="work-hero">
-          <div>
-            <span class="tag">Ortak kayıt</span>
-            <h3 id="shiftPageNext">Yaklaşan çalışma yok</h3>
-            <p id="shiftPageNextMeta">Nöbet veya ekstra mesai ekleyebilirsin.</p>
-          </div>
-        </section>
-
-        <div class="work-tabs">
-          <button class="work-tab active" data-work-tab="shift" type="button">🩻 Nöbet</button>
-          <button class="work-tab" data-work-tab="overtime" type="button">💼 Ekstra Mesai</button>
-        </div>
-
-        <section id="shiftTabPanel" class="work-panel">
-          <div class="rule-card"><strong>Nöbet saati sabit</strong><p>08:30'da başlar → ertesi gün 08:30'da biter.</p></div>
-          <form id="shiftPageForm" class="work-form">
-            <label>Nöbet tarihi<input id="shiftPageDate" type="date" required></label>
-            <button class="primary-btn full" type="submit">+ Nöbet kaydet</button>
-            <p id="shiftPageMsg" class="form-message"></p>
-          </form>
-          <div class="section-head compact"><div><p class="eyebrow">KAYITLAR</p><h3>Nöbet listesi</h3></div></div>
-          <div id="shiftPageList" class="panel-list"></div>
-        </section>
-
-        <section id="overtimeTabPanel" class="work-panel" hidden>
-          <div class="rule-card"><strong>Ekstra mesai</strong><p>Nöbetten ayrı saat aralığıyla kaydedilir.</p></div>
-          <form id="overtimePageForm" class="work-form">
-            <label>Tarih<input id="overtimePageDate" type="date" required></label>
-            <div class="form-row">
-              <label>Başlangıç<select id="overtimePageStart"></select></label>
-              <label>Bitiş<select id="overtimePageEnd"></select></label>
-            </div>
-            <label>Not<input id="overtimePageNote" placeholder="Örn. Ekstra çağrıldım"></label>
-            <button class="primary-btn full" type="submit">+ Ekstra mesai kaydet</button>
-            <p id="overtimePageMsg" class="form-message"></p>
-          </form>
-          <div class="section-head compact"><div><p class="eyebrow">KAYITLAR</p><h3>Ekstra mesai listesi</h3></div></div>
-          <div id="overtimePageList" class="panel-list"></div>
-        </section>
-      </section>
-
-      <section id="view-eroland" class="view">
-        <div class="section-head">
-          <div><p class="eyebrow">Size özel</p><h2>Eroland ♡</h2></div>
-          <button id="memoryAddBtn" class="primary-btn small" type="button">+ Anı</button>
-        </div>
-        <div class="eroland-banner"><div class="eroland-banner-copy">
-          <p>İyi planlar, daha güzel yarınlar.</p>
-          <span>Sen + Erol</span>
-        </div>
-        <div class="eroland-banner-art" aria-hidden="true">
-          <img src="./eroland-us.png?v=20260828-eroland-banner-kids1" alt="">
-        </div></div>
-        <div class="tabs-row">
-          <button class="mini-tab active" data-memory-filter="all" type="button">Tümü</button>
-          <button class="mini-tab" data-memory-filter="memory" type="button">Anılar</button>
-          <button class="mini-tab" data-memory-filter="plan" type="button">Planlar</button>
-          <button class="mini-tab" data-memory-filter="place" type="button">Yerler</button>
-        </div>
-        <div id="memoryGrid" class="memory-grid"></div>
-      </section>
-
-
-      <section id="view-sport" class="view sport-view">
-        <div class="section-head sport-head">
-          <div><p class="eyebrow">SPOR & VÜCUT</p><h2>Gelişim</h2></div>
-          <button id="sportAddBtn" class="primary-btn small" type="button">+ Ölçüm</button>
-        </div>
-
-        <section class="sport-hero">
-          <div class="sport-hero-copy">
-            <span class="tag">E.log Fit</span>
-            <h3>Rakamları değil, gelişimi takip et.</h3>
-            <p>Kilo ve yağ oranını tarih tarih kaydet. Değişimi E.log senin için özetlesin.</p>
-          </div>
-          <div class="sport-ring" aria-hidden="true"><span>↗</span></div>
-        </section>
-
-        <div class="sport-metric-grid">
-          <article class="sport-metric-card">
-            <span class="sport-metric-icon">⚖️</span>
-            <small>Güncel kilo</small>
-            <strong id="sportWeightNow">—</strong>
-            <p id="sportWeightDelta">Henüz ölçüm yok</p>
-          </article>
-          <article class="sport-metric-card">
-            <span class="sport-metric-icon">◔</span>
-            <small>Yağ oranı</small>
-            <strong id="sportFatNow">—</strong>
-            <p id="sportFatDelta">Henüz ölçüm yok</p>
-          </article>
-        </div>
-
-        <section class="sport-progress-card">
-          <div class="section-head compact">
-            <div><p class="eyebrow">SON ÖLÇÜMLER</p><h3>Gelişim çizgisi</h3></div>
-            <small id="sportProgressHint">Kayıt ekledikçe görünür</small>
-          </div>
-          <div id="sportTrend" class="sport-trend"></div>
-        </section>
-
-        <section class="sport-history-card">
-          <div class="section-head compact">
-            <div><p class="eyebrow">GEÇMİŞ</p><h3>Ölçüm geçmişi</h3></div>
-          </div>
-          <div id="sportHistory" class="sport-history"></div>
-          <button id="viewAllSportHistoryBtn" class="sport-view-all-btn" type="button">
-            <span>Tümünü görüntüle</span><b>→</b>
-          </button>
-        </section>
-      </section>
-
-      <section id="view-ai" class="view ai-view">
-        <div class="section-head">
-          <div><p class="eyebrow">E.log AI</p><h2>Seni tanıyan asistan</h2></div>
-          <div class="ai-head-actions"><span id="realAiStatus" class="chip real-ai-chip">✦ Gerçek AI</span><button id="learnedBtn" class="chip" type="button">🧠 Öğrendiklerim</button></div>
-        </div>
-        <div id="chat" class="chat"></div>
-        <form id="aiForm" class="composer">
-          <textarea id="aiInput" rows="2" placeholder="Örn. Yarınki günümü planla..."></textarea>
-          <button class="send-btn" type="submit">↑</button>
-        </form>
-      </section>
-
-      <section id="view-more" class="view">
-        <div class="section-head"><div><p class="eyebrow">E.log</p><h2>Daha fazla</h2></div></div>
-        <div class="settings-list">
-          <button data-go-view="sport" type="button"><span>🏋️ Spor & Vücut</span><b>›</b></button>
-          <button data-go-view="shifts" type="button"><span>🩻 Nöbetlerim</span><b>›</b></button>
-          <button data-open="overtime" type="button"><span>💼 Ekstra Mesai</span><b>›</b></button>
-          <button data-open="pair" type="button"><span>🔗 Ortak E.log</span><b>›</b></button>
-          <button data-open="routines" type="button"><span>↻ Rutinler & Kurallar</span><b>›</b></button>
-          <button data-open="brain" type="button"><span>🧠 E.log beyni</span><b>›</b></button>
-          <button data-open="stats" type="button"><span>▥ İstatistikler</span><b>›</b></button>
-          <button data-open="notifications" type="button"><span>🔔 Akıllı Bildirimler</span><b>›</b></button>
-          <button data-open="partner" type="button"><span>♡ Nilsu görünümü</span><b>›</b></button>
-          <button id="monthReplayBtn" type="button" class="more-feature more-month"><span>🎞️ Ayımız</span><b>›</b></button>
-          <button id="ourPlacesBtn" type="button" class="more-feature more-places"><span>📍 Bizim Yerlerimiz</span><b>›</b></button>
-          <button id="logoutBtn" type="button"><span>Çıkış yap</span><b>›</b></button>
-        </div>
-      </section>
-    </main>
-
-    <nav class="bottom-nav">
-      <button class="nav-btn active" data-view="home" type="button" aria-current="page"><span>⌂</span><small>Bugün</small></button>
-      <button class="nav-btn" data-view="calendar" type="button"><span><svg class="nav-calendar-svg" viewBox="0 0 24 24" aria-hidden="true">
-  <rect x="4" y="5.5" width="16" height="14" rx="3"></rect>
-  <path d="M8 3.5v4M16 3.5v4M4 9.5h16"></path>
-  <path d="M8 13h2M12 13h2M16 13h1M8 16h2M12 16h2"></path>
-</svg></span><small>Takvim</small></button>
-      <button class="nav-btn" data-view="shifts" type="button"><span>🩻</span><small>Nöbet</small></button>
-      <button class="nav-btn" data-view="eroland" type="button"><span>♡</span><small>Eroland</small></button>
-      <button class="nav-btn" data-view="sport" type="button">
-        <span>🏋️</span><small>Spor</small>
-      </button>
-        <button class="nav-btn" data-view="ai" type="button"><span>✦</span><small>AI</small></button>
-      <button class="nav-btn" data-view="more" type="button"><span>•••</span><small>Daha fazla</small></button>
-    </nav>
-  </div>
-
-
-  <dialog id="sportDialog" class="modal">
-    <form id="sportForm" class="modal-card sport-form-card">
-      <div class="modal-head">
-        <div><p class="eyebrow">SPOR & VÜCUT</p><h3 id="sportDialogTitle">Yeni ölçüm</h3></div>
-        <button class="icon-btn close-sport-dialog" type="button">×</button>
-      </div>
-      <input id="sportEditId" type="hidden">
-      <label>Tarih<input id="sportDate" type="date" required></label>
-      <div class="sport-form-grid">
-        <label>
-          <span>Kilo <small>kg</small></span>
-          <input id="sportWeight" type="number" inputmode="decimal" min="20" max="300" step="0.1" placeholder="Örn. 78.4" required>
-        </label>
-        <label>
-          <span>Yağ oranı <small>%</small></span>
-          <input id="sportFat" type="number" inputmode="decimal" min="2" max="70" step="0.1" placeholder="Örn. 18.2" required>
-        </label>
-      </div>
-      <label>Not <small>(isteğe bağlı)</small><input id="sportNote" maxlength="100" placeholder="Örn. Sabah, aç karnına"></label>
-      <div class="sport-form-tip">Aynı koşullarda ölçmek, değişimi daha anlamlı gösterir.</div>
-      <button class="primary-btn full" type="submit">Ölçümü kaydet</button>
-      <p id="sportFormMsg" class="form-message"></p>
-    </form>
-  </dialog>
-
-  <dialog id="entryDialog" class="modal">
-    <form id="entryForm" class="modal-card">
-      <div class="modal-head"><h3>Aktivite ekle</h3><button class="icon-btn close-dialog" type="button">×</button></div>
-      <label>Tarih<input id="entryDate" type="date" required /></label>
-      <div class="form-row"><label>Saat<input id="entryTime" type="time" required step="60"></label><label>Kategori<select id="entryCategory"><option value="general">Genel</option><option value="work">İş</option><option value="sport">Spor</option><option value="food">Yemek</option><option value="us">Nilsu ♡</option><option value="personal">Kişisel</option></select></label></div>
-      <label>Ne yaptın / ne yapacaksın?<input id="entryTitle" maxlength="80" required placeholder="Örn. Spora gittim" /></label>
-      <label>Not<textarea id="entryNote" rows="3" placeholder="İstersen kısa not..."></textarea></label>
-      <label class="switch-row"><input id="entryDone" type="checkbox" /><span>Tamamlandı</span></label>
-      <button class="primary-btn full" type="submit">Kaydet</button>
-    </form>
-  </dialog>
-
-  <dialog id="genericDialog" class="modal"><div id="genericContent" class="modal-card"></div></dialog>
-  <dialog id="authDialog" class="modal auth-modal">
-    <div class="modal-card">
-      <div class="auth-logo">E<span>.</span></div>
-      <h2>E.log</h2><p>Hayat, sana göre.</p>
-      <button id="googleLoginBtn" class="primary-btn full" type="button">Google ile devam et</button>
-      <p class="form-message">Şifre yok. Google hesabını seçmen yeterli.</p>
-      <p id="authMessage" class="form-message"></p>
-    </div>
-  </dialog>
-
-  <script type="module" src="script.js?v=20260829-memory-button-fixed"></script>
+<button class="nav-btn" data-view="more" type="button"><span>•••</span><small>Daha fazla</small></button>
+</nav>
+</div>
+<dialog class="modal" id="sportDialog">
+<form class="modal-card sport-form-card" id="sportForm">
+<div class="modal-head">
+<div><p class="eyebrow">SPOR &amp; VÜCUT</p><h3 id="sportDialogTitle">Yeni ölçüm</h3></div>
+<button class="icon-btn close-sport-dialog" type="button">×</button>
+</div>
+<input id="sportEditId" type="hidden"/>
+<label>Tarih<input id="sportDate" required="" type="date"/></label>
+<div class="sport-form-grid">
+<label>
+<span>Kilo <small>kg</small></span>
+<input id="sportWeight" inputmode="decimal" max="300" min="20" placeholder="Örn. 78.4" required="" step="0.1" type="number"/>
+</label>
+<label>
+<span>Yağ oranı <small>%</small></span>
+<input id="sportFat" inputmode="decimal" max="70" min="2" placeholder="Örn. 18.2" required="" step="0.1" type="number"/>
+</label>
+</div>
+<label>Not <small>(isteğe bağlı)</small><input id="sportNote" maxlength="100" placeholder="Örn. Sabah, aç karnına"/></label>
+<div class="sport-form-tip">Aynı koşullarda ölçmek, değişimi daha anlamlı gösterir.</div>
+<button class="primary-btn full" type="submit">Ölçümü kaydet</button>
+<p class="form-message" id="sportFormMsg"></p>
+</form>
+</dialog>
+<dialog class="modal" id="entryDialog">
+<form class="modal-card" id="entryForm">
+<div class="modal-head"><h3>Aktivite ekle</h3><button class="icon-btn close-dialog" type="button">×</button></div>
+<label>Tarih<input id="entryDate" required="" type="date"/></label>
+<div class="form-row"><label>Saat<input id="entryTime" required="" step="60" type="time"/></label><label>Kategori<select id="entryCategory"><option value="general">Genel</option><option value="work">İş</option><option value="sport">Spor</option><option value="food">Yemek</option><option value="us">Nilsu ♡</option><option value="personal">Kişisel</option></select></label></div>
+<label>Ne yaptın / ne yapacaksın?<input id="entryTitle" maxlength="80" placeholder="Örn. Spora gittim" required=""/></label>
+<label>Not<textarea id="entryNote" placeholder="İstersen kısa not..." rows="3"></textarea></label>
+<label class="switch-row"><input id="entryDone" type="checkbox"><span>Tamamlandı</span></input></label>
+<button class="primary-btn full" type="submit">Kaydet</button>
+</form>
+</dialog>
+<dialog class="modal" id="genericDialog"><div class="modal-card" id="genericContent"></div></dialog>
+<dialog class="modal auth-modal" id="authDialog">
+<div class="modal-card">
+<div class="auth-logo">E<span>.</span></div>
+<h2>E.log</h2><p>Hayat, sana göre.</p>
+<button class="primary-btn full" id="googleLoginBtn" type="button">Google ile devam et</button>
+<p class="form-message">Şifre yok. Google hesabını seçmen yeterli.</p>
+<p class="form-message" id="authMessage"></p>
+</div>
+</dialog>
+<script src="script.js?v=20260829-memory-ai-more-clean" type="module"></script>
 </body>
 </html>

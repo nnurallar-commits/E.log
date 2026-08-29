@@ -1837,7 +1837,7 @@ function wire(){
   });
 
   $("#learnedBtn")?.addEventListener("click",openBrain);
-  $("#memoryAddBtn")?.addEventListener("click",openMemoryForm);
+  $("#memoryAddBtn")?.addEventListener("click",()=>openMemoryForm(null));
 
   $$("[data-memory-filter]").forEach(b=>{
     b.onclick=()=>{
@@ -2123,7 +2123,7 @@ setInterval(()=>{flushPending();checkReminders();checkShiftNotifications()},60*6
 document.addEventListener("DOMContentLoaded",()=>{
   $("#quickPlanBtn")?.addEventListener("click",()=>$("#quickAddBtn")?.click());
   $("#quickSportBtn")?.addEventListener("click",()=>switchView("sport"));
-  $("#quickMemoryBtn")?.addEventListener("click",()=>{switchView("eroland");setTimeout(()=>$("#memoryAddBtn")?.click(),80)});
+  $("#quickMemoryBtn")?.addEventListener("click",()=>{switchView("eroland");setTimeout(()=>$("#addMemoryBtn")?.click(),80)});
   $("#nextItemCard")?.addEventListener("click",()=>switchView("calendar"));
   setTimeout(renderProductivityHome,300);
 });
@@ -2181,26 +2181,12 @@ document.addEventListener("click",e=>{
 });
 
 
-/* ===== Eroland + Anı button hard-fix ===== */
-document.addEventListener("click",function(e){
-  const add=e.target.closest("#memoryAddBtn");
-  if(!add)return;
+/* 2026-08-29: + Anı güvenli açılış */
+document.addEventListener("click",(e)=>{
+  const btn=e.target.closest("#memoryAddBtn");
+  if(!btn)return;
   e.preventDefault();
-  e.stopPropagation();
-  try{
-    openMemoryForm();
-  }catch(err){
-    console.error("Anı formu açılamadı:",err);
-    alert("Anı ekleme ekranı açılamadı. Sayfayı bir kez yenileyip tekrar dene.");
+  if(!document.getElementById("genericDialog")?.open){
+    openMemoryForm(null);
   }
-},true);
-
-/* Quick Anı shortcut: always open the real Eroland add form */
-document.addEventListener("click",function(e){
-  const quick=e.target.closest("#quickMemoryBtn");
-  if(!quick)return;
-  e.preventDefault();
-  e.stopPropagation();
-  switchView("eroland");
-  setTimeout(()=>openMemoryForm(),100);
-},true);
+});
