@@ -1299,12 +1299,12 @@ function checkReminders(){
   const t=today();
   memories.filter(m=>m.reminderDate===t).forEach(m=>{
     const k=`elog-reminder-${m.id}-${t}`;if(localStorage.getItem(k))return;
-    if("Notification" in window&&Notification.permission==="granted")new Notification("Eroland hatırlatma ♡",{body:m.title,icon:"./icon-192.png"});
+    if(notificationsEnabled())new Notification("Eroland hatırlatma ♡",{body:m.title,icon:"./icon-192.png"});
     localStorage.setItem(k,"1");
   });
 }
 function checkShiftNotifications(){
-  if(!("Notification" in window)||Notification.permission!=="granted")return;
+  if(!notificationsEnabled())return;
   shifts.forEach(s=>{const mins=(new Date(`${s.startDate}T08:30:00`)-new Date())/60000;for(const [key,min,max,msg] of [["24",1380,1440,"Yarın 08:30'da nöbetin var 🩻"],["2",60,120,"Nöbetin 08:30'da başlıyor 🩻"]]){const k=`shift-${s.id}-${key}`;if(mins>min&&mins<=max&&!localStorage.getItem(k)){new Notification("E.log",{body:msg,icon:"./icon-192.png"});localStorage.setItem(k,"1")}}});
 }
 
@@ -1767,7 +1767,27 @@ function openOvertime(){
 function openRoutines(){openGeneric(`<div class="modal-head"><h3>↻ Rutinler & Kurallar</h3><button class="icon-btn close-generic">×</button></div>${rules.map(r=>`<div class="rule-card"><strong>${safe(r.name)}</strong><p>${safe(r.action)}</p></div>`).join("")}`)}
 function openBrain(){openRoutines()}
 function openStats(){openGeneric(`<div class="modal-head"><h3>▥ Bu ay</h3><button class="icon-btn close-generic">×</button></div><div class="stat-grid"><div class="stat"><b>${entries.length}</b><span>Kayıt</span></div><div class="stat"><b>${shifts.length}</b><span>Nöbet</span></div><div class="stat"><b>${memories.length}</b><span>Eroland</span></div></div>`)}
-function openNotifications(){openGeneric(`<div class="modal-head"><h3>🔔 Bildirimler</h3><button class="icon-btn close-generic">×</button></div><button id="notifyBtn" class="primary-btn full">Bildirimleri aç</button>`,()=>{$("#notifyBtn").onclick=async()=>{if("Notification" in window)await Notification.requestPermission();$("#genericDialog").close()}})}
+function notificationsEnabled(){
+  return localStorage.getItem("elog-notifications-enabled")==="1" &&
+    "Notification" in window && Notification.permission==="granted";
+}
+function openNotifications(){
+  const supported="Notification" in window;
+  const granted=supported && Notification.permission==="granted";
+  const enabled=localStorage.getItem("elog-notifications-enabled")==="1";
+  openGeneric(`<div class="modal-head"><h3>🔔 Bildirimler</h3><button class="icon-btn close-generic" type="button">×</button></div>
+    <div class="panel-row notification-row"><div><strong>Bildirimler</strong><small>${granted&&enabled?"Açık ✓":"Kapalı"}</small></div>
+    <button id="notifyBtn" class="${granted&&enabled?"secondary-btn":"primary-btn"}" type="button">${granted&&enabled?"Kapat":"Aç"}</button></div>`,()=>{
+      $("#notifyBtn").onclick=async()=>{
+        if(localStorage.getItem("elog-notifications-enabled")==="1"){localStorage.setItem("elog-notifications-enabled","0");openNotifications();return;}
+        if(!supported){alert("Bu cihaz bildirimleri desteklemiyor.");return;}
+        const permission=await Notification.requestPermission();
+        localStorage.setItem("elog-notifications-enabled",permission==="granted"?"1":"0");
+        if(permission==="granted")try{new Notification("E.log",{body:"Bildirimler açıldı ♡",icon:"./icon-192.png"})}catch{}
+        openNotifications();
+      };
+    });
+}
 function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görünümü</h3><button class="icon-btn close-generic">×</button></div><div class="panel-row"><strong>Pair ID</strong><small>${safe(pairId())}</small></div>`)}
 function openModule(n){if(n==="shifts")openShifts();if(n==="overtime")openOvertime();if(n==="pair")openPairInfo();if(n==="routines")openRoutines();if(n==="brain")openBrain();if(n==="stats")openStats();if(n==="notifications")openNotifications();if(n==="partner")openPartner();if(n==="eroland")switchView("eroland")}
 function openGeneric(html,after){$("#genericContent").innerHTML=html;$("#genericDialog").showModal();$(".close-generic")?.addEventListener("click",()=>$("#genericDialog").close());after?.()}
