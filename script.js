@@ -1154,6 +1154,28 @@ function calcReminder(date,mode,custom){
   if(mode==="1m")d.setMonth(d.getMonth()+1);else if(mode==="6m")d.setMonth(d.getMonth()+6);else if(mode==="1y")d.setFullYear(d.getFullYear()+1);else if(mode==="custom"&&custom)return custom;else return "";
   return isoDate(d);
 }
+function memoryFileKind(file){
+  const type=String(file?.type||"").toLowerCase();
+  const name=String(file?.name||"").toLowerCase();
+  if(type.startsWith("video/") || /\.(mp4|mov|m4v|webm|avi)$/i.test(name)) return "video";
+  if(type.startsWith("image/") || /\.(jpe?g|png|gif|webp|heic|heif|avif|bmp|tiff?)$/i.test(name)) return "image";
+  // iPhone/Safari bazen Fotoğraflar'dan gelen dosyanın MIME bilgisini boş bırakıyor.
+  // Video olduğu açıkça anlaşılmıyorsa fotoğraf kabul et.
+  return "image";
+}
+
+function inferredImageMime(file){
+  const type=String(file?.type||"");
+  if(type.startsWith("image/")) return type;
+  const name=String(file?.name||"").toLowerCase();
+  if(/\.heic$/i.test(name)) return "image/heic";
+  if(/\.heif$/i.test(name)) return "image/heif";
+  if(/\.png$/i.test(name)) return "image/png";
+  if(/\.webp$/i.test(name)) return "image/webp";
+  if(/\.avif$/i.test(name)) return "image/avif";
+  return "image/jpeg";
+}
+
 function fileToDataUrl(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
@@ -1165,7 +1187,7 @@ function fileToDataUrl(file){
 
 function fileToCompressedDataUrl(file,maxSide=1280,quality=.72){
   return new Promise((resolve,reject)=>{
-    if(!file?.type?.startsWith("image/")){reject(new Error("Görsel dosyası değil"));return}
+    if(memoryFileKind(file)!=="image"){reject(new Error("Görsel dosyası değil"));return}
     const reader=new FileReader();
     reader.onerror=()=>reject(reader.error||new Error("Fotoğraf okunamadı"));
     reader.onload=()=>{
@@ -1197,7 +1219,7 @@ async function uploadOneImage(memoryId,file,index=0){
     try{
       const safeName=(file.name||`photo-${index}.jpg`).replace(/[^a-zA-Z0-9._-]+/g,"-");
       const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${index}-${safeName}`);
-      await uploadBytes(r,file,{contentType:file.type||"image/jpeg"});
+      await uploadBytes(r,file,{contentType:inferredImageMime(file)});
       return {url:await getDownloadURL(r),type:"image",name:file.name||safeName,storage:true};
     }catch(err){
       console.warn("Storage upload başarısız, inline yedek deneniyor:",err);
@@ -1227,11 +1249,12 @@ async function uploadMedia(memoryId,files,onProgress){
   for(let i=0;i<files.length;i++){
     const file=files[i];
     onProgress?.(i,files.length,file);
-    if(file.type?.startsWith("image/")){
+    const kind=memoryFileKind(file);
+    if(kind==="image"){
       out.push(await uploadOneImage(memoryId,file,i));
       continue;
     }
-    if(file.type?.startsWith("video/")){
+    if(kind==="video"){
       try{
         if(!storage || !currentUser) throw new Error("Storage hazır değil");
         const safeName=(file.name||`video-${i}.mp4`).replace(/[^a-zA-Z0-9._-]+/g,"-");
@@ -1330,21 +1353,42 @@ function openMemoryForm(existing=null){
   <label id="customReminderWrap" style="display:none">Hatırlatma tarihi<input id="memoryReminderCustom" type="date"></label>
   <button class="primary-btn full" type="submit">Kaydet</button><p id="memoryMsg" class="form-message"></p></form>`,()=>{
     $("#memoryType").value=existing?.type||"memory";$("#memoryReminder").onchange=()=>$("#customReminderWrap").style.display=$("#memoryReminder").value==="custom"?"block":"none";
-    $("#memoryMedia").onchange=()=>{
-      const files=[...($("#memoryMedia").files||[])];
+    $("#memoryMedia").onchange=async()=>{
+      const input=$("#memoryMedia");
+      const files=[...(input?.files||[])];
       const n=files.length;
-      $("#memoryMediaStatus").textContent=n?`${n} dosya seçildi ✓`:"Fotoğraf seçebilirsin.";
+      const status=$("#memoryMediaStatus");
       const preview=$("#memoryMediaPreview");
       preview.innerHTML="";
-      files.forEach(file=>{
-        if(file.type?.startsWith("image/")){
-          const img=document.createElement("img");
-          img.src=URL.createObjectURL(file);
-          img.onload=()=>URL.revokeObjectURL(img.src);
-          img.alt="Seçilen fotoğraf";
-          preview.appendChild(img);
+
+      if(!n){
+        status.textContent="Fotoğraf seçebilirsin.";
+        return;
+      }
+
+      status.textContent=`${n} dosya seçildi ✓`;
+
+      for(const file of files){
+        if(memoryFileKind(file)!=="image") continue;
+        const box=document.createElement("div");
+        box.className="memory-preview-item";
+        const img=document.createElement("img");
+        img.alt="Seçilen fotoğraf";
+        box.appendChild(img);
+        preview.appendChild(box);
+
+        try{
+          // FileReader iOS Safari'de blob URL'den daha güvenilir.
+          img.src=await fileToDataUrl(file);
+          img.onerror=()=>{
+            box.classList.add("preview-fallback");
+            box.innerHTML=`<span>📷</span><small>${safe(file.name||"Fotoğraf seçildi")}</small>`;
+          };
+        }catch(err){
+          box.classList.add("preview-fallback");
+          box.innerHTML=`<span>📷</span><small>${safe(file.name||"Fotoğraf seçildi")}</small>`;
         }
-      });
+      }
     };
     $("#memoryForm").onsubmit=async e=>{
       e.preventDefault();const id=existing?.id||uuid(),date=$("#memoryDate").value||today(),mode=$("#memoryReminder").value;

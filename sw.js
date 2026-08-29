@@ -1,4 +1,4 @@
-const VERSION="20260829-photo-memory-fix-2";
+const VERSION="20260829-photo-ios-fix5";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
