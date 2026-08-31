@@ -61,7 +61,7 @@ const fmtTR=d=>new Intl.DateTimeFormat("tr-TR",{weekday:"long",day:"numeric",mon
 const monthTR=d=>new Intl.DateTimeFormat("tr-TR",{month:"long",year:"numeric"}).format(d);
 const safe=s=>String(s??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
 const time24=v=>String(v||"").replace(/\s*(AM|PM)\s*/ig,"");
-
+\n\n/* ===== ANILAR: TEK VE GÜVENİLİR AÇILIŞ ===== */\ndocument.addEventListener("click",(e)=>{\n  const add=e.target.closest?.("#memoryAddBtn");\n  if(add){\n    e.preventDefault();\n    e.stopPropagation();\n    openMemoryForm(null);\n    return;\n  }\n  const quick=e.target.closest?.("#quickMemoryBtn");\n  if(quick){\n    e.preventDefault();\n    e.stopPropagation();\n    switchView("eroland");\n    setTimeout(()=>openMemoryForm(null),80);\n  }\n},true);\n
 let app,auth,db,functions,storage,currentUser=null,profile=null;
 let calendarCursor=new Date(),selectedDate=today();
 let entries=[],shifts=[],routines=[],memories=[],rules=[],sportMetrics=[],dayEmojis={},dayNotes={},ourPlaces=[];
@@ -170,15 +170,10 @@ function loadLocal(){
   saveLocal();
 }
 function saveLocal(){
-  // Fotoğraf içeren anılar localStorage kotasını aşsa bile uygulamanın geri kalanı çalışmaya devam etsin.
-  try{
-    localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics}));
-  }catch(err){
-    console.warn("Yerel kayıt kotası doldu; bulut kaydı kullanılacak.",err);
-  }
-  try{localStorage.setItem(sharedLocalKey(EMOJI_KEY),JSON.stringify(dayEmojis))}catch{}
-  try{localStorage.setItem(sharedLocalKey(NOTES_KEY),JSON.stringify(dayNotes))}catch{}
-  try{localStorage.setItem(sharedLocalKey(PLACES_KEY),JSON.stringify(ourPlaces))}catch{}
+  localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics}));
+  localStorage.setItem(sharedLocalKey(EMOJI_KEY),JSON.stringify(dayEmojis));
+  localStorage.setItem(sharedLocalKey(NOTES_KEY),JSON.stringify(dayNotes));
+  localStorage.setItem(sharedLocalKey(PLACES_KEY),JSON.stringify(ourPlaces));
 }
 function arr(name){return ({entries,shifts,routines,memories,rules,sportMetrics})[name]}
 function setArr(name,v){if(name==="entries")entries=v;if(name==="shifts")shifts=v;if(name==="routines")routines=v;if(name==="memories")memories=v;if(name==="rules")rules=v;if(name==="sportMetrics")sportMetrics=v}
@@ -1154,118 +1149,39 @@ function calcReminder(date,mode,custom){
   if(mode==="1m")d.setMonth(d.getMonth()+1);else if(mode==="6m")d.setMonth(d.getMonth()+6);else if(mode==="1y")d.setFullYear(d.getFullYear()+1);else if(mode==="custom"&&custom)return custom;else return "";
   return isoDate(d);
 }
-function memoryFileKind(file){
-  const type=String(file?.type||"").toLowerCase();
-  const name=String(file?.name||"").toLowerCase();
-  if(type.startsWith("video/") || /\.(mp4|mov|m4v|webm|avi)$/i.test(name)) return "video";
-  if(type.startsWith("image/") || /\.(jpe?g|png|gif|webp|heic|heif|avif|bmp|tiff?)$/i.test(name)) return "image";
-  // iPhone/Safari bazen Fotoğraflar'dan gelen dosyanın MIME bilgisini boş bırakıyor.
-  // Video olduğu açıkça anlaşılmıyorsa fotoğraf kabul et.
-  return "image";
-}
-
-function inferredImageMime(file){
-  const type=String(file?.type||"");
-  if(type.startsWith("image/")) return type;
-  const name=String(file?.name||"").toLowerCase();
-  if(/\.heic$/i.test(name)) return "image/heic";
-  if(/\.heif$/i.test(name)) return "image/heif";
-  if(/\.png$/i.test(name)) return "image/png";
-  if(/\.webp$/i.test(name)) return "image/webp";
-  if(/\.avif$/i.test(name)) return "image/avif";
-  return "image/jpeg";
-}
-
-function fileToDataUrl(file){
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onerror=()=>reject(reader.error||new Error("Dosya okunamadı"));
-    reader.onload=()=>resolve(String(reader.result||""));
-    reader.readAsDataURL(file);
-  });
-}
-
-function fileToCompressedDataUrl(file,maxSide=1280,quality=.72){
-  return new Promise((resolve,reject)=>{
-    if(memoryFileKind(file)!=="image"){reject(new Error("Görsel dosyası değil"));return}
-    const reader=new FileReader();
-    reader.onerror=()=>reject(reader.error||new Error("Fotoğraf okunamadı"));
-    reader.onload=()=>{
-      const img=new Image();
-      img.onerror=()=>reject(new Error("Fotoğraf tarayıcıda dönüştürülemedi"));
-      img.onload=()=>{
-        try{
-          let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
-          const scale=Math.min(1,maxSide/Math.max(w,h));
-          w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
-          const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
-          const ctx=canvas.getContext("2d");
-          if(!ctx) throw new Error("Canvas açılamadı");
-          ctx.drawImage(img,0,0,w,h);
-          let q=quality,data=canvas.toDataURL("image/jpeg",q);
-          while(data.length>220000&&q>.36){q-=.08;data=canvas.toDataURL("image/jpeg",q)}
-          resolve(data);
-        }catch(err){reject(err)}
-      };
-      img.src=reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-async function uploadOneImage(memoryId,file,index=0){
-  // 1) Önce gerçek dosyayı Firebase Storage'a yükle. Bu, fotoğrafı iki cihazda da görünür tutar.
-  if(storage && currentUser){
-    try{
-      const safeName=(file.name||`photo-${index}.jpg`).replace(/[^a-zA-Z0-9._-]+/g,"-");
-      const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${index}-${safeName}`);
-      await uploadBytes(r,file,{contentType:inferredImageMime(file)});
-      return {url:await getDownloadURL(r),type:"image",name:file.name||safeName,storage:true};
-    }catch(err){
-      console.warn("Storage upload başarısız, inline yedek deneniyor:",err);
-    }
-  }
-
-  // 2) Storage kullanılamazsa küçük bir inline görsel yedeği oluştur.
-  try{
-    const url=await fileToCompressedDataUrl(file);
-    if(url && url.length<700000) return {url,type:"image",name:file.name||"photo.jpg",inline:true};
-  }catch(err){
-    console.warn("Sıkıştırma başarısız:",err);
-  }
-
-  // 3) HEIC gibi canvas'ın açamadığı ama küçük olan dosyalarda ham data URL son çare.
-  try{
-    const raw=await fileToDataUrl(file);
-    if(raw && raw.length<700000) return {url:raw,type:"image",name:file.name||"photo",inline:true};
-  }catch{}
-
-  throw new Error("Fotoğraf yüklenemedi. İnternet bağlantısını kontrol edip tekrar dene.");
-}
-
-async function uploadMedia(memoryId,files,onProgress){
+async function uploadMedia(memoryId,files){
   const out=[];
   if(!files?.length)return out;
-  for(let i=0;i<files.length;i++){
-    const file=files[i];
-    onProgress?.(i,files.length,file);
-    const kind=memoryFileKind(file);
-    if(kind==="image"){
-      out.push(await uploadOneImage(memoryId,file,i));
-      continue;
-    }
-    if(kind==="video"){
+  if(!storage)throw new Error("Fotoğraf servisi hazır değil. Birkaç saniye sonra tekrar dene.");
+
+  for(const original of files){
+    let file=original;
+    // Çok büyük fotoğrafları daha stabil yüklemek için küçült.
+    if(original.type.startsWith("image/") && original.size>4*1024*1024){
       try{
-        if(!storage || !currentUser) throw new Error("Storage hazır değil");
-        const safeName=(file.name||`video-${i}.mp4`).replace(/[^a-zA-Z0-9._-]+/g,"-");
-        const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${i}-${safeName}`);
-        await uploadBytes(r,file,{contentType:file.type||"video/mp4"});
-        out.push({url:await getDownloadURL(r),type:"video",name:file.name||safeName,storage:true});
-      }catch(err){
-        console.error("video upload",err);
-        throw new Error("Video yüklenemedi. Fotoğraf deneyebilirsin.");
-      }
+        const bmp=await createImageBitmap(original);
+        const max=1800, scale=Math.min(1,max/Math.max(bmp.width,bmp.height));
+        const canvas=document.createElement("canvas");
+        canvas.width=Math.max(1,Math.round(bmp.width*scale));
+        canvas.height=Math.max(1,Math.round(bmp.height*scale));
+        canvas.getContext("2d").drawImage(bmp,0,0,canvas.width,canvas.height);
+        const blob=await new Promise(res=>canvas.toBlob(res,"image/jpeg",.86));
+        if(blob) file=new File([blob],(original.name||"foto").replace(/\.[^.]+$/,'')+".jpg",{type:"image/jpeg"});
+        bmp.close?.();
+      }catch(err){ console.warn("Fotoğraf küçültülemedi, orijinal yüklenecek",err); }
     }
+
+    const cleanName=(file.name||"dosya").replace(/[^a-zA-Z0-9._-]+/g,"-");
+    let uploaded=null, lastErr=null;
+    for(let attempt=0;attempt<2 && !uploaded;attempt++){
+      try{
+        const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${attempt}-${cleanName}`);
+        await uploadBytes(r,file,{contentType:file.type||undefined});
+        uploaded={url:await getDownloadURL(r),type:file.type.startsWith("video/")?"video":"image",name:original.name||file.name};
+      }catch(err){ lastErr=err; if(attempt===0) await new Promise(res=>setTimeout(res,550)); }
+    }
+    if(!uploaded){ console.error("media upload",lastErr); throw new Error(`“${original.name||"Dosya"}” yüklenemedi.`); }
+    out.push(uploaded);
   }
   return out;
 }
@@ -1284,7 +1200,7 @@ function renderMemories(filter="all"){
         <button class="memory-main memory-click" data-memory-id="${safe(m.id)}" type="button">
           <div class="memory-cover-wrap">
             ${memoryCoverHtml(m)}
-            ${normalizeMemoryMedia(m).length?"":`<span class="memory-heart">${safe(m.emoji||"♡")}</span>`}
+            <span class="memory-heart">${safe(m.emoji||"♡")}</span>
           </div>
 
           <div class="memory-card-body">
@@ -1347,79 +1263,25 @@ function openMemoryForm(existing=null){
   <label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label>
   <div class="form-row"><label>Tarih<input id="memoryDate" type="date" value="${safe(existing?.date||today())}"></label><label>Emoji<input id="memoryEmoji" value="${safe(existing?.emoji||"♡")}" maxlength="8"></label></div>
   <label>Not<textarea id="memoryNote" rows="3">${safe(existing?.note||"")}</textarea></label>
-  <label>Fotoğraf / video<input id="memoryMedia" type="file" accept="image/*,video/*" multiple><small id="memoryMediaStatus">Fotoğraf seçebilirsin.</small></label>
-  <div id="memoryMediaPreview" class="memory-upload-preview"></div>
+  <label>Fotoğraf / video<input id="memoryMedia" type="file" accept="image/*,video/*" multiple></label><div id="memoryMediaPreview" class="memory-upload-preview"></div>
   <label>Hatırlat<select id="memoryReminder"><option value="">Hatırlatma yok</option><option value="1m">1 ay sonra</option><option value="6m">6 ay sonra</option><option value="1y">1 yıl sonra</option><option value="custom">Özel tarih</option></select></label>
   <label id="customReminderWrap" style="display:none">Hatırlatma tarihi<input id="memoryReminderCustom" type="date"></label>
   <button class="primary-btn full" type="submit">Kaydet</button><p id="memoryMsg" class="form-message"></p></form>`,()=>{
-    $("#memoryType").value=existing?.type||"memory";$("#memoryReminder").onchange=()=>$("#customReminderWrap").style.display=$("#memoryReminder").value==="custom"?"block":"none";
-    $("#memoryMedia").onchange=async()=>{
-      const input=$("#memoryMedia");
-      const files=[...(input?.files||[])];
-      const n=files.length;
-      const status=$("#memoryMediaStatus");
-      const preview=$("#memoryMediaPreview");
-      preview.innerHTML="";
-
-      if(!n){
-        status.textContent="Fotoğraf seçebilirsin.";
-        return;
-      }
-
-      status.textContent=`${n} dosya seçildi ✓`;
-
-      for(const file of files){
-        if(memoryFileKind(file)!=="image") continue;
-        const box=document.createElement("div");
-        box.className="memory-preview-item";
-        const img=document.createElement("img");
-        img.alt="Seçilen fotoğraf";
-        box.appendChild(img);
-        preview.appendChild(box);
-
-        try{
-          // FileReader iOS Safari'de blob URL'den daha güvenilir.
-          img.src=await fileToDataUrl(file);
-          img.onerror=()=>{
-            box.classList.add("preview-fallback");
-            box.innerHTML=`<span>📷</span><small>${safe(file.name||"Fotoğraf seçildi")}</small>`;
-          };
-        }catch(err){
-          box.classList.add("preview-fallback");
-          box.innerHTML=`<span>📷</span><small>${safe(file.name||"Fotoğraf seçildi")}</small>`;
-        }
-      }
-    };
+    $("#memoryType").value=existing?.type||"memory";$("#memoryReminder").onchange=()=>$("#customReminderWrap").style.display=$("#memoryReminder").value==="custom"?"block":"none";\n    $("#memoryMedia").onchange=()=>{\n      const box=$("#memoryMediaPreview"); box.innerHTML="";\n      [...$("#memoryMedia").files].slice(0,6).forEach(file=>{\n        const url=URL.createObjectURL(file);\n        const el=file.type.startsWith("video/")?document.createElement("video"):document.createElement("img");\n        el.src=url; el.className="memory-upload-thumb";\n        if(el.tagName==="VIDEO"){el.muted=true;el.playsInline=true;}\n        el.onload=el.onloadedmetadata=()=>setTimeout(()=>URL.revokeObjectURL(url),500);\n        box.appendChild(el);\n      });\n    };
     $("#memoryForm").onsubmit=async e=>{
       e.preventDefault();const id=existing?.id||uuid(),date=$("#memoryDate").value||today(),mode=$("#memoryReminder").value;
+      const msg=$("#memoryMsg");
       const submit=$("#memoryForm button[type=submit]");
+      msg.textContent="Kaydediliyor..."; submit.disabled=true;
       try{
-        submit.disabled=true;
-        const selectedFiles=[...($("#memoryMedia").files||[])];
-        $("#memoryMsg").textContent=selectedFiles.length?"Fotoğraf yükleniyor...":"Anı kaydediliyor...";
-        const added=await uploadMedia(id,selectedFiles,(i,total)=>{
-          $("#memoryMsg").textContent=`Fotoğraf yükleniyor ${i+1}/${total}...`;
-        });
-        const media=[...normalizeMemoryMedia(existing||{}),...added];
+        const selected=[...$("#memoryMedia").files];
+        if(selected.length) msg.textContent="Fotoğraf yükleniyor...";
+        const media=[...(existing?.media||[]),...await uploadMedia(id,selected)];
         const item={id,title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||"♡",date,note:$("#memoryNote").value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom").value),createdBy:existing?.createdBy||currentUser?.uid||"local",_pending:true};
         const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);
-        renderAll();
-        saveLocal();
-        $("#memoryMsg").textContent="Kaydediliyor...";
-        const synced=await cloudSave("memories",item);
-        if(!synced&&currentUser){
-          // Kartı ekranda bırak. Kullanıcı fotoğrafı hemen görsün; senkron daha sonra yeniden denenir.
-          renderAll();
-          $("#memoryMsg").textContent="Telefona kaydedildi. Bulut bağlantısı gelince tekrar eşitlenecek.";
-          setTimeout(()=>$("#genericDialog")?.close(),700);
-          return;
-        }
-        renderAll();
-        $("#genericDialog").close();
+        saveLocal();renderAll();$("#genericDialog").close();await cloudSave("memories",item);
       }catch(err){
-        console.error(err);
-        $("#memoryMsg").textContent=err?.message||"Fotoğraf kaydedilemedi.";
-        submit.disabled=false;
+        console.error(err); msg.textContent=err?.message||"Fotoğraf yüklenemedi. Tekrar dene."; submit.disabled=false;
       }
     };
   });
@@ -2010,7 +1872,7 @@ function wire(){
   });
 
   $("#learnedBtn")?.addEventListener("click",openBrain);
-  $("#memoryAddBtn")?.addEventListener("click",()=>openMemoryForm(null));
+  
 
   $$("[data-memory-filter]").forEach(b=>{
     b.onclick=()=>{
@@ -2175,11 +2037,11 @@ function openOurPlaces(){
       <div class="places-list">
         ${rows.map(p=>`
           <article class="place-card">
-            <button class="place-main" data-place-map="${safe(p.id)}" type="button">
+            <a class="place-main" href="${safe(placeMapUrl(p))}" target="_blank" rel="noopener noreferrer">
               <span class="place-pin">${placeCategoryEmoji(p.category)}</span>
               <span class="place-copy"><strong>${safe(p.name)}</strong>${p.address?`<small>${safe(p.address)}</small>`:""}${p.note?`<em>${safe(p.note)}</em>`:""}</span>
-              <b>↗</b>
-            </button>
+              <b>Haritada aç ↗</b>
+            </a>
             <div class="place-actions">
               <button data-place-edit="${safe(p.id)}" type="button">Düzenle</button>
               <button data-place-delete="${safe(p.id)}" type="button">Sil</button>
@@ -2190,10 +2052,6 @@ function openOurPlaces(){
     `:`<div class="places-empty"><span>🗺️</span><strong>Haritanız henüz boş</strong><p>İlk buluşma, favori kahveci ya da tatilden bir yer ekleyin.</p></div>`}
   `,()=>{
     $("#addOurPlaceBtn").onclick=()=>openPlaceEditor();
-    $$("[data-place-map]").forEach(b=>b.onclick=()=>{
-      const p=ourPlaces.find(x=>x.id===b.dataset.placeMap);
-      if(p)window.open(placeMapUrl(p),"_blank","noopener");
-    });
     $$("[data-place-edit]").forEach(b=>b.onclick=()=>openPlaceEditor(b.dataset.placeEdit));
     $$("[data-place-delete]").forEach(b=>b.onclick=async()=>{
       if(!confirm("Bu yer haritanızdan silinsin mi?"))return;
@@ -2309,7 +2167,7 @@ setInterval(()=>{flushPending();checkReminders();checkShiftNotifications()},60*6
 document.addEventListener("DOMContentLoaded",()=>{
   $("#quickPlanBtn")?.addEventListener("click",()=>$("#quickAddBtn")?.click());
   $("#quickSportBtn")?.addEventListener("click",()=>switchView("sport"));
-  $("#quickMemoryBtn")?.addEventListener("click",()=>{switchView("eroland");setTimeout(()=>$("#addMemoryBtn")?.click(),80)});
+  
   $("#nextItemCard")?.addEventListener("click",()=>switchView("calendar"));
   setTimeout(renderProductivityHome,300);
 });
@@ -2367,12 +2225,3 @@ document.addEventListener("click",e=>{
 });
 
 
-/* 2026-08-29: + Anı güvenli açılış */
-document.addEventListener("click",(e)=>{
-  const btn=e.target.closest("#memoryAddBtn");
-  if(!btn)return;
-  e.preventDefault();
-  if(!document.getElementById("genericDialog")?.open){
-    openMemoryForm(null);
-  }
-});
