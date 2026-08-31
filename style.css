@@ -3432,7 +3432,8 @@ html[data-theme="dark"] dialog::backdrop{background:rgba(7,10,8,.62)}
 .together-doodle{color:#728b73!important;font-size:21px!important}
 .together-days-grid{
   display:grid!important;
-  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  grid-template-columns:minmax(0,380px)!important;
+  justify-content:center!important;
   gap:18px!important;
   padding:3px 4px 8px!important;
   background:transparent!important;
@@ -3454,7 +3455,7 @@ html[data-theme="dark"] dialog::backdrop{background:rgba(7,10,8,.62)}
   clip-path:polygon(0 2%,5% 0,11% 1.5%,17% 0,24% 1.2%,31% 0,38% 1.5%,45% 0,52% 1.2%,60% 0,68% 1.5%,76% 0,84% 1.2%,92% 0,100% 2%,99% 98%,93% 100%,86% 98.5%,78% 100%,70% 98.6%,62% 100%,54% 98.5%,46% 100%,38% 98.5%,30% 100%,22% 98.5%,14% 100%,7% 98.5%,1% 100%)!important;
 }
 .together-day-first{transform:rotate(-1.7deg)!important}
-.together-day-second{transform:rotate(1.4deg)!important;background:#edf3e8!important}
+.together-day-second{transform:rotate(.7deg)!important;background:#edf3e8!important}
 .together-day-card .paper-tape{
   display:block!important;
   position:absolute!important;

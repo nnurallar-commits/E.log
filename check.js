@@ -756,8 +756,7 @@ function daysSinceLocal(year,month,day){
   return Math.max(0,Math.floor((todayLocal-start)/86400000));
 }
 function renderTogetherDays(){
-  const first=$("#togetherDaysFirst"),second=$("#togetherDaysSecond");
-  if(first)first.textContent=daysSinceLocal(2024,11,26).toLocaleString("tr-TR");
+  const second=$("#togetherDaysSecond");
   if(second)second.textContent=daysSinceLocal(2026,8,14).toLocaleString("tr-TR");
 }
 function categoryName(c){return ({work:"İş",sport:"Spor",food:"Yemek",us:"Nilsu ♡",personal:"Kişisel",general:"Genel"})[c]||"Genel"}
