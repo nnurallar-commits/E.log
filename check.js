@@ -2115,7 +2115,7 @@ function monthReplayKeys(){
   memories.forEach(x=>x.date&&keys.add(monthKeyOf(x.date)));
   Object.keys(dayEmojis||{}).forEach(d=>keys.add(monthKeyOf(d)));
   Object.keys(dayNotes||{}).forEach(d=>keys.add(monthKeyOf(d)));
-  keys.add(new Date().toISOString().slice(0,7));
+  keys.add(today().slice(0,7));
   return [...keys].filter(Boolean).sort().reverse();
 }
 function monthReplayTitle(key){
@@ -2129,7 +2129,7 @@ function memoryMediaHtml(m){
   if(/\.(mp4|mov|webm)(\?|$)/i.test(src)||m.type==="video") return `<video src="${safeSrc}" muted playsinline></video>`;
   return `<img src="${safeSrc}" alt="">`;
 }
-function openMonthReplay(key=monthReplayKeys()[0]){
+function openMonthReplay(key=today().slice(0,7)){
   const d=monthReplayData(key);
   const keys=monthReplayKeys();
   const total=d.plans.length+d.overtime.length+d.shifts.length+d.sports.length+d.memories.length+d.woohoo+d.notes;
