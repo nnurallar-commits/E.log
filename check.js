@@ -1326,7 +1326,10 @@ function renderMemories(filter="all"){
 
   const list=memories
     .filter(m=>filter==="all"||m.type===filter)
-    .sort((a,b)=>memoryAddedStamp(b)-memoryAddedStamp(a));
+    .sort((a,b)=>{
+      const byDate=String(b.date||"").localeCompare(String(a.date||""));
+      return byDate||memoryAddedStamp(b)-memoryAddedStamp(a);
+    });
 
   grid.innerHTML=list.length
     ? list.map(m=>`
