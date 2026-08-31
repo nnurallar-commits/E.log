@@ -7,8 +7,8 @@
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#23352b" name="theme-color"/>
 <title>E.log</title>
-<link href="manifest.json?v=20260831-REAL-REPAIR-FROM-FRESH" rel="manifest"/>
-<link href="style.css?v=20260831-REAL-REPAIR-FROM-FRESH" rel="stylesheet"/>
+<link href="manifest.json?v=20260831-places-hero-emoji-dark" rel="manifest"/>
+<link href="style.css?v=20260831-places-hero-emoji-dark" rel="stylesheet"/>
 <link href="favicon.svg?v=20260827-logo-final3" rel="icon" type="image/svg+xml"/>
 <link href="apple-touch-icon.png?v=20260827-logo-final3" rel="apple-touch-icon" sizes="180x180"/>
 <link href="apple-touch-icon.png?v=20260827-logo-final3" rel="apple-touch-icon-precomposed" sizes="180x180"/>
@@ -228,6 +228,13 @@
 </section>
 </section>
 
+<section class="view" id="view-places">
+  <div class="places-page-head">
+    <div><p class="eyebrow">BİZİM HARİTAMIZ</p><h2>Bizim Yerlerimiz</h2><p class="muted">Gittiğimiz, sevdiğimiz ve gitmek istediğimiz yerler.</p></div>
+    <button id="placesPageAddBtn" class="primary-btn" type="button">+ Yer ekle</button>
+  </div>
+  <div id="placesPageMount"></div>
+</section>
 <section class="view" id="view-more">
 <div class="section-head"><div><p class="eyebrow">E.log</p><h2>Daha fazla</h2></div></div>
 <div class="settings-list">
@@ -259,7 +266,7 @@
 <span>🏋️</span><small>Spor</small>
 </button>
 
-<button class="nav-btn" data-view="more" type="button"><span>•••</span><small>Daha fazla</small></button>
+<button class="nav-btn" type="button" data-places-tab><span class="nav-icon">⌖</span><span>Yerlerimiz</span></button><button class="nav-btn" data-view="more" type="button"><span>•••</span><small>Daha fazla</small></button>
 </nav>
 </div>
 <dialog class="modal" id="sportDialog">
@@ -307,6 +314,6 @@
 <p class="form-message" id="authMessage"></p>
 </div>
 </dialog>
-<script src="script.js?v=20260831-REAL-REPAIR-FROM-FRESH" type="module"></script>
+<script src="script.js?v=20260831-places-hero-emoji-dark" type="module"></script>
 </body>
 </html>

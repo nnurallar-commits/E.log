@@ -3293,3 +3293,20 @@ html[data-theme="dark"] dialog::backdrop{background:rgba(7,10,8,.62)}
 .place-map-box{border:1px solid var(--elog-line);background:var(--elog-surface-2);border-radius:18px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .place-map-box small{display:block;margin-top:4px;line-height:1.35}
 .place-map-box button{min-height:42px;border-radius:14px;border:1px solid var(--elog-line);background:var(--elog-card);color:var(--elog-text);padding:0 12px;font-weight:700}
+
+/* ===== PLACES + HERO + CALENDAR + DARK 2026 ===== */
+.eroland-hero{min-height:300px!important;overflow:hidden!important;position:relative!important}
+.eroland-hero img,.eroland-hero-image,.eroland-hero .hero-photo{width:52%!important;height:300px!important;object-fit:cover!important;object-position:center 35%!important;border-radius:32px 0 0 32px!important;filter:saturate(.92) contrast(.97)!important}
+.calendar-day .emoji,.day-cell .emoji,.calendar-cell .emoji,.calendar-day [data-emoji],.day-cell [data-emoji]{font-size:25px!important;line-height:1!important}
+.calendar-day img,.day-cell img{max-width:none}
+img[src*="woohoo-heart"],img[src*="elog-heart"]{width:29px!important;height:29px!important;min-width:29px!important;object-fit:contain!important}
+.places-page-head{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:22px}.places-page-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.place-page-card{border:1px solid var(--line);border-radius:24px;background:var(--card);overflow:hidden}.place-page-main{display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;padding:18px;color:inherit;text-decoration:none}.place-page-pin{width:48px;height:48px;border-radius:16px;background:rgba(120,150,110,.13);display:grid;place-items:center;font-size:22px}.place-page-main strong,.place-page-main small,.place-page-main em{display:block}.place-page-main small,.place-page-main em{margin-top:4px;color:var(--muted);font-style:normal}.place-actions{display:flex;gap:10px;padding:0 18px 16px}.place-actions button{border:0;background:transparent;color:var(--muted);font-weight:700}.places-page-empty{text-align:center;padding:64px 20px;border:1px dashed var(--line);border-radius:28px}.places-page-empty>span{font-size:40px}.place-search-row{display:grid;grid-template-columns:1fr auto;gap:8px}.place-search-row button{border:1px solid var(--line);border-radius:14px;padding:0 14px;background:var(--surface);color:var(--text);font-weight:750}
+html[data-theme="dark"]{--bg:#101512!important;--surface:#171d19!important;--card:#1b221d!important;--surface-2:#222a24!important;--text:#eef2ed!important;--muted:#9ca79f!important;--line:rgba(238,245,238,.09)!important;background:#101512!important;color:#eef2ed!important}
+html[data-theme="dark"] body{background:#101512!important;color:#eef2ed!important}
+html[data-theme="dark"] :is(.topbar,.home-hero,.next-card,.today-panel,.bottom-nav,.card,.panel,.modal-card,.memory-card,.place-page-card,.more-card,.calendar-wrap){background:#171d19!important;color:#eef2ed!important;border-color:rgba(238,245,238,.085)!important;box-shadow:none!important}
+html[data-theme="dark"] :is(.quick-card,.empty,.calendar-day,.day-cell,input,textarea,select){background:#202721!important;color:#eef2ed!important;border-color:rgba(238,245,238,.09)!important}
+html[data-theme="dark"] :is(h1,h2,h3,h4,strong){color:#f4f6f2!important}
+html[data-theme="dark"] :is(.muted,small,.eyebrow){color:#9da79f!important}
+html[data-theme="dark"] .primary-btn,html[data-theme="dark"] .nav-btn.active{background:#a8c798!important;color:#152016!important}
+html[data-theme="dark"] dialog::backdrop{background:rgba(3,6,4,.72)!important}
+@media(max-width:700px){.places-page-grid{grid-template-columns:1fr}.places-page-head{align-items:start;flex-direction:column}.place-search-row{grid-template-columns:1fr}.place-search-row button{min-height:44px}.eroland-hero img,.eroland-hero-image,.eroland-hero .hero-photo{width:60%!important}}
