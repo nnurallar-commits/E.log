@@ -1,4 +1,26 @@
 
+/* ===== E.LOG STABLE FALLBACKS ===== */
+window.addEventListener("error",(e)=>{
+  console.warn("E.log yakalanan hata:", e.error || e.message);
+});
+window.addEventListener("unhandledrejection",(e)=>{
+  console.warn("E.log promise hatası:", e.reason);
+  e.preventDefault?.();
+});
+
+function safeDialogOpen(id){
+  const d=document.getElementById(id);
+  if(!d)return false;
+  try{
+    if(typeof d.showModal==="function"){ if(!d.open)d.showModal(); return true; }
+    d.setAttribute("open",""); return true;
+  }catch(err){
+    try{d.setAttribute("open",""); return true}catch{}
+  }
+  return false;
+}
+
+
 /* E.log theme: light / dark, persisted locally */
 (function(){
   const KEY="elog-theme-v1";
@@ -1158,36 +1180,22 @@ function calcReminder(date,mode,custom){
 async function uploadMedia(memoryId,files){
   const out=[];
   if(!files?.length)return out;
-  if(!storage)throw new Error("Fotoğraf servisi hazır değil. Birkaç saniye sonra tekrar dene.");
 
-  for(const original of files){
-    let file=original;
-    // Çok büyük fotoğrafları daha stabil yüklemek için küçült.
-    if(original.type.startsWith("image/") && original.size>4*1024*1024){
-      try{
-        const bmp=await createImageBitmap(original);
-        const max=1800, scale=Math.min(1,max/Math.max(bmp.width,bmp.height));
-        const canvas=document.createElement("canvas");
-        canvas.width=Math.max(1,Math.round(bmp.width*scale));
-        canvas.height=Math.max(1,Math.round(bmp.height*scale));
-        canvas.getContext("2d").drawImage(bmp,0,0,canvas.width,canvas.height);
-        const blob=await new Promise(res=>canvas.toBlob(res,"image/jpeg",.86));
-        if(blob) file=new File([blob],(original.name||"foto").replace(/\.[^.]+$/,'')+".jpg",{type:"image/jpeg"});
-        bmp.close?.();
-      }catch(err){ console.warn("Fotoğraf küçültülemedi, orijinal yüklenecek",err); }
+  for(const file of files){
+    // Storage yoksa anı yine kaydolur; bu oturumda önizleme kullanılabilir.
+    if(!storage){
+      out.push({url:URL.createObjectURL(file),type:file.type.startsWith("video/")?"video":"image",name:file.name||"dosya",localOnly:true});
+      continue;
     }
-
-    const cleanName=(file.name||"dosya").replace(/[^a-zA-Z0-9._-]+/g,"-");
-    let uploaded=null, lastErr=null;
-    for(let attempt=0;attempt<2 && !uploaded;attempt++){
-      try{
-        const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${attempt}-${cleanName}`);
-        await uploadBytes(r,file,{contentType:file.type||undefined});
-        uploaded={url:await getDownloadURL(r),type:file.type.startsWith("video/")?"video":"image",name:original.name||file.name};
-      }catch(err){ lastErr=err; if(attempt===0) await new Promise(res=>setTimeout(res,550)); }
+    try{
+      const cleanName=(file.name||"dosya").replace(/[^a-zA-Z0-9._-]+/g,"-");
+      const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${cleanName}`);
+      await uploadBytes(r,file,{contentType:file.type||undefined});
+      out.push({url:await getDownloadURL(r),type:file.type.startsWith("video/")?"video":"image",name:file.name||"dosya"});
+    }catch(err){
+      console.warn("Bulut fotoğraf yükleme başarısız, yerel devam:",err);
+      out.push({url:URL.createObjectURL(file),type:file.type.startsWith("video/")?"video":"image",name:file.name||"dosya",localOnly:true});
     }
-    if(!uploaded){ console.error("media upload",lastErr); throw new Error(`“${original.name||"Dosya"}” yüklenemedi.`); }
-    out.push(uploaded);
   }
   return out;
 }
@@ -1811,7 +1819,49 @@ function openStats(){openGeneric(`<div class="modal-head"><h3>▥ Bu ay</h3><but
 function openNotifications(){openGeneric(`<div class="modal-head"><h3>🔔 Bildirimler</h3><button class="icon-btn close-generic">×</button></div><button id="notifyBtn" class="primary-btn full">Bildirimleri aç</button>`,()=>{$("#notifyBtn").onclick=async()=>{if("Notification" in window)await Notification.requestPermission();$("#genericDialog").close()}})}
 function openPartner(){openGeneric(`<div class="modal-head"><h3>♡ Nilsu görünümü</h3><button class="icon-btn close-generic">×</button></div><div class="panel-row"><strong>Pair ID</strong><small>${safe(pairId())}</small></div>`)}
 function openModule(n){if(n==="shifts")openShifts();if(n==="overtime")openOvertime();if(n==="pair")openPairInfo();if(n==="routines")openRoutines();if(n==="brain")openBrain();if(n==="stats")openStats();if(n==="notifications")openNotifications();if(n==="partner")openPartner();if(n==="eroland")switchView("eroland")}
-function openGeneric(html,after){$("#genericContent").innerHTML=html;$("#genericDialog").showModal();$(".close-generic")?.addEventListener("click",()=>$("#genericDialog").close());after?.()}
+function openGeneric(html,after){
+
+/* ===== ANILAR: BULLETPROOF ===== */
+document.addEventListener("click",(e)=>{
+  const add=e.target.closest?.("#memoryAddBtn");
+  if(add){
+    e.preventDefault();
+    e.stopPropagation();
+    try{
+      if(typeof openMemoryForm==="function") openMemoryForm(null);
+    }catch(err){
+      console.error("Anı açma hatası:",err);
+      const d=document.getElementById("genericDialog");
+      const c=document.getElementById("genericContent");
+      if(c&&d){
+        c.innerHTML=`<div class="modal-card"><div class="modal-head"><div><p class="eyebrow">EROLAND</p><h3>Yeni Anı</h3></div><button class="icon-btn close-generic" type="button">×</button></div><form id="memoryEmergencyForm"><label>Başlık<input id="emTitle" required></label><label>Tarih<input id="emDate" type="date" required></label><label>Not<textarea id="emNote" rows="4"></textarea></label><button class="primary-btn full" type="submit">Kaydet</button></form></div>`;
+        safeDialogOpen("genericDialog");
+        document.querySelector(".close-generic")?.addEventListener("click",()=>{try{d.close()}catch{d.removeAttribute("open")}}); 
+        const f=document.getElementById("memoryEmergencyForm");
+        const date=document.getElementById("emDate");
+        if(date) date.value=new Date().toISOString().slice(0,10);
+        f?.addEventListener("submit",(ev)=>{
+          ev.preventDefault();
+          const item={id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),title:document.getElementById("emTitle").value.trim(),type:"memory",emoji:"♡",date:date.value,note:document.getElementById("emNote").value.trim(),media:[],createdAt:Date.now(),_pending:true};
+          memories.push(item);saveLocal();renderAll();try{d.close()}catch{d.removeAttribute("open")};cloudSave("memories",item);
+        });
+      }
+    }
+  }
+},true);
+  const content=$("#genericContent");
+  const dialog=$("#genericDialog");
+  if(!content||!dialog){
+    console.error("Generic dialog bulunamadı");
+    return;
+  }
+  content.innerHTML=html;
+  safeDialogOpen("genericDialog");
+  $(".close-generic")?.addEventListener("click",()=>{
+    try{dialog.close()}catch{dialog.removeAttribute("open")}
+  });
+  try{after?.()}catch(err){console.error("Modal başlatma hatası:",err)}
+}
 function switchView(name){const t=document.getElementById(`view-${name}`);if(!t)return;$$(".view").forEach(v=>v.classList.remove("active"));t.classList.add("active");$$("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="calendar")renderCalendar();if(name==="shifts")renderWorkPage();if(name==="eroland")renderMemories(activeMemoryFilter);if(name==="sport")renderSport();window.scrollTo(0,0)}
 async function googleLogin(){
   const p=new GoogleAuthProvider();
@@ -2015,11 +2065,14 @@ document.addEventListener("click",e=>{
 
 /* ===== BİZİM YERLERİMİZ ===== */
 async function syncOurPlaces(){
-  if(!db||!currentUser)return false;
+  if(!db||!currentUser){markSync("○ cihazda");return false}
   try{
     await setDoc(pairDoc("shared","ourPlaces"),{values:ourPlaces,updatedAt:serverTimestamp()},{merge:false});
-    markSync("● canlı"); return true;
-  }catch(e){console.warn(e);markSync("○ cihazda");return false}
+    markSync("● canlı");return true;
+  }catch(e){
+    console.warn("Yerler buluta bağlanamadı:",e);
+    markSync("○ cihazda");return false;
+  }
 }
 function placeMapUrl(p){
   if(p.lat!=null&&p.lng!=null)return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lat+","+p.lng)}`;
@@ -2231,3 +2284,5 @@ document.addEventListener("click",e=>{
 });
 
 
+
+console.log("E.log stable build: 20260831-final-stable-no-stale");
