@@ -75,6 +75,11 @@ function safeDialogOpen(id){
 })();
 
 
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { getFirestore, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js";
 
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -89,6 +94,7 @@ const time24=v=>String(v||"").replace(/\s*(AM|PM)\s*/ig,"");
 let app,auth,db,functions,storage,currentUser=null,profile=null;
 let calendarCursor=new Date(),selectedDate=today();
 let entries=[],shifts=[],routines=[],memories=[],rules=[],sportMetrics=[],dayEmojis={},dayNotes={},ourPlaces=[];
+let memoryTombstones=new Set();
 let selectedEmojiDate=today();
 let unsubs=[],activeMemoryFilter="all";
 
@@ -96,6 +102,7 @@ const LOCAL="elog-stable-v2";
 const EMOJI_KEY="elog-day-emojis-v2";
 const NOTES_KEY="elog-day-notes-v1";
 const PLACES_KEY="elog-our-places-v1";
+const DELETED_MEMORY_KEY="elog-deleted-memories-v1";
 function sharedLocalKey(base){return `${base}-${pairId()}`}
 
 const defaultRules=[
@@ -148,6 +155,8 @@ function loadLocal(){
   memories=merged.memories;
   rules=merged.rules;
   sportMetrics=merged.sportMetrics;
+  try{memoryTombstones=new Set(JSON.parse(localStorage.getItem(sharedLocalKey(DELETED_MEMORY_KEY))||localStorage.getItem(DELETED_MEMORY_KEY)||"[]"));}catch{memoryTombstones=new Set()}
+  memories=memories.filter(x=>!memoryTombstones.has(x.id));
 
   // Normalize old shift records.
   shifts=shifts.map(x=>({
@@ -194,14 +203,24 @@ function loadLocal(){
   saveLocal();
 }
 function saveLocal(){
-  localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics}));
-  localStorage.setItem(sharedLocalKey(EMOJI_KEY),JSON.stringify(dayEmojis));
-  localStorage.setItem(sharedLocalKey(NOTES_KEY),JSON.stringify(dayNotes));
-  localStorage.setItem(sharedLocalKey(PLACES_KEY),JSON.stringify(ourPlaces));
+  try{
+    localStorage.setItem(sharedLocalKey(DELETED_MEMORY_KEY),JSON.stringify([...memoryTombstones]));
+    localStorage.setItem(sharedLocalKey(LOCAL),JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics}));
+    localStorage.setItem(sharedLocalKey(EMOJI_KEY),JSON.stringify(dayEmojis));
+    localStorage.setItem(sharedLocalKey(NOTES_KEY),JSON.stringify(dayNotes));
+    localStorage.setItem(sharedLocalKey(PLACES_KEY),JSON.stringify(ourPlaces));
+    return true;
+  }catch(err){
+    console.warn("Cihaz kayıt alanı dolu; uygulama çalışmaya devam ediyor.",err);
+    markSync("○ cihaz alanı dolu");
+    return false;
+  }
 }
+function markMemoryDeleted(id){if(id){memoryTombstones.add(id);saveLocal()}}
 function arr(name){return ({entries,shifts,routines,memories,rules,sportMetrics})[name]}
 function setArr(name,v){if(name==="entries")entries=v;if(name==="shifts")shifts=v;if(name==="routines")routines=v;if(name==="memories")memories=v;if(name==="rules")rules=v;if(name==="sportMetrics")sportMetrics=v}
 function mergeCloud(name,cloud){
+  if(name==="memories")cloud=cloud.filter(x=>!memoryTombstones.has(x.id));
   const localPending=(arr(name)||[]).filter(x=>x._pending);
   const m=new Map(cloud.map(x=>[x.id,x]));
   localPending.forEach(x=>m.set(x.id,x));
@@ -236,6 +255,7 @@ async function handleAuth(user){
     await ensureProfile(user);
 
     loadLocal();
+    await migrateLegacyMemoryMedia();
     renderAll();
 
     startRealtime();
@@ -408,6 +428,7 @@ async function flushPending(){
   for(const name of ["entries","shifts","routines","memories","rules","sportMetrics"]){
     for(const item of (arr(name)||[]).filter(x=>x._pending))await cloudSave(name,item);
   }
+  if(db&&currentUser)for(const id of memoryTombstones){try{await deleteDoc(pairDoc("memories",id))}catch{}}
 }
 
 
@@ -1130,16 +1151,16 @@ function normalizeMemoryMedia(m){
 
   const out=[];
 
-  const pushMedia=(url,type="image",name="")=>{
-    if(!url || typeof url!=="string") return;
-    if(out.some(x=>x.url===url)) return;
-    out.push({url,type:type||"image",name:name||""});
+  const pushMedia=(url,type="image",name="",localId="")=>{
+    if(!url&&!localId)return;
+    if(out.some(x=>(localId&&x.localId===localId)||(url&&x.url===url)))return;
+    out.push({url:url||"",type:type||"image",name:name||"",...(localId?{localId,localOnly:true}:{})});
   };
 
   if(Array.isArray(m.media)){
     m.media.forEach(x=>{
       if(typeof x==="string") pushMedia(x,"image");
-      else if(x?.url) pushMedia(x.url,x.type||"image",x.name||"");
+      else if(x?.url||x?.localId) pushMedia(x.url,x.type||"image",x.name||"",x.localId||"");
       else if(x?.downloadURL) pushMedia(x.downloadURL,x.type||"image",x.name||"");
     });
   }
@@ -1167,11 +1188,11 @@ function memoryCoverHtml(m){
   const first=media[0];
   if(!first) return `<div class="memory-no-media"><span>${safe(m?.emoji||"♡")}</span></div>`;
 
+  const localAttr=first.localId?` data-local-media="${safe(first.localId)}"`:"";
   if(first.type==="video"){
-    return `<video class="memory-cover" src="${safe(first.url)}" muted playsinline preload="metadata"></video>`;
+    return `<video class="memory-cover"${localAttr}${first.url?` src="${safe(first.url)}"`:""} muted playsinline preload="metadata"></video>`;
   }
-
-  return `<img class="memory-cover" src="${safe(first.url)}" alt="${safe(m?.title||"Eroland anısı")}" loading="lazy" onerror="this.closest('.memory-card')?.classList.add('media-error');this.style.display='none'">`;
+  return `<img class="memory-cover"${localAttr}${first.url?` src="${safe(first.url)}"`:""} alt="${safe(m?.title||"Eroland anısı")}" loading="lazy" onerror="this.closest('.memory-card')?.classList.add('media-error')">`;
 }
 
 function memoryTypeName(t){return ({memory:"Anı",plan:"Plan",place:"Yer"})[t]||"Anı"}
@@ -1180,16 +1201,41 @@ function calcReminder(date,mode,custom){
   if(mode==="1m")d.setMonth(d.getMonth()+1);else if(mode==="6m")d.setMonth(d.getMonth()+6);else if(mode==="1y")d.setFullYear(d.getFullYear()+1);else if(mode==="custom"&&custom)return custom;else return "";
   return isoDate(d);
 }
-async function imageToDataUrl(file){
-  const bmp=await createImageBitmap(file);
-  const max=1400;
-  const scale=Math.min(1,max/Math.max(bmp.width,bmp.height));
-  const canvas=document.createElement("canvas");
-  canvas.width=Math.max(1,Math.round(bmp.width*scale));
-  canvas.height=Math.max(1,Math.round(bmp.height*scale));
-  canvas.getContext("2d").drawImage(bmp,0,0,canvas.width,canvas.height);
-  bmp.close?.();
-  return canvas.toDataURL("image/jpeg",0.78);
+const MEMORY_DB="elog-memory-media-v1",MEMORY_STORE="files";
+let memoryDbPromise=null;
+function openMemoryDb(){
+  if(memoryDbPromise)return memoryDbPromise;
+  memoryDbPromise=new Promise((resolve,reject)=>{const req=indexedDB.open(MEMORY_DB,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(MEMORY_STORE))req.result.createObjectStore(MEMORY_STORE)};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});
+  return memoryDbPromise;
+}
+async function saveLocalMedia(file){
+  const id=`media-${uuid()}`,dbx=await openMemoryDb();
+  await new Promise((resolve,reject)=>{const tx=dbx.transaction(MEMORY_STORE,"readwrite");tx.objectStore(MEMORY_STORE).put(file,id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+  return id;
+}
+async function getLocalMedia(id){const dbx=await openMemoryDb();return new Promise((resolve,reject)=>{const req=dbx.transaction(MEMORY_STORE).objectStore(MEMORY_STORE).get(id);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)})}
+async function deleteLocalMedia(id){if(!id)return;try{const dbx=await openMemoryDb();await new Promise((resolve,reject)=>{const tx=dbx.transaction(MEMORY_STORE,"readwrite");tx.objectStore(MEMORY_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch{}}
+async function hydrateMemoryMedia(root=document){
+  const nodes=[...root.querySelectorAll("[data-local-media]")];
+  await Promise.all(nodes.map(async el=>{try{const blob=await getLocalMedia(el.dataset.localMedia);if(!blob)return;const url=URL.createObjectURL(blob);el.src=url;const done=()=>setTimeout(()=>URL.revokeObjectURL(url),1500);el.addEventListener("load",done,{once:true});el.addEventListener("loadeddata",done,{once:true})}catch(err){console.warn("Yerel medya okunamadı",err)}}));
+}
+async function migrateLegacyMemoryMedia(){
+  let changed=false;
+  for(const m of memories){
+    const normalized=normalizeMemoryMedia(m),next=[];
+    for(const x of normalized){
+      if(typeof x.url==="string"&&x.url.startsWith("data:")){
+        try{const blob=await (await fetch(x.url)).blob();next.push({url:"",localId:await saveLocalMedia(blob),type:x.type||(blob.type.startsWith("video/")?"video":"image"),name:x.name||"eski fotoğraf",localOnly:true});changed=true}catch{next.push(x)}
+      }else next.push(x);
+    }
+    if(changed){m.media=next;for(const key of ["photoURL","photoUrl","imageURL","imageUrl","image","photo","videoURL","videoUrl","video","photos","images"])delete m[key]}
+  }
+  if(changed){
+    const compact=JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics});
+    try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&(key===LOCAL||key.startsWith(LOCAL+"-")))localStorage.setItem(key,compact)}}catch{}
+    saveLocal();
+  }
+  return changed;
 }
 
 async function uploadMedia(memoryId,files){
@@ -1197,6 +1243,8 @@ async function uploadMedia(memoryId,files){
   if(!files?.length)return out;
 
   for(const file of files){
+    if(!file.type.startsWith("image/")&&!file.type.startsWith("video/"))throw new Error("Sadece fotoğraf veya video seçebilirsin.");
+    if(file.size>40*1024*1024)throw new Error(`${file.name||"Dosya"} çok büyük. En fazla 40 MB seç.`);
     let uploaded=false;
 
     if(storage){
@@ -1215,24 +1263,10 @@ async function uploadMedia(memoryId,files){
       }
     }
 
-    if(!uploaded){
-      if(file.type.startsWith("image/")){
-        try{
-          out.push({
-            url:await imageToDataUrl(file),
-            type:"image",
-            name:file.name||"fotoğraf",
-            localOnly:true
-          });
-          uploaded=true;
-        }catch(err){
-          console.error("Fotoğraf yerel kaydedilemedi:",err);
-        }
-      }
-    }
+    if(!uploaded)try{out.push({url:"",localId:await saveLocalMedia(file),type:file.type.startsWith("video/")?"video":"image",name:file.name||"dosya",localOnly:true});uploaded=true}catch(err){console.error("Medya cihazda saklanamadı:",err)}
 
     if(!uploaded){
-      throw new Error("Bu dosya yüklenemedi. Fotoğraf seçip tekrar dene.");
+      throw new Error("Dosya ne buluta ne de cihaza kaydedilebildi. Tarayıcı depolama iznini kontrol et.");
     }
   }
 
@@ -1295,6 +1329,8 @@ function renderMemories(filter="all"){
 
       if(!confirm(`"${item.title||"Bu kayıt"}" silinsin mi?`))return;
 
+      normalizeMemoryMedia(item).forEach(x=>x.localId&&deleteLocalMedia(x.localId));
+      memoryTombstones.add(id);
       memories=memories.filter(x=>x.id!==id);
       saveLocal();
       renderAll();
@@ -1310,6 +1346,7 @@ function renderMemories(filter="all"){
       }
     };
   });
+  hydrateMemoryMedia(grid);
 }
 function openMemoryForm(existing=null){
   openGeneric(`<div class="modal-head"><h3>${existing?"Düzenle":"♡ Eroland'a ekle"}</h3><button class="icon-btn close-generic" type="button">×</button></div>
@@ -1317,11 +1354,19 @@ function openMemoryForm(existing=null){
   <label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label>
   <div class="form-row"><label>Tarih<input id="memoryDate" type="date" value="${safe(existing?.date||today())}"></label><label>Emoji<input id="memoryEmoji" value="${safe(existing?.emoji||"♡")}" maxlength="8"></label></div>
   <label>Not<textarea id="memoryNote" rows="3">${safe(existing?.note||"")}</textarea></label>
-  <label>Fotoğraf / video<input id="memoryMedia" type="file" accept="image/*,video/*" multiple></label><div id="memoryMediaPreview" class="memory-upload-preview"></div>
+  <label>Fotoğraf / video<input id="memoryMedia" type="file" accept="image/*,video/*" multiple></label><div id="memoryExistingMedia" class="memory-upload-preview"></div><div id="memoryMediaPreview" class="memory-upload-preview"></div>
   <label>Hatırlat<select id="memoryReminder"><option value="">Hatırlatma yok</option><option value="1m">1 ay sonra</option><option value="6m">6 ay sonra</option><option value="1y">1 yıl sonra</option><option value="custom">Özel tarih</option></select></label>
   <label id="customReminderWrap" style="display:none">Hatırlatma tarihi<input id="memoryReminderCustom" type="date"></label>
   <button class="primary-btn full" type="submit">Kaydet</button><p id="memoryMsg" class="form-message"></p></form>`,()=>{
+    let keptMedia=normalizeMemoryMedia(existing),removedLocalIds=[];
     $("#memoryType").value=existing?.type||"memory";$("#memoryReminder").onchange=()=>$("#customReminderWrap").style.display=$("#memoryReminder").value==="custom"?"block":"none";
+    const drawExisting=()=>{
+      const box=$("#memoryExistingMedia");
+      box.innerHTML=keptMedia.map((x,i)=>`<div class="memory-existing-item">${x.type==="video"?`<video class="memory-upload-thumb" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} muted playsinline></video>`:`<img class="memory-upload-thumb" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} alt="">`}<button type="button" data-remove-kept="${i}" aria-label="Fotoğrafı kaldır">×</button></div>`).join("");
+      $$('[data-remove-kept]',box).forEach(b=>b.onclick=()=>{const removed=keptMedia.splice(Number(b.dataset.removeKept),1)[0];if(removed?.localId)removedLocalIds.push(removed.localId);drawExisting()});
+      hydrateMemoryMedia(box);
+    };
+    drawExisting();
     $("#memoryMedia").onchange=()=>{
       const box=$("#memoryMediaPreview"); box.innerHTML="";
       [...$("#memoryMedia").files].slice(0,6).forEach(file=>{
@@ -1339,12 +1384,15 @@ function openMemoryForm(existing=null){
       const submit=$("#memoryForm button[type=submit]");
       msg.textContent="Kaydediliyor..."; submit.disabled=true;
       try{
-        const selected=[...$("#memoryMedia").files];
+        const title=$("#memoryTitle").value.trim();
+        if(!title){msg.textContent="Başlık yazmalısın.";$("#memoryTitle").focus();submit.disabled=false;return}
+        const selected=[...$("#memoryMedia").files].slice(0,6);
         if(selected.length) msg.textContent="Fotoğraf yükleniyor...";
-        const media=[...(existing?.media||[]),...await uploadMedia(id,selected)];
-        const item={id,title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||"♡",date,note:$("#memoryNote").value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom").value),createdBy:existing?.createdBy||currentUser?.uid||"local",_pending:true};
+        const media=[...keptMedia,...await uploadMedia(id,selected)];
+        const item={...existing,id,title,type:$("#memoryType").value,emoji:$("#memoryEmoji").value||"♡",date,note:$("#memoryNote").value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom").value),createdBy:existing?.createdBy||currentUser?.uid||"local",createdAt:existing?.createdAt||Date.now(),updatedAt:Date.now(),_pending:true};
+        memoryTombstones.delete(id);
         const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);
-        saveLocal();renderAll();$("#genericDialog").close();cloudSave("memories",item);
+        saveLocal();removedLocalIds.forEach(deleteLocalMedia);renderAll();$("#genericDialog").close();await cloudSave("memories",item);
       }catch(err){
         console.error(err); msg.textContent=err?.message||"Fotoğraf yüklenemedi. Tekrar dene."; submit.disabled=false;
       }
@@ -1373,14 +1421,15 @@ function openMemoryActions(id){
     <div class="memory-modal-media">
       ${media.map(x=>
         x.type==="video"
-          ? `<video class="memory-media" controls playsinline src="${safe(x.url)}"></video>`
-          : `<img class="memory-media" src="${safe(x.url)}" alt="${safe(m.title||"Anı")}">`
+          ? `<video class="memory-media" controls playsinline ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""}></video>`
+          : `<img class="memory-media" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} alt="${safe(m.title||"Anı")}">`
       ).join("")}
     </div>
 
     <button id="editMemory" class="primary-btn full" type="button">✏️ Düzenle</button>
     <button id="deleteMemory" class="secondary-btn full memory-delete-modal" type="button">🗑 Sil</button>
   `,()=>{
+    hydrateMemoryMedia($("#genericContent"));
     $("#editMemory").onclick=()=>{
       $("#genericDialog").close();
       openMemoryForm(m);
@@ -1388,6 +1437,8 @@ function openMemoryActions(id){
 
     $("#deleteMemory").onclick=async()=>{
       if(!confirm(`"${m.title||"Bu kayıt"}" silinsin mi?`))return;
+      normalizeMemoryMedia(m).forEach(x=>x.localId&&deleteLocalMedia(x.localId));
+      memoryTombstones.add(id);
       memories=memories.filter(x=>x.id!==id);
       saveLocal();
       renderAll();
@@ -1925,6 +1976,7 @@ function wire(){
   $("#quickAddBtn")?.addEventListener("click",()=>openEntryDialog());
   $("#calendarAddBtn")?.addEventListener("click",()=>openEntryDialog(selectedDate));
   $("#entryForm")?.addEventListener("submit",saveEntry);
+  $("#memoryAddBtn")?.addEventListener("click",e=>{e.preventDefault();openMemoryForm(null)});
 
   $$(".close-dialog").forEach(b=>{
     b.onclick=()=>b.closest("dialog")?.close();
@@ -2083,12 +2135,13 @@ async function syncOurPlaces(){
   }
 }
 function placeMapUrl(p){
+  if(Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng)))return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.lat},${p.lng}`)}`;
   const q=(p.address||p.name||"").trim();
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 
 function placeCategoryEmoji(cat){
-  return ({date:"♡",food:"🍽️",coffee:"☕",trip:"✈️",special:"✦",other:"📍"})[cat]||"📍";
+  return ({date:"♥",food:"◆",coffee:"●",trip:"✈",special:"✦",other:"⌖"})[cat]||"⌖";
 }
 
 function renderPlacesPage(){
@@ -2109,7 +2162,7 @@ function openOurPlaces(){
       <button class="icon-btn close-generic" type="button">×</button>
     </div>
     <section class="places-cover">
-      <div><span>📍</span><small>BİZİM HARİTAMIZ</small><h2>${rows.length} yer, bir sürü hikâye.</h2><p>Sevdiğiniz yerleri E.log'a iğneleyin.</p></div>
+      <div><span class="places-cover-mark">⌖</span><small>BİZİM HARİTAMIZ</small><h2>${rows.length} yer, bir sürü hikâye.</h2><p>Sevdiğiniz yerleri E.log'a iğneleyin.</p></div>
       <button id="addOurPlaceBtn" type="button">＋ Yer ekle</button>
     </section>
     ${rows.length?`
@@ -2168,16 +2221,30 @@ function openPlaceEditor(id=null){
       </div>
 
       <label>Adres / yer ara<div class="place-search-row"><input id="placeAddress" value="${safe(p?.address||"")}" placeholder="Örn: Alaçatı, İzmir veya mekan adı"><button id="searchPlaceBtn" type="button">Haritada ara</button></div></label>
+      <div class="place-picker-wrap"><div id="placePickerMap" aria-label="Haritadan konum seç"></div><small>Haritada istediğin noktaya dokun. Bulunduğun yerde olman gerekmiyor.</small></div>
       <label>Bizim notumuz<textarea id="placeNote" rows="3" maxlength="300" placeholder="Burayı neden seviyoruz?">${safe(p?.note||"")}</textarea></label>
       <div id="placeLocationMessage" class="place-location-message">${autoLat!=null&&autoLng!=null?"✓ Harita konumu kayıtlı":""}</div>
       <button id="savePlaceBtn" class="primary-btn full" type="button">${p?"Kaydet":"Haritaya ekle"}</button>
     </div>
   `,()=>{
-    $("#searchPlaceBtn").onclick=()=>{
+    let map=null,marker=null;
+    const setPickedPoint=(lat,lng,message="✓ Konum seçildi")=>{
+      autoLat=Number(Number(lat).toFixed(6));autoLng=Number(Number(lng).toFixed(6));
+      if(map&&window.L){if(marker)marker.setLatLng([autoLat,autoLng]);else marker=window.L.marker([autoLat,autoLng]).addTo(map);map.setView([autoLat,autoLng],Math.max(map.getZoom(),15))}
+      $("#placeLocationMessage").textContent=message;
+    };
+    if(window.L){
+      map=window.L.map("placePickerMap").setView(autoLat!=null&&autoLng!=null?[autoLat,autoLng]:[38.4237,27.1428],autoLat!=null&&autoLng!=null?15:10);
+      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+      if(autoLat!=null&&autoLng!=null)marker=window.L.marker([autoLat,autoLng]).addTo(map);
+      map.on("click",async ev=>{setPickedPoint(ev.latlng.lat,ev.latlng.lng,"✓ Haritadan seçildi");try{const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${ev.latlng.lat}&lon=${ev.latlng.lng}&accept-language=tr`);const data=await res.json();if(data?.display_name&&!$("#placeAddress").value.trim())$("#placeAddress").value=data.display_name}catch(_){}});
+      setTimeout(()=>map.invalidateSize(),100);
+    }else $("#placeLocationMessage").textContent="Harita yüklenemedi. Adres yazarak yine kaydedebilirsin.";
+    $("#searchPlaceBtn").onclick=async()=>{
       const q=($("#placeAddress").value||$("#placeName").value||"").trim();
       if(!q){$("#placeLocationMessage").textContent="Önce yer adı veya adres yaz.";return}
-      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`,"_blank");
-      $("#placeLocationMessage").textContent="Haritada açıldı. Yer adı/adresi yazıp kaydedebilirsin.";
+      const msg=$("#placeLocationMessage");msg.textContent="Yer aranıyor…";
+      try{const res=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=tr&q=${encodeURIComponent(q)}`);const rows=await res.json();if(!rows?.length){msg.textContent="Yer bulunamadı. Daha açık bir adres yaz veya haritadan seç.";return}setPickedPoint(rows[0].lat,rows[0].lon,"✓ Yer bulundu ve seçildi")}catch(_){msg.textContent="Arama açılamadı. Haritadan dokunarak seçebilirsin."}
     };
     $("#useMyLocationBtn").onclick=()=>{
       const msg=$("#placeLocationMessage");
@@ -2185,10 +2252,8 @@ function openPlaceEditor(id=null){
       if(!navigator.geolocation){msg.textContent="Konum alınamıyor, sorun değil. Yer adı veya adresle kaydedebilirsin.";return}
       msg.textContent="Konum alınıyor…";
       navigator.geolocation.getCurrentPosition(pos=>{
-        autoLat=Number(pos.coords.latitude.toFixed(6));
-        autoLng=Number(pos.coords.longitude.toFixed(6));
+        setPickedPoint(pos.coords.latitude,pos.coords.longitude,"✓ Mevcut konumun seçildi");
         btn.textContent="✓ Konum eklendi";
-        msg.textContent="✓ Harita konumu eklendi";
       },()=>{
         msg.textContent="Konum izni verilmedi. Sorun değil, yer adı veya adres yeterli.";
       },{enableHighAccuracy:true,timeout:10000});
@@ -2237,6 +2302,7 @@ document.addEventListener("click",e=>{
 async function boot(){
   try{
     loadLocal();
+    await migrateLegacyMemoryMedia();
     wire();
     wireWorkPage();
     wireSport();
@@ -2288,13 +2354,18 @@ document.addEventListener("click", function(e){
   if(btn.id==="quickMemoryBtn"){
     e.preventDefault(); e.stopPropagation();
     switchView("eroland");
-    setTimeout(()=>{
-      const add=document.getElementById("memoryAddBtn");
-      if(add)add.click();
-    },120);
+    setTimeout(()=>openMemoryForm(null),80);
     return;
   }
 }, true);
+
+/* Anı butonu için tek, sayfa yenilemelerinden etkilenmeyen yedek bağlantı. */
+document.addEventListener("click",e=>{
+  const add=e.target.closest?.("#memoryAddBtn");
+  if(!add)return;
+  e.preventDefault();
+  if(!document.getElementById("genericDialog")?.open)openMemoryForm(null);
+});
 
 // calendarGridEmojiDelegate
 document.addEventListener("click",e=>{

@@ -1,0 +1,10 @@
+ANI SISTEMI YENIDEN KURULDU
+
+- + Ani ve ana sayfa Ani tuslari ayni, sabit forma baglidir.
+- Fotograf/video once Firebase Storage'a yuklenir.
+- Bulut yoksa dosya localStorage yerine IndexedDB'de saklanir.
+- Eski base64 fotograflar otomatik olarak IndexedDB'ye tasinir.
+- Duzenleme eski ve eski-surum medya alanlarini korur.
+- Silinen kayitlar eski cihaz onbelleginden tekrar geri gelmez.
+- Baglanti yokken silinen kayitlar baglanti gelince buluttan da silinir.
+- Kayit alani dolsa bile uygulamanin diger butonlari calismaya devam eder.
