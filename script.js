@@ -2088,6 +2088,7 @@ async function syncOurPlaces(){
   }
 }
 function placeMapUrl(p){
+  if(Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng)))return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.lat},${p.lng}`)}`;
   const q=(p.address||p.name||"").trim();
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
@@ -2173,16 +2174,30 @@ function openPlaceEditor(id=null){
       </div>
 
       <label>Adres / yer ara<div class="place-search-row"><input id="placeAddress" value="${safe(p?.address||"")}" placeholder="Örn: Alaçatı, İzmir veya mekan adı"><button id="searchPlaceBtn" type="button">Haritada ara</button></div></label>
+      <div class="place-picker-wrap"><div id="placePickerMap" aria-label="Haritadan konum seç"></div><small>Haritada istediğin noktaya dokun. Bulunduğun yerde olman gerekmiyor.</small></div>
       <label>Bizim notumuz<textarea id="placeNote" rows="3" maxlength="300" placeholder="Burayı neden seviyoruz?">${safe(p?.note||"")}</textarea></label>
       <div id="placeLocationMessage" class="place-location-message">${autoLat!=null&&autoLng!=null?"✓ Harita konumu kayıtlı":""}</div>
       <button id="savePlaceBtn" class="primary-btn full" type="button">${p?"Kaydet":"Haritaya ekle"}</button>
     </div>
   `,()=>{
-    $("#searchPlaceBtn").onclick=()=>{
+    let map=null,marker=null;
+    const setPickedPoint=(lat,lng,message="✓ Konum seçildi")=>{
+      autoLat=Number(Number(lat).toFixed(6));autoLng=Number(Number(lng).toFixed(6));
+      if(map&&window.L){if(marker)marker.setLatLng([autoLat,autoLng]);else marker=window.L.marker([autoLat,autoLng]).addTo(map);map.setView([autoLat,autoLng],Math.max(map.getZoom(),15))}
+      $("#placeLocationMessage").textContent=message;
+    };
+    if(window.L){
+      map=window.L.map("placePickerMap").setView(autoLat!=null&&autoLng!=null?[autoLat,autoLng]:[38.4237,27.1428],autoLat!=null&&autoLng!=null?15:10);
+      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+      if(autoLat!=null&&autoLng!=null)marker=window.L.marker([autoLat,autoLng]).addTo(map);
+      map.on("click",async ev=>{setPickedPoint(ev.latlng.lat,ev.latlng.lng,"✓ Haritadan seçildi");try{const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${ev.latlng.lat}&lon=${ev.latlng.lng}&accept-language=tr`);const data=await res.json();if(data?.display_name&&!$("#placeAddress").value.trim())$("#placeAddress").value=data.display_name}catch(_){}});
+      setTimeout(()=>map.invalidateSize(),100);
+    }else $("#placeLocationMessage").textContent="Harita yüklenemedi. Adres yazarak yine kaydedebilirsin.";
+    $("#searchPlaceBtn").onclick=async()=>{
       const q=($("#placeAddress").value||$("#placeName").value||"").trim();
       if(!q){$("#placeLocationMessage").textContent="Önce yer adı veya adres yaz.";return}
-      window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`,"_blank");
-      $("#placeLocationMessage").textContent="Haritada açıldı. Yer adı/adresi yazıp kaydedebilirsin.";
+      const msg=$("#placeLocationMessage");msg.textContent="Yer aranıyor…";
+      try{const res=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=tr&q=${encodeURIComponent(q)}`);const rows=await res.json();if(!rows?.length){msg.textContent="Yer bulunamadı. Daha açık bir adres yaz veya haritadan seç.";return}setPickedPoint(rows[0].lat,rows[0].lon,"✓ Yer bulundu ve seçildi")}catch(_){msg.textContent="Arama açılamadı. Haritadan dokunarak seçebilirsin."}
     };
     $("#useMyLocationBtn").onclick=()=>{
       const msg=$("#placeLocationMessage");
@@ -2190,10 +2205,8 @@ function openPlaceEditor(id=null){
       if(!navigator.geolocation){msg.textContent="Konum alınamıyor, sorun değil. Yer adı veya adresle kaydedebilirsin.";return}
       msg.textContent="Konum alınıyor…";
       navigator.geolocation.getCurrentPosition(pos=>{
-        autoLat=Number(pos.coords.latitude.toFixed(6));
-        autoLng=Number(pos.coords.longitude.toFixed(6));
+        setPickedPoint(pos.coords.latitude,pos.coords.longitude,"✓ Mevcut konumun seçildi");
         btn.textContent="✓ Konum eklendi";
-        msg.textContent="✓ Harita konumu eklendi";
       },()=>{
         msg.textContent="Konum izni verilmedi. Sorun değil, yer adı veya adres yeterli.";
       },{enableHighAccuracy:true,timeout:10000});
