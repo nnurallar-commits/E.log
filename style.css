@@ -3817,3 +3817,68 @@ html[data-theme="dark"] .eroland-summary>div{background:rgba(13,18,15,.38);borde
 html[data-theme="dark"] .eroland-actions button{background:#1d2920;color:#b9cfb8;border-color:rgba(153,188,155,.13)}
 html[data-theme="dark"] .eroland-actions button:first-child{background:rgba(134,170,127,.18);color:#b7d1b2}
 @media(max-width:650px){.eroland-banner{grid-template-columns:1fr!important}.eroland-banner-art{min-height:220px!important;max-height:240px}.eroland-banner-art:after{background:linear-gradient(180deg,transparent 66%,var(--elog-surface) 100%)}.eroland-banner-art img{min-height:220px!important;height:240px!important}.eroland-banner-copy{padding:19px!important}.eroland-banner-copy p{font-size:25px!important}.eroland-summary{margin-top:3px}.eroland-actions{grid-template-columns:1fr 1fr}.eroland-actions button:first-child{grid-column:1/-1}}
+
+/* ===== EROLAND TIMELINE HARD FIX 2026-08-31 v9 =====
+   Keep the valid 14 August 2026 date and prevent the scrapbook card
+   from stretching into a giant blank block on desktop/mobile. */
+#view-eroland .together-days{
+  box-sizing:border-box!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  margin:22px 0 16px!important;
+  padding:24px 18px 18px!important;
+  overflow:hidden!important;
+  transform:none!important;
+}
+#view-eroland .together-days-head{
+  min-height:0!important;
+  margin-bottom:14px!important;
+}
+#view-eroland .together-days-grid{
+  display:grid!important;
+  grid-template-columns:minmax(0,420px)!important;
+  justify-content:center!important;
+  align-items:start!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  padding:4px 0 6px!important;
+}
+#view-eroland .together-day-card,
+#view-eroland .together-day-second{
+  box-sizing:border-box!important;
+  position:relative!important;
+  width:100%!important;
+  max-width:420px!important;
+  height:210px!important;
+  min-height:210px!important;
+  max-height:210px!important;
+  margin:0 auto!important;
+  padding:31px 18px 16px!important;
+  overflow:visible!important;
+  transform:rotate(.65deg)!important;
+}
+#view-eroland .together-day-card p,
+#view-eroland .together-day-card strong,
+#view-eroland .together-day-card small,
+#view-eroland .together-day-card time{
+  visibility:visible!important;
+  opacity:1!important;
+}
+#view-eroland .together-day-card strong{font-size:58px!important}
+#view-eroland .together-days-note{margin-top:10px!important}
+@media(max-width:520px){
+  #view-eroland .together-days{padding:22px 12px 16px!important}
+  #view-eroland .together-days-grid{grid-template-columns:minmax(0,1fr)!important}
+  #view-eroland .together-day-card,
+  #view-eroland .together-day-second{
+    height:190px!important;
+    min-height:190px!important;
+    max-height:190px!important;
+    padding:28px 12px 14px!important;
+  }
+  #view-eroland .together-day-card strong{font-size:50px!important}
+}
