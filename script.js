@@ -2094,7 +2094,7 @@ function placeMapUrl(p){
 }
 
 function placeCategoryEmoji(cat){
-  return ({date:"♡",food:"🍽️",coffee:"☕",trip:"✈️",special:"✦",other:"📍"})[cat]||"📍";
+  return ({date:"♥",food:"◆",coffee:"●",trip:"✈",special:"✦",other:"⌖"})[cat]||"⌖";
 }
 
 function renderPlacesPage(){
@@ -2115,7 +2115,7 @@ function openOurPlaces(){
       <button class="icon-btn close-generic" type="button">×</button>
     </div>
     <section class="places-cover">
-      <div><span>📍</span><small>BİZİM HARİTAMIZ</small><h2>${rows.length} yer, bir sürü hikâye.</h2><p>Sevdiğiniz yerleri E.log'a iğneleyin.</p></div>
+      <div><span class="places-cover-mark">⌖</span><small>BİZİM HARİTAMIZ</small><h2>${rows.length} yer, bir sürü hikâye.</h2><p>Sevdiğiniz yerleri E.log'a iğneleyin.</p></div>
       <button id="addOurPlaceBtn" type="button">＋ Yer ekle</button>
     </section>
     ${rows.length?`
