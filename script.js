@@ -1,3 +1,4 @@
+if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister())).catch(()=>{});}if(window.caches){caches.keys().then(k=>k.forEach(x=>caches.delete(x))).catch(()=>{});}
 
 /* ===== E.LOG STABLE FALLBACKS ===== */
 window.addEventListener("error",(e)=>{
@@ -1300,6 +1301,11 @@ function openMemoryForm(existing=null){
     };
   });
 }
+window.elogNewMemory=function(){
+  try{openMemoryForm(null)}
+  catch(err){console.error(err);alert("Anı ekranı açılamadı. Sayfayı yenileyip tekrar dene.")}
+};
+
 function openMemoryActions(id){
   const m=memories.find(x=>x.id===id);
   if(!m)return;
@@ -2075,8 +2081,8 @@ async function syncOurPlaces(){
   }
 }
 function placeMapUrl(p){
-  if(p.lat!=null&&p.lng!=null)return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lat+","+p.lng)}`;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name||p.address||"")}`;
+  const q=(p.address||p.name||"").trim();
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }
 function placeCategoryEmoji(cat){
   return ({date:"♡",food:"🍽️",coffee:"☕",trip:"✈️",special:"✦",other:"📍"})[cat]||"📍";
@@ -2115,7 +2121,7 @@ function openOurPlaces(){
     $$("[data-place-delete]").forEach(b=>b.onclick=async()=>{
       if(!confirm("Bu yer haritanızdan silinsin mi?"))return;
       ourPlaces=ourPlaces.filter(x=>x.id!==b.dataset.placeDelete);
-      saveLocal(); await syncOurPlaces(); openOurPlaces();
+      saveLocal(); syncOurPlaces(); openOurPlaces();
     });
   });
 }
