@@ -51,7 +51,7 @@ function safeDialogOpen(id){
       btn.title=btn.getAttribute("aria-label");
     }
     const meta=document.querySelector('meta[name="theme-color"]');
-    if(meta) meta.setAttribute("content",theme==="dark" ? "#0d1210" : "#f5f4ef");
+    if(meta) meta.setAttribute("content",theme==="dark" ? "#171113" : "#fff7f4");
   }
 
   function initTheme(){

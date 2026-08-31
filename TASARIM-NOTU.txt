@@ -1,0 +1,9 @@
+E.LOG COZY HEART UI
+
+- Acik tema: krem, pudra ve yumusak kahve tonlari.
+- Karanlik tema: koyu murdum/kahve, pudra pembe ve adacayi detaylari.
+- Alt menu: tutarli, samimi emoji ikonlari.
+- Ana sayfa: kalp detayli sicak hero karti ve emojili hizli islemler.
+- Eroland: anilar icin daha samimi kartlar ve kalp vurgulari.
+- Takvim, harita, nobet ve spor ekranlari ayni tasarim diline uyarlandi.
+- Ani sisteminin stabil depolama ve esitleme duzeltmeleri korunmustur.
