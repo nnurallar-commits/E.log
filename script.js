@@ -287,6 +287,7 @@ async function handleAuth(user){
     startRealtime();
 
     await flushPending();
+    await retryLocalMemoryMediaToCloud();
     await syncDayEmojis();
 
     markSync("● canlı");
@@ -1269,16 +1270,23 @@ function normalizeMemoryMedia(m){
   return out;
 }
 
+function memoryMediaItemHtml(x,m,cls="memory-cover"){
+  const localAttr=x?.localId?` data-local-media="${safe(x.localId)}"`:"";
+  const srcAttr=x?.url?` src="${safe(x.url)}"`:"";
+  if(x?.type==="video") return `<video class="${cls}"${localAttr}${srcAttr} muted playsinline preload="metadata"></video>`;
+  return `<img class="${cls}"${localAttr}${srcAttr} alt="${safe(m?.title||"Eroland anısı")}" loading="lazy">`;
+}
 function memoryCoverHtml(m){
   const media=normalizeMemoryMedia(m);
   const first=media[0];
   if(!first) return `<div class="memory-no-media"><span>${safe(m?.emoji||"♡")}</span></div>`;
-
-  const localAttr=first.localId?` data-local-media="${safe(first.localId)}"`:"";
-  if(first.type==="video"){
-    return `<video class="memory-cover"${localAttr}${first.url?` src="${safe(first.url)}"`:""} muted playsinline preload="metadata"></video>`;
-  }
-  return `<img class="memory-cover"${localAttr}${first.url?` src="${safe(first.url)}"`:""} alt="${safe(m?.title||"Eroland anısı")}" loading="lazy" onerror="this.closest('.memory-card')?.classList.add('media-error')">`;
+  return memoryMediaItemHtml(first,m,"memory-cover");
+}
+function memoryAllMediaHtml(m){
+  const media=normalizeMemoryMedia(m);
+  if(!media.length) return `<div class="memory-no-media"><span>${safe(m?.emoji||"♡")}</span></div>`;
+  const count=Math.min(media.length,6);
+  return `<div class="memory-card-gallery count-${count}">${media.slice(0,6).map(x=>memoryMediaItemHtml(x,m,"memory-gallery-media")).join("")}</div>`;
 }
 
 function memoryTypeName(t){return ({memory:"Anı",plan:"Plan",place:"Yer"})[t]||"Anı"}
@@ -1399,6 +1407,40 @@ async function syncMemoryMediaInBackground(memoryId,localMedia,files){
   }
 }
 
+async function retryLocalMemoryMediaToCloud(){
+  if(!storage||!db||!currentUser)return;
+  for(const item of memories){
+    const localOnly=normalizeMemoryMedia(item).filter(x=>x.localId&&!x.url);
+    if(!localOnly.length)continue;
+    const replacements=[];
+    for(const x of localOnly){
+      try{
+        const blob=await getLocalMedia(x.localId);
+        if(!blob)continue;
+        const ext=(x.name||"").split(".").pop()||((blob.type||"").split("/")[1]||"jpg");
+        const safeName=(x.name||`fotograf.${ext}`).replace(/[^a-zA-Z0-9._-]+/g,"-");
+        const r=storageRef(storage,`pairs/${pairId()}/memories/${item.id}/${Date.now()}-${safeName}`);
+        await uploadBytes(r,blob,{contentType:blob.type||undefined});
+        replacements.push({localId:x.localId,url:await getDownloadURL(r),type:x.type||(blob.type?.startsWith("video/")?"video":"image"),name:x.name||safeName});
+      }catch(err){
+        console.warn("Eski fotoğraf buluta taşınamadı:",item.id,err);
+      }
+    }
+    if(!replacements.length)continue;
+    const byLocal=new Map(replacements.map(r=>[r.localId,r]));
+    item.media=normalizeMemoryMedia(item).map(x=>{
+      const r=x.localId?byLocal.get(x.localId):null;
+      return r?{url:r.url,type:r.type,name:r.name}:x;
+    });
+    item.updatedAt=Date.now();
+    item._pending=true;
+    saveLocal();
+    await cloudSave("memories",item);
+    replacements.forEach(r=>deleteLocalMedia(r.localId));
+  }
+  renderAll();
+}
+
 function renderMemories(filter="all"){
   activeMemoryFilter=filter;
   const grid=$("#memoryGrid");
@@ -1422,7 +1464,7 @@ function renderMemories(filter="all"){
       <article class="memory-card" data-memory-card="${safe(m.id)}">
         <button class="memory-main memory-click" data-memory-id="${safe(m.id)}" type="button">
           <div class="memory-cover-wrap">
-            ${memoryCoverHtml(m)}
+            ${memoryAllMediaHtml(m)}
             <span class="memory-heart">${safe(m.emoji||"♡")}</span>
           </div>
 
