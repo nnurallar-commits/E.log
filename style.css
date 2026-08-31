@@ -3483,3 +3483,53 @@ html[data-theme="dark"] #view-more .settings-list>button>b,html[data-theme="dark
 html[data-theme="dark"] .bottom-nav .nav-btn.active{background:transparent!important;color:#e5a5b2!important;box-shadow:none!important}
 html[data-theme="dark"] .bottom-nav .nav-btn.active>span:first-child{background:rgba(229,154,170,.14)!important;box-shadow:inset 0 0 0 1px rgba(229,154,170,.13)!important}
 @media(max-width:520px){#view-more .settings-list>button{min-height:132px!important;padding:16px!important}#view-more .settings-list>button>span{font-size:15px!important}.bottom-nav{width:calc(100% - 14px)!important;left:7px!important;transform:none!important;bottom:7px!important;padding:7px 4px calc(7px + env(safe-area-inset-bottom))!important}.bottom-nav .nav-btn>span:first-child{width:27px!important;height:27px!important;font-size:17px!important}.bottom-nav .nav-btn small{font-size:6.5px!important;letter-spacing:-.02em}}
+
+/* =========================================================
+   E.LOG SAGE HEART · green stays, pink becomes a tiny accent
+   ========================================================= */
+:root{
+  --elog-bg:#f4f3ea!important;--elog-surface:#faf9f2!important;--elog-surface-2:#e9eee4!important;
+  --elog-card:#fffdf7!important;--elog-text:#29362d!important;--elog-muted:#758077!important;
+  --elog-line:rgba(42,68,50,.12)!important;--elog-accent:#789b72!important;
+  --elog-accent-strong:#426b4d!important;--elog-accent-soft:#dfeadc!important;
+  --bg:#f4f3ea!important;--surface:#faf9f2!important;--surface-2:#e9eee4!important;
+  --card:#fffdf7!important;--text:#29362d!important;--muted:#758077!important;
+  --green:#315b43!important;--green-2:#789b72!important;--sage:#a8baa3!important;
+  --sage-light:#dfeadc!important;--cream:#f4f3ea!important;--paper:#fffdf7!important;
+  --ink:#29362d!important;--line:rgba(42,68,50,.12)!important;
+  --shadow:0 16px 42px rgba(39,67,48,.09)!important;
+}
+html[data-theme="dark"]{
+  --elog-bg:#0d120f!important;--elog-surface:#141b16!important;--elog-surface-2:#1b251e!important;
+  --elog-card:#172019!important;--elog-text:#c8d6c9!important;--elog-muted:#869889!important;
+  --elog-line:rgba(153,188,155,.14)!important;--elog-accent:#86aa7f!important;
+  --elog-accent-strong:#a8c9a2!important;--elog-accent-soft:rgba(134,170,127,.16)!important;
+  --bg:#0d120f!important;--surface:#141b16!important;--surface-2:#1b251e!important;
+  --card:#172019!important;--text:#c8d6c9!important;--muted:#869889!important;
+  --green:#90b18a!important;--green-2:#718e6d!important;--sage:#93aa90!important;
+  --sage-light:#223026!important;--cream:#0d120f!important;--paper:#172019!important;
+  --ink:#c8d6c9!important;--line:rgba(153,188,155,.14)!important;
+  color:#c8d6c9!important;background:#0d120f!important;
+}
+body{background:radial-gradient(circle at 7% 0,rgba(125,157,116,.16),transparent 28%),radial-gradient(circle at 96% 10%,rgba(195,174,139,.10),transparent 24%),var(--elog-bg)!important}
+html[data-theme="dark"] body{background:radial-gradient(circle at 9% 0,rgba(92,132,91,.17),transparent 29%),radial-gradient(circle at 92% 12%,rgba(109,83,69,.09),transparent 27%),#0d120f!important;color:#c8d6c9!important}
+.topbar h1:after{color:#8cac84!important}
+.hero-card{background:linear-gradient(135deg,#244936 0%,#426650 58%,#7d8b6d 120%)!important;box-shadow:0 22px 48px rgba(31,67,45,.20)!important}
+.hero-card:before{color:rgba(239,230,211,.15)!important}.hero-card .tag{background:rgba(232,241,228,.13)!important;color:#e2ebdd!important}.hero-card h2{color:#f2f0e7!important}.hero-card p{color:#d7dfd2!important}.hero-card .primary-btn{background:#dce9d6!important;color:#294b35!important}
+.primary-btn{background:linear-gradient(135deg,#86a77e,#668b69)!important;color:#142219!important;box-shadow:0 10px 25px rgba(65,105,73,.16)!important}
+.status-dot{background:#86a77e!important}.memory-heart{background:#e4ede0!important;color:#5f8562!important}.memory-card:after{background:rgba(192,169,126,.16)!important}
+.eroland-banner{background:linear-gradient(135deg,#dfe9da,#eee8db)!important;border-color:rgba(75,112,79,.11)!important}.eroland-banner:before{color:rgba(102,139,101,.20)!important}.eroland-banner-copy p{color:#3d5c46!important}.eroland-banner-copy span{color:#748378!important}
+.places-cover{background:linear-gradient(135deg,#2d5540,#68785d)!important}.places-cover-mark{background:rgba(226,238,221,.14)!important;color:#dbe8d7!important}.places-cover button{background:#dce8d6!important;color:#31543b!important}
+.place-map-box{background:linear-gradient(145deg,#e8eee3,#f3efe5)!important}.place-map-box strong{color:#486650!important}.place-map-box small{color:#78837a!important}.place-map-box button{background:#dfe9da!important;color:#426447!important;border-color:rgba(75,112,79,.13)!important}
+.work-hero,.sport-hero{background:linear-gradient(135deg,#315743,#71806a)!important;box-shadow:0 18px 40px rgba(42,79,55,.14)!important}.work-hero h3,.sport-hero h3{color:#f0f2e9!important}.work-hero p,.sport-hero p{color:#d8e0d4!important}
+#view-more .more-month{background:linear-gradient(145deg,#dfeadc,#f4efe4)!important}#view-more .more-places{background:linear-gradient(145deg,#d8e6d5,#eeeadd)!important}
+#view-more .settings-list>button{background:linear-gradient(145deg,#f8f7ef,#e7eee3)!important;color:#385040!important;box-shadow:0 12px 28px rgba(48,78,56,.08)!important}
+#view-more .settings-list>button:nth-child(2){background:linear-gradient(145deg,#e5ebe2,#f5f1e7)!important}#view-more .settings-list>button:nth-child(3){background:linear-gradient(145deg,#eee9dc,#f8f5ec)!important}#view-more .settings-list>button:nth-child(4){background:linear-gradient(145deg,#dce8da,#eef1e7)!important}#view-more .settings-list>button:nth-child(5){background:linear-gradient(145deg,#d6e4d3,#f1eee3)!important}#view-more .settings-list>button:nth-child(6){background:linear-gradient(145deg,#e9e8df,#f6f3eb)!important;color:#68746b!important}
+.bottom-nav{background:rgba(249,248,240,.92)!important;box-shadow:0 18px 45px rgba(40,68,48,.13)!important}.bottom-nav .nav-btn.active{color:#4f7957!important}.bottom-nav .nav-btn.active>span:first-child{background:#dfeadc!important;box-shadow:inset 0 0 0 1px rgba(91,128,94,.14)!important}
+html[data-theme="dark"] :is(h1,h2,h3,h4,strong,.hero-title,.section-title,.brand){color:#b9cfb8!important}html[data-theme="dark"] :is(p,label,small,.muted,.helper,.description){color:#869889!important}
+html[data-theme="dark"] :is(input,textarea,select,.quick-card,.empty,.calendar-day,.day-cell){background:#1b251e!important;color:#c3d2c4!important;border-color:rgba(153,188,155,.14)!important}
+html[data-theme="dark"] :is(.modal-card,.card,.panel,.calendar-card,.memory-card,.place-card,.place-page-card,.next-card,.section-block,.module-card,.work-panel,.sport-progress-card,.sport-history-card){background:linear-gradient(145deg,#18221b,#121914)!important;border-color:rgba(153,188,155,.13)!important;box-shadow:0 20px 48px rgba(0,0,0,.24)!important}
+html[data-theme="dark"] .eroland-banner{background:linear-gradient(135deg,#294232,#252b23)!important}html[data-theme="dark"] .eroland-banner-copy p{color:#c5d7c4!important}html[data-theme="dark"] .eroland-banner-copy span{color:#8fa18f!important}
+html[data-theme="dark"] .place-map-box{background:linear-gradient(145deg,#18231b,#202a21)!important;border-color:rgba(153,188,155,.12)!important}html[data-theme="dark"] .place-map-box strong{color:#adc7aa!important}html[data-theme="dark"] .place-map-box small{color:#829485!important}html[data-theme="dark"] .place-map-box button{background:#243327!important;color:#aecaaa!important;border-color:rgba(153,188,155,.15)!important}
+html[data-theme="dark"] #view-more .settings-list>button{background:linear-gradient(145deg,#1c281f,#151c17)!important;color:#b9cfb8!important;border-color:rgba(153,188,155,.13)!important}html[data-theme="dark"] #view-more .settings-list>button:nth-child(2){background:linear-gradient(145deg,#20261f,#171d18)!important}html[data-theme="dark"] #view-more .settings-list>button:nth-child(3){background:linear-gradient(145deg,#29271e,#1a1e18)!important}html[data-theme="dark"] #view-more .settings-list>button:nth-child(4){background:linear-gradient(145deg,#223025,#172019)!important}html[data-theme="dark"] #view-more .settings-list>button:nth-child(5){background:linear-gradient(145deg,#263529,#172019)!important}html[data-theme="dark"] #view-more .settings-list>button:nth-child(6){background:linear-gradient(145deg,#20251f,#141a16)!important;color:#8d9d8f!important}
+html[data-theme="dark"] .bottom-nav{background:rgba(13,18,15,.94)!important;border-color:rgba(153,188,155,.12)!important}html[data-theme="dark"] .bottom-nav .nav-btn.active{color:#a8c9a2!important}html[data-theme="dark"] .bottom-nav .nav-btn.active>span:first-child{background:rgba(134,170,127,.16)!important;box-shadow:inset 0 0 0 1px rgba(153,188,155,.14)!important}
