@@ -169,13 +169,25 @@
 <div><p class="eyebrow">BİZİM KÖŞEMİZ 💗</p><h2>Eroland</h2></div>
 <button class="primary-btn small" id="memoryAddBtn" type="button">+ Anı</button>
 </div>
-<div class="eroland-banner"><div class="eroland-banner-copy">
+<div class="eroland-banner">
+<div class="eroland-banner-art">
+<img alt="Nilsu ve Erol'un Eroland kapak fotoğrafı" src="./eroland-us.png?v=20260828-eroland-banner-kids1"/>
+</div>
+<div class="eroland-banner-copy">
 <p>İyi planlar, daha güzel yarınlar.</p>
 <span>Sen + Erol</span>
+<div class="eroland-summary" aria-label="Eroland özeti">
+<div><strong id="erolandMemoryCount">0</strong><small>Anı</small></div>
+<div><strong id="erolandPlanCount">0</strong><small>Plan</small></div>
+<div><strong id="erolandPlaceCount">0</strong><small>Yer</small></div>
 </div>
-<div aria-hidden="true" class="eroland-banner-art">
-<img alt="" src="./eroland-us.png?v=20260828-eroland-banner-kids1"/>
-</div></div>
+<div class="eroland-actions">
+<button id="erolandQuickMemory" type="button">💌 Anı ekle</button>
+<button id="erolandQuickMonth" type="button">🎞️ Ayımız</button>
+<button id="erolandQuickPlace" type="button">📍 Yer ekle</button>
+</div>
+</div>
+</div>
 <div class="tabs-row">
 <button class="mini-tab active" data-memory-filter="all" type="button">Tümü</button>
 <button class="mini-tab" data-memory-filter="memory" type="button">Anılar</button>
@@ -313,6 +325,6 @@
 </div>
 </dialog>
 <script crossorigin="" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="script.js?v=20260831-memory-final-fix" type="module"></script>
+<script src="script.js?v=20260831-memory-photo-tap-order-v2" type="module"></script>
 </body>
 </html>

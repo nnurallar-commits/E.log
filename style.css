@@ -2556,6 +2556,32 @@ body::after{
 .memory-card:nth-child(3n+2){transform:rotate(.28deg)}
 .memory-card:nth-child(3n+3){transform:rotate(-.12deg)}
 
+/* Anı ekleme kontrolleri: telefonda rahat ve güvenilir dokunma alanı */
+#memoryAddBtn,#erolandQuickMemory,#quickMemoryBtn{
+  min-height:52px;
+  min-width:88px;
+  padding:12px 18px;
+  position:relative;
+  z-index:12;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+#memoryAddBtn{
+  font-size:16px;
+  border-radius:18px;
+  box-shadow:0 8px 22px rgba(35,53,43,.18);
+}
+.memory-dialog{z-index:9999}
+.memory-dialog::backdrop{z-index:9998}
+.memory-dialog .modal-card{max-height:min(88vh,760px);overflow:auto;-webkit-overflow-scrolling:touch}
+#memoryMedia{min-height:56px;padding:14px;background:var(--paper);cursor:pointer}
+#memoryForm button[type="submit"]{min-height:54px;font-size:16px;position:sticky;bottom:0;z-index:3}
+
+@media(max-width:520px){
+  #memoryAddBtn{min-width:112px}
+  #erolandQuickMemory{width:100%}
+}
+
 .memory-card::after{
   content:"";
   position:absolute;
@@ -3533,3 +3559,23 @@ html[data-theme="dark"] .eroland-banner{background:linear-gradient(135deg,#29423
 html[data-theme="dark"] .place-map-box{background:linear-gradient(145deg,#18231b,#202a21)!important;border-color:rgba(153,188,155,.12)!important}html[data-theme="dark"] .place-map-box strong{color:#adc7aa!important}html[data-theme="dark"] .place-map-box small{color:#829485!important}html[data-theme="dark"] .place-map-box button{background:#243327!important;color:#aecaaa!important;border-color:rgba(153,188,155,.15)!important}
 html[data-theme="dark"] #view-more .settings-list>button{background:linear-gradient(145deg,#1c281f,#151c17)!important;color:#b9cfb8!important;border-color:rgba(153,188,155,.13)!important}html[data-theme="dark"] #view-more .settings-list>button:nth-child(2){background:linear-gradient(145deg,#20261f,#171d18)!important}html[data-theme="dark"] #view-more .settings-list>button:nth-child(3){background:linear-gradient(145deg,#29271e,#1a1e18)!important}html[data-theme="dark"] #view-more .settings-list>button:nth-child(4){background:linear-gradient(145deg,#223025,#172019)!important}html[data-theme="dark"] #view-more .settings-list>button:nth-child(5){background:linear-gradient(145deg,#263529,#172019)!important}html[data-theme="dark"] #view-more .settings-list>button:nth-child(6){background:linear-gradient(145deg,#20251f,#141a16)!important;color:#8d9d8f!important}
 html[data-theme="dark"] .bottom-nav{background:rgba(13,18,15,.94)!important;border-color:rgba(153,188,155,.12)!important}html[data-theme="dark"] .bottom-nav .nav-btn.active{color:#a8c9a2!important}html[data-theme="dark"] .bottom-nav .nav-btn.active>span:first-child{background:rgba(134,170,127,.16)!important;box-shadow:inset 0 0 0 1px rgba(153,188,155,.14)!important}
+
+/* Eroland cover: photo + live summary + useful shortcuts */
+.eroland-banner{display:grid!important;grid-template-columns:minmax(250px,42%) 1fr!important;align-items:stretch!important;min-height:310px!important;padding:0!important;background:linear-gradient(135deg,#e6eddf,#f3eee2)!important}
+.eroland-banner-art{position:relative!important;inset:auto!important;width:auto!important;height:auto!important;min-height:310px!important;order:0!important;overflow:hidden!important}
+.eroland-banner-art:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 68%,rgba(230,237,223,.88) 100%);pointer-events:none}
+.eroland-banner-art img{display:block!important;width:100%!important;height:100%!important;min-height:310px!important;object-fit:cover!important;object-position:center!important;border-radius:0!important;filter:saturate(.9) contrast(.98)!important}
+.eroland-banner-copy{position:relative!important;z-index:3!important;display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;padding:28px 30px 26px 22px!important;color:var(--elog-text)!important}
+.eroland-banner-copy p{margin:0 0 7px!important;font-size:29px!important;max-width:390px!important}.eroland-banner-copy>span{margin-bottom:20px!important}
+.eroland-summary{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px}
+.eroland-summary>div{padding:11px 8px;border:1px solid var(--elog-line);border-radius:16px;background:rgba(255,253,247,.58);text-align:center}
+.eroland-summary strong,.eroland-summary small{display:block}.eroland-summary strong{font-size:22px;color:var(--elog-accent-strong)!important}.eroland-summary small{margin-top:2px;font-size:9px!important;color:var(--elog-muted)!important;text-transform:uppercase;letter-spacing:.08em}
+.eroland-actions{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.eroland-actions button{min-height:42px;padding:8px;border:1px solid var(--elog-line);border-radius:14px;background:var(--elog-card);color:var(--elog-text);font-size:11px;font-weight:800;cursor:pointer}
+.eroland-actions button:first-child{background:var(--elog-accent-soft);color:var(--elog-accent-strong)}
+html[data-theme="dark"] .eroland-banner{background:linear-gradient(135deg,#263a2c,#172019)!important}
+html[data-theme="dark"] .eroland-banner-art:after{background:linear-gradient(90deg,transparent 65%,rgba(23,32,25,.92) 100%)}
+html[data-theme="dark"] .eroland-summary>div{background:rgba(13,18,15,.38);border-color:rgba(153,188,155,.13)}
+html[data-theme="dark"] .eroland-actions button{background:#1d2920;color:#b9cfb8;border-color:rgba(153,188,155,.13)}
+html[data-theme="dark"] .eroland-actions button:first-child{background:rgba(134,170,127,.18);color:#b7d1b2}
+@media(max-width:650px){.eroland-banner{grid-template-columns:1fr!important}.eroland-banner-art{min-height:220px!important;max-height:240px}.eroland-banner-art:after{background:linear-gradient(180deg,transparent 66%,var(--elog-surface) 100%)}.eroland-banner-art img{min-height:220px!important;height:240px!important}.eroland-banner-copy{padding:19px!important}.eroland-banner-copy p{font-size:25px!important}.eroland-summary{margin-top:3px}.eroland-actions{grid-template-columns:1fr 1fr}.eroland-actions button:first-child{grid-column:1/-1}}

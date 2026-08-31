@@ -1196,6 +1196,13 @@ function memoryCoverHtml(m){
 }
 
 function memoryTypeName(t){return ({memory:"Anı",plan:"Plan",place:"Yer"})[t]||"Anı"}
+function memoryAddedStamp(m){
+  const raw=m?.createdAt??m?.updatedAt;
+  if(typeof raw==="number"&&Number.isFinite(raw))return raw;
+  if(raw&&typeof raw.toMillis==="function")return raw.toMillis();
+  const parsed=Date.parse(m?.date||"");
+  return Number.isFinite(parsed)?parsed:0;
+}
 function calcReminder(date,mode,custom){
   const d=new Date(date+"T12:00:00");
   if(mode==="1m")d.setMonth(d.getMonth()+1);else if(mode==="6m")d.setMonth(d.getMonth()+6);else if(mode==="1y")d.setFullYear(d.getFullYear()+1);else if(mode==="custom"&&custom)return custom;else return "";
@@ -1273,14 +1280,53 @@ async function uploadMedia(memoryId,files){
   return out;
 }
 
+async function saveMediaImmediately(files){
+  const out=[];
+  for(const file of files||[]){
+    if(!file.type.startsWith("image/")&&!file.type.startsWith("video/"))throw new Error("Sadece fotoğraf veya video seçebilirsin.");
+    if(file.size>40*1024*1024)throw new Error(`${file.name||"Dosya"} çok büyük. En fazla 40 MB seç.`);
+    const localId=await saveLocalMedia(file);
+    out.push({url:"",localId,type:file.type.startsWith("video/")?"video":"image",name:file.name||"dosya",localOnly:true});
+  }
+  return out;
+}
+
+async function syncMemoryMediaInBackground(memoryId,localMedia,files){
+  if(!storage||!files?.length)return;
+  try{
+    const uploaded=await Promise.race([
+      uploadMedia(memoryId,files),
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error("Yükleme zaman aşımı")),30000))
+    ]);
+    const item=memories.find(x=>x.id===memoryId);
+    if(!item||!uploaded.length)return;
+    const localIds=new Set(localMedia.map(x=>x.localId).filter(Boolean));
+    item.media=[...normalizeMemoryMedia(item).filter(x=>!localIds.has(x.localId)),...uploaded];
+    item.updatedAt=Date.now();
+    item._pending=true;
+    saveLocal();
+    localMedia.forEach(x=>x.localId&&deleteLocalMedia(x.localId));
+    renderMemories(activeMemoryFilter);
+    cloudSave("memories",item);
+  }catch(err){
+    console.warn("Fotoğraf cihazda güvende; bulut eşitlemesi daha sonra tekrar denenebilir:",err);
+  }
+}
+
 function renderMemories(filter="all"){
   activeMemoryFilter=filter;
   const grid=$("#memoryGrid");
   if(!grid)return;
 
+  const memoryCount=memories.filter(m=>m.type==="memory").length;
+  const planCount=memories.filter(m=>m.type==="plan").length;
+  if($("#erolandMemoryCount")) $("#erolandMemoryCount").textContent=memoryCount;
+  if($("#erolandPlanCount")) $("#erolandPlanCount").textContent=planCount;
+  if($("#erolandPlaceCount")) $("#erolandPlaceCount").textContent=(ourPlaces||[]).length;
+
   const list=memories
     .filter(m=>filter==="all"||m.type===filter)
-    .sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+    .sort((a,b)=>memoryAddedStamp(b)-memoryAddedStamp(a));
 
   grid.innerHTML=list.length
     ? list.map(m=>`
@@ -1349,7 +1395,9 @@ function renderMemories(filter="all"){
   hydrateMemoryMedia(grid);
 }
 function openMemoryForm(existing=null){
-  openGeneric(`<div class="modal-head"><h3>${existing?"Düzenle":"♡ Eroland'a ekle"}</h3><button class="icon-btn close-generic" type="button">×</button></div>
+  const dialog=$("#memoryDialog"),content=$("#memoryDialogContent");
+  if(!dialog||!content){console.error("Anı penceresi bulunamadı");return}
+  content.innerHTML=`<div class="modal-head"><h3>${existing?"Düzenle":"♡ Eroland'a ekle"}</h3><button class="icon-btn close-memory" type="button">×</button></div>
   <form id="memoryForm"><label>Başlık<input id="memoryTitle" required value="${safe(existing?.title||"")}"></label>
   <label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label>
   <div class="form-row"><label>Tarih<input id="memoryDate" type="date" value="${safe(existing?.date||today())}"></label><label>Emoji<input id="memoryEmoji" value="${safe(existing?.emoji||"♡")}" maxlength="8"></label></div>
@@ -1357,19 +1405,22 @@ function openMemoryForm(existing=null){
   <label>Fotoğraf / video<input id="memoryMedia" type="file" accept="image/*,video/*" multiple></label><div id="memoryExistingMedia" class="memory-upload-preview"></div><div id="memoryMediaPreview" class="memory-upload-preview"></div>
   <label>Hatırlat<select id="memoryReminder"><option value="">Hatırlatma yok</option><option value="1m">1 ay sonra</option><option value="6m">6 ay sonra</option><option value="1y">1 yıl sonra</option><option value="custom">Özel tarih</option></select></label>
   <label id="customReminderWrap" style="display:none">Hatırlatma tarihi<input id="memoryReminderCustom" type="date"></label>
-  <button class="primary-btn full" type="submit">Kaydet</button><p id="memoryMsg" class="form-message"></p></form>`,()=>{
+  <button class="primary-btn full" type="submit">Kaydet</button><p id="memoryMsg" class="form-message"></p></form>`;
+  try{if(!dialog.open)dialog.showModal()}catch{dialog.setAttribute("open","")}
+  $(".close-memory",content).onclick=()=>{try{dialog.close()}catch{dialog.removeAttribute("open")}};
+  {
     let keptMedia=normalizeMemoryMedia(existing),removedLocalIds=[];
-    $("#memoryType").value=existing?.type||"memory";$("#memoryReminder").onchange=()=>$("#customReminderWrap").style.display=$("#memoryReminder").value==="custom"?"block":"none";
+    $("#memoryType",content).value=existing?.type||"memory";$("#memoryReminder",content).onchange=()=>$("#customReminderWrap",content).style.display=$("#memoryReminder",content).value==="custom"?"block":"none";
     const drawExisting=()=>{
-      const box=$("#memoryExistingMedia");
+      const box=$("#memoryExistingMedia",content);
       box.innerHTML=keptMedia.map((x,i)=>`<div class="memory-existing-item">${x.type==="video"?`<video class="memory-upload-thumb" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} muted playsinline></video>`:`<img class="memory-upload-thumb" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} alt="">`}<button type="button" data-remove-kept="${i}" aria-label="Fotoğrafı kaldır">×</button></div>`).join("");
       $$('[data-remove-kept]',box).forEach(b=>b.onclick=()=>{const removed=keptMedia.splice(Number(b.dataset.removeKept),1)[0];if(removed?.localId)removedLocalIds.push(removed.localId);drawExisting()});
       hydrateMemoryMedia(box);
     };
     drawExisting();
-    $("#memoryMedia").onchange=()=>{
-      const box=$("#memoryMediaPreview"); box.innerHTML="";
-      [...$("#memoryMedia").files].slice(0,6).forEach(file=>{
+    $("#memoryMedia",content).onchange=()=>{
+      const box=$("#memoryMediaPreview",content); box.innerHTML="";
+      [...$("#memoryMedia",content).files].slice(0,6).forEach(file=>{
         const url=URL.createObjectURL(file);
         const el=file.type.startsWith("video/")?document.createElement("video"):document.createElement("img");
         el.src=url; el.className="memory-upload-thumb";
@@ -1378,30 +1429,41 @@ function openMemoryForm(existing=null){
         box.appendChild(el);
       });
     };
-    $("#memoryForm").onsubmit=async e=>{
-      e.preventDefault();const id=existing?.id||uuid(),date=$("#memoryDate").value||today(),mode=$("#memoryReminder").value;
-      const msg=$("#memoryMsg");
-      const submit=$("#memoryForm button[type=submit]");
+    $("#memoryForm",content).onsubmit=async e=>{
+      e.preventDefault();const id=existing?.id||uuid(),date=$("#memoryDate",content).value||today(),mode=$("#memoryReminder",content).value;
+      const msg=$("#memoryMsg",content);
+      const submit=$("#memoryForm button[type=submit]",content);
       msg.textContent="Kaydediliyor..."; submit.disabled=true;
       try{
-        const title=$("#memoryTitle").value.trim();
-        if(!title){msg.textContent="Başlık yazmalısın.";$("#memoryTitle").focus();submit.disabled=false;return}
-        const selected=[...$("#memoryMedia").files].slice(0,6);
-        if(selected.length) msg.textContent="Fotoğraf yükleniyor...";
-        const media=[...keptMedia,...await uploadMedia(id,selected)];
-        const item={...existing,id,title,type:$("#memoryType").value,emoji:$("#memoryEmoji").value||"♡",date,note:$("#memoryNote").value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom").value),createdBy:existing?.createdBy||currentUser?.uid||"local",createdAt:existing?.createdAt||Date.now(),updatedAt:Date.now(),_pending:true};
+        const title=$("#memoryTitle",content).value.trim();
+        if(!title){msg.textContent="Başlık yazmalısın.";$("#memoryTitle",content).focus();submit.disabled=false;return}
+        const selected=[...$("#memoryMedia",content).files].slice(0,6);
+        if(selected.length) msg.textContent="Fotoğraf cihaza kaydediliyor...";
+        const localMedia=await saveMediaImmediately(selected);
+        const media=[...keptMedia,...localMedia];
+        const item={...existing,id,title,type:$("#memoryType",content).value,emoji:$("#memoryEmoji",content).value||"♡",date,note:$("#memoryNote",content).value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom",content).value),createdBy:existing?.createdBy||currentUser?.uid||"local",createdAt:existing?.createdAt||Date.now(),updatedAt:Date.now(),_pending:true};
         memoryTombstones.delete(id);
         const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);
-        saveLocal();removedLocalIds.forEach(deleteLocalMedia);renderAll();$("#genericDialog").close();await cloudSave("memories",item);
+        saveLocal();removedLocalIds.forEach(deleteLocalMedia);renderAll();try{dialog.close()}catch{dialog.removeAttribute("open")};cloudSave("memories",item);
+        syncMemoryMediaInBackground(id,localMedia,selected);
       }catch(err){
         console.error(err); msg.textContent=err?.message||"Fotoğraf yüklenemedi. Tekrar dene."; submit.disabled=false;
       }
     };
-  });
+  }
 }
 window.elogNewMemory=function(){
   openMemoryForm(null);
 };
+
+// Tema katmanları değişse bile bütün Anı kısayolları tek güvenilir akışa düşer.
+document.addEventListener("click",event=>{
+  const trigger=event.target.closest?.("#memoryAddBtn,#quickMemoryBtn,#erolandQuickMemory");
+  if(!trigger)return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  openMemoryForm(null);
+},true);
 
 
 function openMemoryActions(id){
@@ -1977,6 +2039,9 @@ function wire(){
   $("#calendarAddBtn")?.addEventListener("click",()=>openEntryDialog(selectedDate));
   $("#entryForm")?.addEventListener("submit",saveEntry);
   $("#memoryAddBtn")?.addEventListener("click",e=>{e.preventDefault();openMemoryForm(null)});
+  $("#erolandQuickMemory")?.addEventListener("click",e=>{e.preventDefault();openMemoryForm(null)});
+  $("#erolandQuickMonth")?.addEventListener("click",e=>{e.preventDefault();$("#monthReplayBtn")?.click()});
+  $("#erolandQuickPlace")?.addEventListener("click",e=>{e.preventDefault();openPlaceForm()});
 
   $$(".close-dialog").forEach(b=>{
     b.onclick=()=>b.closest("dialog")?.close();
@@ -2364,7 +2429,8 @@ document.addEventListener("click",e=>{
   const add=e.target.closest?.("#memoryAddBtn");
   if(!add)return;
   e.preventDefault();
-  if(!document.getElementById("genericDialog")?.open)openMemoryForm(null);
+  e.stopPropagation();
+  if(!document.getElementById("memoryDialog")?.open)openMemoryForm(null);
 });
 
 // calendarGridEmojiDelegate
