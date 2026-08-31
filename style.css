@@ -3310,4 +3310,33 @@ html[data-theme="dark"] :is(h1,h2,h3,h4,strong){color:#f4f6f2!important}
 html[data-theme="dark"] :is(.muted,small,.eyebrow){color:#9da79f!important}
 html[data-theme="dark"] .primary-btn,html[data-theme="dark"] .nav-btn.active{background:#a8c798!important;color:#152016!important}
 html[data-theme="dark"] dialog::backdrop{background:rgba(3,6,4,.72)!important}
+
+/* Dark mode: siyah + yeşil, beyaz metin yok */
+html[data-theme="dark"]{
+  --elog-bg:#080b09!important;
+  --elog-surface:#0e1410!important;
+  --elog-surface-2:#141c16!important;
+  --elog-card:#101712!important;
+  --elog-text:#b7cbb8!important;
+  --elog-muted:#718875!important;
+  --elog-line:rgba(128,168,132,.16)!important;
+  --elog-accent:#7fae78!important;
+  --elog-accent-strong:#9bc894!important;
+  --bg:#080b09!important;--surface:#0e1410!important;--card:#101712!important;
+  --surface-2:#141c16!important;--text:#b7cbb8!important;--muted:#718875!important;
+  --line:rgba(128,168,132,.16)!important;
+  background:#080b09!important;color:#b7cbb8!important;
+}
+html[data-theme="dark"] body,
+html[data-theme="dark"] button,
+html[data-theme="dark"] .view,
+html[data-theme="dark"] .screen{color:#b7cbb8!important}
+html[data-theme="dark"] :is(.topbar,.home-hero,.next-card,.today-panel,.bottom-nav,.card,.panel,.sheet,.modal-card,.memory-card,.place-page-card,.more-card,.calendar-wrap,.calendar-card,.day-detail,.stat-card,.place-card,.places-empty,.rule-card,.sport-summary-card){background:#101712!important;color:#b7cbb8!important;border-color:rgba(128,168,132,.16)!important}
+html[data-theme="dark"] :is(.quick-card,.empty,.calendar-day,.day-cell,input,textarea,select,.input,.textarea,.composer){background:#141c16!important;color:#acc3ae!important;border-color:rgba(128,168,132,.18)!important}
+html[data-theme="dark"] :is(h1,h2,h3,h4,strong,.hero-title,.section-title,.brand){color:#9bc894!important}
+html[data-theme="dark"] :is(p,label,.muted,small,.eyebrow,.helper,.help,.description,[class*="hint"],[class*="desc"]){color:#718875!important}
+html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:#536b57!important}
+html[data-theme="dark"] :is(.replay-cover,.places-cover){background:linear-gradient(145deg,#0a100c,#17261a)!important;color:#9bc894!important}
+html[data-theme="dark"] :is(.replay-cover,.places-cover) :is(h2,strong,p,small){color:#8fb58a!important}
+html[data-theme="dark"] .primary-btn,html[data-theme="dark"] .nav-btn.active{background:#7fae78!important;color:#071008!important}
 @media(max-width:700px){.places-page-grid{grid-template-columns:1fr}.places-page-head{align-items:start;flex-direction:column}.place-search-row{grid-template-columns:1fr}.place-search-row button{min-height:44px}.eroland-hero img,.eroland-hero-image,.eroland-hero .hero-photo{width:60%!important}}
