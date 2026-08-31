@@ -1238,16 +1238,22 @@ function normalizeMemoryMedia(m){
 
   const out=[];
 
-  const pushMedia=(url,type="image",name="",localId="")=>{
-    if(!url&&!localId)return;
-    if(out.some(x=>(localId&&x.localId===localId)||(url&&x.url===url)))return;
-    out.push({url:url||"",type:type||"image",name:name||"",...(localId?{localId,localOnly:true}:{})});
+  const pushMedia=(url,type="image",name="",localId="",firestoreId="")=>{
+    if(!url&&!localId&&!firestoreId)return;
+    if(out.some(x=>(localId&&x.localId===localId)||(firestoreId&&x.firestoreId===firestoreId)||(url&&x.url===url)))return;
+    out.push({
+      url:url||"",
+      type:type||"image",
+      name:name||"",
+      ...(localId?{localId,localOnly:true}:{}),
+      ...(firestoreId?{firestoreId,cloudDoc:true}:{})
+    });
   };
 
   if(Array.isArray(m.media)){
     m.media.forEach(x=>{
       if(typeof x==="string") pushMedia(x,"image");
-      else if(x?.url||x?.localId) pushMedia(x.url,x.type||"image",x.name||"",x.localId||"");
+      else if(x?.url||x?.localId||x?.firestoreId||x?.cloudMediaId) pushMedia(x.url,x.type||"image",x.name||"",x.localId||"",x.firestoreId||x.cloudMediaId||"");
       else if(x?.downloadURL) pushMedia(x.downloadURL,x.type||"image",x.name||"");
     });
   }
@@ -1272,9 +1278,10 @@ function normalizeMemoryMedia(m){
 
 function memoryMediaItemHtml(x,m,cls="memory-cover"){
   const localAttr=x?.localId?` data-local-media="${safe(x.localId)}"`:"";
+  const cloudAttr=x?.firestoreId?` data-firestore-media="${safe(x.firestoreId)}"`:"";
   const srcAttr=x?.url?` src="${safe(x.url)}"`:"";
-  if(x?.type==="video") return `<video class="${cls}"${localAttr}${srcAttr} muted playsinline preload="metadata"></video>`;
-  return `<img class="${cls}"${localAttr}${srcAttr} alt="${safe(m?.title||"Eroland anısı")}">`;
+  if(x?.type==="video") return `<video class="${cls}"${localAttr}${cloudAttr}${srcAttr} muted playsinline preload="metadata"></video>`;
+  return `<img class="${cls}"${localAttr}${cloudAttr}${srcAttr} alt="${safe(m?.title||"Eroland anısı")}" onerror="this.dataset.mediaBroken='1'">`;
 }
 function memoryCoverHtml(m){
   const media=normalizeMemoryMedia(m);
@@ -1316,9 +1323,39 @@ async function saveLocalMedia(file){
 }
 async function getLocalMedia(id){const dbx=await openMemoryDb();return new Promise((resolve,reject)=>{const req=dbx.transaction(MEMORY_STORE).objectStore(MEMORY_STORE).get(id);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)})}
 async function deleteLocalMedia(id){if(!id)return;try{const dbx=await openMemoryDb();await new Promise((resolve,reject)=>{const tx=dbx.transaction(MEMORY_STORE,"readwrite");tx.objectStore(MEMORY_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch{}}
+async function imageFileToCompressedDataUrl(file,maxChars=780000){
+  if(!file?.type?.startsWith("image/"))throw new Error("Bu yöntem yalnızca fotoğraf için kullanılabilir.");
+  const bitmap=await createImageBitmap(file);
+  let w=bitmap.width,h=bitmap.height;
+  const maxSide=1600;
+  if(Math.max(w,h)>maxSide){const r=maxSide/Math.max(w,h);w=Math.max(1,Math.round(w*r));h=Math.max(1,Math.round(h*r))}
+  const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
+  let ctx=canvas.getContext("2d",{alpha:false});ctx.drawImage(bitmap,0,0,w,h);bitmap.close?.();
+  let quality=.82,data=canvas.toDataURL("image/jpeg",quality);
+  while(data.length>maxChars&&quality>.5){quality-=.08;data=canvas.toDataURL("image/jpeg",quality)}
+  if(data.length>900000)throw new Error("Fotoğraf bulut yedeği için çok büyük.");
+  return data;
+}
+const firestoreMediaCache=new Map();
+async function savePhotoToFirestore(memoryId,file){
+  if(!db||!currentUser||!file?.type?.startsWith("image/"))return null;
+  const id=`fm-${uuid()}`;
+  const dataUrl=await imageFileToCompressedDataUrl(file);
+  const payload={memoryId,name:file.name||"fotoğraf.jpg",type:"image",dataUrl,createdAt:serverTimestamp()};
+  await setDoc(pairDoc("memoryMedia",id),payload);
+  firestoreMediaCache.set(id,{...payload,createdAt:Date.now()});
+  return {url:"",firestoreId:id,type:"image",name:file.name||"fotoğraf.jpg"};
+}
+async function getFirestoreMediaData(id){
+  if(!id||!db||!currentUser)return null;
+  if(firestoreMediaCache.has(id))return firestoreMediaCache.get(id);
+  try{const snap=await getDoc(pairDoc("memoryMedia",id));const data=snap.exists()?snap.data():null;firestoreMediaCache.set(id,data);return data}catch(err){console.warn("Bulut fotoğraf okunamadı:",id,err);return null}
+}
 async function hydrateMemoryMedia(root=document){
-  const nodes=[...root.querySelectorAll("[data-local-media]")];
-  await Promise.all(nodes.map(async el=>{try{const blob=await getLocalMedia(el.dataset.localMedia);if(!blob)return;const url=URL.createObjectURL(blob);el.src=url;const done=()=>setTimeout(()=>URL.revokeObjectURL(url),1500);el.addEventListener("load",done,{once:true});el.addEventListener("loadeddata",done,{once:true})}catch(err){console.warn("Yerel medya okunamadı",err)}}));
+  const localNodes=[...root.querySelectorAll("[data-local-media]")];
+  await Promise.all(localNodes.map(async el=>{try{const blob=await getLocalMedia(el.dataset.localMedia);if(!blob){el.closest(".memory-cover-wrap,.calendar-memory-cover,.memory-existing-item")?.classList.add("media-missing");return}const url=URL.createObjectURL(blob);el.src=url;delete el.dataset.mediaBroken;const done=()=>setTimeout(()=>URL.revokeObjectURL(url),1800);el.addEventListener("load",done,{once:true});el.addEventListener("loadeddata",done,{once:true})}catch(err){console.warn("Yerel medya okunamadı",err)}}));
+  const cloudNodes=[...root.querySelectorAll("[data-firestore-media]")];
+  await Promise.all(cloudNodes.map(async el=>{try{const data=await getFirestoreMediaData(el.dataset.firestoreMedia);if(!data?.dataUrl){el.closest(".memory-cover-wrap,.calendar-memory-cover,.memory-existing-item")?.classList.add("media-missing");return}el.src=data.dataUrl;delete el.dataset.mediaBroken}catch(err){console.warn("Bulut fotoğraf hydrate edilemedi",err)}}));
 }
 async function migrateLegacyMemoryMedia(){
   let changed=false;
@@ -1379,11 +1416,13 @@ async function uploadMedia(memoryId,files){
       }
     }
 
+    if(!uploaded&&file.type.startsWith("image/")&&db&&currentUser){
+      try{const cloudDoc=await savePhotoToFirestore(memoryId,file);if(cloudDoc){out.push(cloudDoc);uploaded=true;console.log("Fotoğraf Firestore bulut yedeğine kaydedildi:",cloudDoc.firestoreId)}}catch(err){console.warn("Firestore fotoğraf yedeği başarısız:",err)}
+    }
+
     if(!uploaded)try{out.push({url:"",localId:await saveLocalMedia(file),type:file.type.startsWith("video/")?"video":"image",name:file.name||"dosya",localOnly:true});uploaded=true}catch(err){console.error("Medya cihazda saklanamadı:",err)}
 
-    if(!uploaded){
-      throw new Error("Dosya ne buluta ne de cihaza kaydedilebildi. Tarayıcı depolama iznini kontrol et.");
-    }
+    if(!uploaded){throw new Error("Dosya ne buluta ne de cihaza kaydedilebildi. Tarayıcı depolama iznini kontrol et.");}
   }
 
   return out;
@@ -1438,14 +1477,15 @@ async function retryLocalMemoryMediaToCloud(){
         await uploadBytes(r,blob,{contentType:blob.type||undefined});
         replacements.push({localId:x.localId,url:await getDownloadURL(r),type:x.type||(blob.type?.startsWith("video/")?"video":"image"),name:x.name||safeName});
       }catch(err){
-        console.warn("Eski fotoğraf buluta taşınamadı:",item.id,err);
+        console.warn("Storage'a taşınamadı, Firestore fotoğraf yedeği deneniyor:",item.id,err);
+        try{if(blob?.type?.startsWith("image/")){const file=new File([blob],x.name||"eski-fotograf.jpg",{type:blob.type||"image/jpeg"});const cloudDoc=await savePhotoToFirestore(item.id,file);if(cloudDoc)replacements.push({localId:x.localId,...cloudDoc})}}catch(err2){console.warn("Eski fotoğraf buluta taşınamadı:",item.id,err2)}
       }
     }
     if(!replacements.length)continue;
     const byLocal=new Map(replacements.map(r=>[r.localId,r]));
     item.media=normalizeMemoryMedia(item).map(x=>{
       const r=x.localId?byLocal.get(x.localId):null;
-      return r?{url:r.url,type:r.type,name:r.name}:x;
+      return r?{url:r.url||"",firestoreId:r.firestoreId||"",type:r.type,name:r.name}:x;
     });
     item.updatedAt=Date.now();
     item._pending=true;
@@ -1561,7 +1601,7 @@ function openMemoryForm(existing=null){
     $("#memoryType",content).value=existing?.type||"memory";$("#memoryReminder",content).onchange=()=>$("#customReminderWrap",content).style.display=$("#memoryReminder",content).value==="custom"?"block":"none";
     const drawExisting=()=>{
       const box=$("#memoryExistingMedia",content);
-      box.innerHTML=keptMedia.map((x,i)=>`<div class="memory-existing-item">${x.type==="video"?`<video class="memory-upload-thumb" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} muted playsinline></video>`:`<img class="memory-upload-thumb" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} alt="">`}<button type="button" data-remove-kept="${i}" aria-label="Fotoğrafı kaldır">×</button></div>`).join("");
+      box.innerHTML=keptMedia.map((x,i)=>`<div class="memory-existing-item">${x.type==="video"?`<video class="memory-upload-thumb" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.firestoreId?`data-firestore-media="${safe(x.firestoreId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} muted playsinline></video>`:`<img class="memory-upload-thumb" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.firestoreId?`data-firestore-media="${safe(x.firestoreId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} alt="">`}<button type="button" data-remove-kept="${i}" aria-label="Fotoğrafı kaldır">×</button></div>`).join("");
       $$('[data-remove-kept]',box).forEach(b=>b.onclick=()=>{const removed=keptMedia.splice(Number(b.dataset.removeKept),1)[0];if(removed?.localId)removedLocalIds.push(removed.localId);drawExisting()});
       hydrateMemoryMedia(box);
     };
@@ -1586,18 +1626,11 @@ function openMemoryForm(existing=null){
         const title=$("#memoryTitle",content).value.trim();
         if(!title){msg.textContent="Başlık yazmalısın.";$("#memoryTitle",content).focus();submit.disabled=false;return}
         const selected=[...$("#memoryMedia",content).files].slice(0,6);
-        if(selected.length) msg.textContent=storage?"Fotoğraflar buluta yükleniyor...":"Fotoğraflar cihaza kaydediliyor...";
-        // Fotoğrafı önce Firebase Storage'a yükle. Böylece kayıt başka telefonda/PC'de
-        // açıldığında IndexedDB'ye bağlı localId yüzünden boş görünmez.
-        // Bulut gerçekten kullanılamıyorsa cihaz kopyasına düş.
+        if(selected.length) msg.textContent="Fotoğraflar kalıcı olarak kaydediliyor...";
+        // Önce Firebase Storage, olmazsa Firestore içinde sıkıştırılmış fotoğraf yedeği.
+        // Böylece fotoğraf başka cihazda da açılır.
         let newMedia=[];
-        if(selected.length){
-          try{ newMedia=storage ? await uploadMedia(id,selected) : await saveMediaImmediately(selected); }
-          catch(uploadErr){
-            console.warn("Bulut yükleme tamamlanamadı; cihaz yedeği kullanılıyor:",uploadErr);
-            newMedia=await saveMediaImmediately(selected);
-          }
-        }
+        if(selected.length){newMedia=await uploadMedia(id,selected);}
         const localMedia=newMedia.filter(x=>x.localId&&!x.url);
         const media=[...keptMedia,...newMedia];
         const base=seedOnly?{}:existing;
