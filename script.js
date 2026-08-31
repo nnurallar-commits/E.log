@@ -222,7 +222,7 @@ async function handleAuth(user){
     markSync("● canlı");
   }catch(e){
     console.error("E.log Firebase başlangıç hatası:", e);
-    markSync("● senkron hatası");
+    markSync("○ cihazda");
   }
 }
 async function ensureProfile(user){
@@ -290,7 +290,7 @@ async function ensureProfile(user){
     markSync("● bağlandı");
   }catch(e){
     console.error("Firestore kullanıcı kaydı oluşturulamadı:", e);
-    markSync("● senkron hatası");
+    markSync("○ cihazda");
     throw e;
   }
 }
@@ -321,7 +321,7 @@ function firstSetup(user){
           );
         }catch(err){
           console.error("İlk kullanıcı kaydı yazılamadı:",err);
-          markSync("● senkron hatası");
+          markSync("○ cihazda");
         }
         $("#genericDialog").close();resolve();
       };
@@ -336,7 +336,7 @@ function startRealtime(){
   [["entries","date"],["shifts","startDate"],["routines","name"],["memories","date"],["rules","name"],["sportMetrics","date"]].forEach(([name,sort])=>{
     try{
       const q=query(pairCol(name),orderBy(sort));
-      unsubs.push(onSnapshot(q,snap=>{mergeCloud(name,snap.docs.map(d=>({id:d.id,...d.data(),_pending:false})));markSync("● canlı")},err=>{console.warn(err);markSync("● senkron hatası")}));
+      unsubs.push(onSnapshot(q,snap=>{mergeCloud(name,snap.docs.map(d=>({id:d.id,...d.data(),_pending:false})));markSync("● canlı")},err=>{console.warn(err);markSync("○ cihazda")}));
     }catch(e){console.warn(e)}
   });
   try{
@@ -346,7 +346,7 @@ function startRealtime(){
         saveLocal();renderCalendar();renderDayDetail();
       }
       markSync("● canlı");
-    },err=>{console.warn(err);markSync("● senkron hatası")}));
+    },err=>{console.warn(err);markSync("○ cihazda")}));
   }catch(e){console.warn(e)}
   try{
     unsubs.push(onSnapshot(pairDoc("shared","dayNotes"),snap=>{
@@ -355,7 +355,7 @@ function startRealtime(){
         saveLocal();renderCalendar();renderDayDetail();
       }
       markSync("● canlı");
-    },err=>{console.warn(err);markSync("● senkron hatası")}));
+    },err=>{console.warn(err);markSync("○ cihazda")}));
   }catch(e){console.warn(e)}
   try{
     unsubs.push(onSnapshot(pairDoc("shared","ourPlaces"),snap=>{
@@ -365,14 +365,20 @@ function startRealtime(){
         saveLocal();
       }
       markSync("● canlı");
-    },err=>{console.warn(err);markSync("● senkron hatası")}));
+    },err=>{console.warn(err);markSync("○ cihazda")}));
   }catch(e){console.warn(e)}
 }
 async function cloudSave(name,item){
-  if(!db||!currentUser)return false;
+  /* Yerel kayıt her zaman korunur; bağlantı yoksa uygulama çalışmaya devam eder. */
+  if(!db||!currentUser){item._pending=true;saveLocal();markSync("○ cihazda");return false}
   const clean={...item};delete clean._pending;
-  try{await setDoc(pairDoc(name,item.id),{...clean,updatedAt:serverTimestamp()},{merge:true});item._pending=false;saveLocal();markSync("● canlı");return true}
-  catch(e){console.warn(e);item._pending=true;saveLocal();markSync("● senkron hatası");return false}
+  try{
+    await setDoc(pairDoc(name,item.id),{...clean,updatedAt:serverTimestamp()},{merge:true});
+    item._pending=false;saveLocal();markSync("● canlı");return true;
+  }catch(e){
+    console.warn("Bulut bağlantısı yok, kayıt cihazda tutuldu",e);
+    item._pending=true;saveLocal();markSync("○ cihazda");return false;
+  }
 }
 async function flushPending(){
   for(const name of ["entries","shifts","routines","memories","rules","sportMetrics"]){
@@ -479,7 +485,7 @@ function renderSport(){
     if(!confirm("Bu ölçüm silinsin mi?"))return;
     sportMetrics=sportMetrics.filter(x=>x.id!==id);
     saveLocal();renderSport();
-    if(db)try{await deleteDoc(pairDoc("sportMetrics",id));markSync("● canlı")}catch(e){console.warn(e);markSync("● senkron hatası")}
+    if(db)try{await deleteDoc(pairDoc("sportMetrics",id));markSync("● canlı")}catch(e){console.warn(e);markSync("○ cihazda")}
   });
 }
 
@@ -536,7 +542,7 @@ function openAllSportHistory(){
       const id=b.dataset.fullSportDelete;
       sportMetrics=sportMetrics.filter(x=>x.id!==id);
       saveLocal();renderSport();
-      if(db)try{await deleteDoc(pairDoc("sportMetrics",id));markSync("● canlı")}catch(e){console.warn(e);markSync("● senkron hatası")}
+      if(db)try{await deleteDoc(pairDoc("sportMetrics",id));markSync("● canlı")}catch(e){console.warn(e);markSync("○ cihazda")}
       openAllSportHistory();
     });
   });
@@ -610,7 +616,7 @@ async function persistDayEmojis(){
     markSync("● canlı");
   }catch(e){
     console.warn("emoji sync",e);
-    markSync("● senkron hatası");
+    markSync("○ cihazda");
   }
 }
 async function addEmojiToDate(date,emoji){
@@ -893,7 +899,7 @@ async function syncDayNotes(){
     markSync("● canlı");
     return true;
   }catch(e){
-    console.warn(e);markSync("● senkron hatası");return false;
+    console.warn(e);markSync("○ cihazda");return false;
   }
 }
 function openDayNoteEditor(date,id=null){
@@ -946,7 +952,7 @@ async function deleteDayNote(date,id){
 }
 
 function getDayEmojis(date){const v=dayEmojis[date];return !v?[]:(Array.isArray(v)?v:[v])}
-async function syncDayEmojis(){if(!db||!currentUser)return false;try{await setDoc(pairDoc("shared","dayEmojis"),{values:dayEmojis,updatedAt:serverTimestamp()},{merge:false});markSync("● canlı");return true}catch(e){console.warn(e);markSync("● senkron hatası");return false}}
+async function syncDayEmojis(){if(!db||!currentUser)return false;try{await setDoc(pairDoc("shared","dayEmojis"),{values:dayEmojis,updatedAt:serverTimestamp()},{merge:false});markSync("● canlı");return true}catch(e){console.warn(e);markSync("○ cihazda");return false}}
 function addDayEmoji(date,e){const a=getDayEmojis(date);if(a.length>=4||a.includes(e))return;a.push(e);dayEmojis[date]=a;saveLocal();renderCalendar();renderDayDetail();syncDayEmojis()}
 function removeDayEmoji(date,e){const a=getDayEmojis(date).filter(x=>x!==e);if(a.length)dayEmojis[date]=a;else delete dayEmojis[date];saveLocal();renderCalendar();renderDayDetail();syncDayEmojis()}
 function openDayEmojiPicker(date){
@@ -1251,7 +1257,7 @@ function renderMemories(filter="all"){
           markSync("● canlı");
         }catch(err){
           console.warn("Anı silinemedi:",err);
-          markSync("● senkron hatası");
+          markSync("○ cihazda");
         }
       }
     };
@@ -1279,7 +1285,7 @@ function openMemoryForm(existing=null){
         const media=[...(existing?.media||[]),...await uploadMedia(id,selected)];
         const item={id,title:$("#memoryTitle").value.trim(),type:$("#memoryType").value,emoji:$("#memoryEmoji").value||"♡",date,note:$("#memoryNote").value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom").value),createdBy:existing?.createdBy||currentUser?.uid||"local",_pending:true};
         const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);
-        saveLocal();renderAll();$("#genericDialog").close();await cloudSave("memories",item);
+        saveLocal();renderAll();$("#genericDialog").close();cloudSave("memories",item);
       }catch(err){
         console.error(err); msg.textContent=err?.message||"Fotoğraf yüklenemedi. Tekrar dene."; submit.disabled=false;
       }
@@ -2013,7 +2019,7 @@ async function syncOurPlaces(){
   try{
     await setDoc(pairDoc("shared","ourPlaces"),{values:ourPlaces,updatedAt:serverTimestamp()},{merge:false});
     markSync("● canlı"); return true;
-  }catch(e){console.warn(e);markSync("● senkron hatası");return false}
+  }catch(e){console.warn(e);markSync("○ cihazda");return false}
 }
 function placeMapUrl(p){
   if(p.lat!=null&&p.lng!=null)return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lat+","+p.lng)}`;
@@ -2127,8 +2133,8 @@ function openPlaceEditor(id=null){
       else ourPlaces.push(item);
 
       saveLocal();
-      await syncOurPlaces();
       openOurPlaces();
+      syncOurPlaces();
     };
   });
 }

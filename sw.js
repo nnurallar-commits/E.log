@@ -1,4 +1,4 @@
-const VERSION="20260831-stable-memory-map-theme";
+const VERSION="20260831-offline-safe-v2";
 const CACHE=`elog-${VERSION}`;
 const OFFLINE_FILES=[
   "./",
