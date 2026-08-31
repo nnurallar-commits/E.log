@@ -1274,7 +1274,7 @@ function memoryMediaItemHtml(x,m,cls="memory-cover"){
   const localAttr=x?.localId?` data-local-media="${safe(x.localId)}"`:"";
   const srcAttr=x?.url?` src="${safe(x.url)}"`:"";
   if(x?.type==="video") return `<video class="${cls}"${localAttr}${srcAttr} muted playsinline preload="metadata"></video>`;
-  return `<img class="${cls}"${localAttr}${srcAttr} alt="${safe(m?.title||"Eroland anısı")}" loading="lazy">`;
+  return `<img class="${cls}"${localAttr}${srcAttr} alt="${safe(m?.title||"Eroland anısı")}">`;
 }
 function memoryCoverHtml(m){
   const media=normalizeMemoryMedia(m);
@@ -1324,18 +1324,33 @@ async function migrateLegacyMemoryMedia(){
   let changed=false;
   for(const m of memories){
     const normalized=normalizeMemoryMedia(m),next=[];
+    let itemChanged=false;
     for(const x of normalized){
       if(typeof x.url==="string"&&x.url.startsWith("data:")){
-        try{const blob=await (await fetch(x.url)).blob();next.push({url:"",localId:await saveLocalMedia(blob),type:x.type||(blob.type.startsWith("video/")?"video":"image"),name:x.name||"eski fotoğraf",localOnly:true});changed=true}catch{next.push(x)}
+        try{
+          const blob=await (await fetch(x.url)).blob();
+          // Eski base64 fotoğrafı mümkünse doğrudan Storage'a taşı. Başarısız olursa
+          // data URL'yi SİLME; eski sürümün yaptığı veri kaybının tekrarını önler.
+          if(storage&&currentUser){
+            const ext=(blob.type||"image/jpeg").split("/")[1]||"jpg";
+            const r=storageRef(storage,`pairs/${pairId()}/memories/${m.id}/${Date.now()}-legacy.${ext}`);
+            await uploadBytes(r,blob,{contentType:blob.type||undefined});
+            next.push({url:await getDownloadURL(r),type:x.type||(blob.type.startsWith("video/")?"video":"image"),name:x.name||"eski-fotograf"});
+            itemChanged=true; changed=true;
+          }else next.push(x);
+        }catch(err){
+          console.warn("Eski fotoğraf korunarak bırakıldı:",err);
+          next.push(x);
+        }
       }else next.push(x);
     }
-    if(changed){m.media=next;for(const key of ["photoURL","photoUrl","imageURL","imageUrl","image","photo","videoURL","videoUrl","video","photos","images"])delete m[key]}
+    if(itemChanged){
+      m.media=next;
+      for(const key of ["photoURL","photoUrl","imageURL","imageUrl","image","photo","videoURL","videoUrl","video","photos","images"])delete m[key];
+      m.updatedAt=Date.now();m._pending=true;
+    }
   }
-  if(changed){
-    const compact=JSON.stringify({entries,shifts,routines,memories,rules,sportMetrics});
-    try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&(key===LOCAL||key.startsWith(LOCAL+"-")))localStorage.setItem(key,compact)}}catch{}
-    saveLocal();
-  }
+  if(changed)saveLocal();
   return changed;
 }
 
@@ -1571,15 +1586,27 @@ function openMemoryForm(existing=null){
         const title=$("#memoryTitle",content).value.trim();
         if(!title){msg.textContent="Başlık yazmalısın.";$("#memoryTitle",content).focus();submit.disabled=false;return}
         const selected=[...$("#memoryMedia",content).files].slice(0,6);
-        if(selected.length) msg.textContent="Fotoğraf cihaza kaydediliyor...";
-        const localMedia=await saveMediaImmediately(selected);
-        const media=[...keptMedia,...localMedia];
+        if(selected.length) msg.textContent=storage?"Fotoğraflar buluta yükleniyor...":"Fotoğraflar cihaza kaydediliyor...";
+        // Fotoğrafı önce Firebase Storage'a yükle. Böylece kayıt başka telefonda/PC'de
+        // açıldığında IndexedDB'ye bağlı localId yüzünden boş görünmez.
+        // Bulut gerçekten kullanılamıyorsa cihaz kopyasına düş.
+        let newMedia=[];
+        if(selected.length){
+          try{ newMedia=storage ? await uploadMedia(id,selected) : await saveMediaImmediately(selected); }
+          catch(uploadErr){
+            console.warn("Bulut yükleme tamamlanamadı; cihaz yedeği kullanılıyor:",uploadErr);
+            newMedia=await saveMediaImmediately(selected);
+          }
+        }
+        const localMedia=newMedia.filter(x=>x.localId&&!x.url);
+        const media=[...keptMedia,...newMedia];
         const base=seedOnly?{}:existing;
         const item={...base,id,title,type:$("#memoryType",content).value,emoji:$("#memoryEmoji",content).value||"♡",date,note:$("#memoryNote",content).value.trim(),placeId:$("#memoryPlace",content)?.value||"",media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom",content).value),createdBy:(!seedOnly&&existing?.createdBy)||currentUser?.uid||"local",createdAt:(!seedOnly&&existing?.createdAt)||Date.now(),updatedAt:Date.now(),_pending:true};
         memoryTombstones.delete(id);
         const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);
-        saveLocal();removedLocalIds.forEach(deleteLocalMedia);renderAll();try{dialog.close()}catch{dialog.removeAttribute("open")};cloudSave("memories",item);
-        syncMemoryMediaInBackground(id,localMedia,selected);
+        saveLocal();removedLocalIds.forEach(deleteLocalMedia);renderAll();try{dialog.close()}catch{dialog.removeAttribute("open")};await cloudSave("memories",item);
+        // Yalnızca buluta çıkamamış yerel yedekler varsa arka planda tekrar dene.
+        if(localMedia.length) syncMemoryMediaInBackground(id,localMedia,selected);
       }catch(err){
         console.error(err); msg.textContent=err?.message||"Fotoğraf yüklenemedi. Tekrar dene."; submit.disabled=false;
       }
