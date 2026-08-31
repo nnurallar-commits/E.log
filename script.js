@@ -1,10 +1,19 @@
+/* ===== E.LOG PWA ===== */
 if("serviceWorker" in navigator){
-  navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("./sw.js?v=20260831-pwa-v2").catch(err=>console.warn("PWA service worker:",err));
+  },{once:true});
 }
-if(window.caches){
-  caches.keys().then(keys=>keys.forEach(k=>caches.delete(k))).catch(()=>{});
-}
-if("serviceWorker" in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister())).catch(()=>{});}if(window.caches){caches.keys().then(k=>k.forEach(x=>caches.delete(x))).catch(()=>{});}
+let deferredInstallPrompt=null;
+window.addEventListener("beforeinstallprompt",event=>{
+  event.preventDefault();
+  deferredInstallPrompt=event;
+  document.documentElement.classList.add("pwa-install-ready");
+});
+window.addEventListener("appinstalled",()=>{
+  deferredInstallPrompt=null;
+  document.documentElement.classList.remove("pwa-install-ready");
+});
 
 /* ===== E.LOG STABLE FALLBACKS ===== */
 window.addEventListener("error",(e)=>{
@@ -73,6 +82,23 @@ function safeDialogOpen(id){
     initTheme();
   }
 })();
+
+
+/* ===== MEVSİMSEL ATMOSFER ===== */
+function currentSeason(date=new Date()){
+  const m=date.getMonth()+1;
+  if([12,1,2].includes(m))return "winter";
+  if([3,4,5].includes(m))return "spring";
+  if([6,7,8].includes(m))return "summer";
+  return "autumn";
+}
+function applySeasonalTheme(){
+  const season=currentSeason();
+  document.documentElement.dataset.season=season;
+  const names={spring:"ilkbahar",summer:"yaz",autumn:"sonbahar",winter:"kış"};
+  document.documentElement.dataset.seasonName=names[season];
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",applySeasonalTheme,{once:true});else applySeasonalTheme();
 
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
@@ -406,7 +432,7 @@ function startRealtime(){
       if(snap.exists()){
         ourPlaces=snap.data().values||snap.data().value||[];
         if(!Array.isArray(ourPlaces))ourPlaces=[];
-        saveLocal();
+        saveLocal();renderPlacesPage();renderHomeLoveWidgets();
       }
       markSync("● canlı");
     },err=>{console.warn(err);markSync("○ cihazda")}));
@@ -741,9 +767,45 @@ function renderProductivityHome(){
   a.textContent=n?n.title:"Yaklaşan plan yok";
   b.textContent=n?n.meta:"Hızlı ekle ile gününü oluştur.";
 }
+function previousYearTodayMemories(){
+  const d=new Date();
+  const target=`${d.getFullYear()-1}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  return memories.filter(m=>m.date===target).sort((a,b)=>memoryAddedStamp(b)-memoryAddedStamp(a));
+}
+function renderHomeLoveWidgets(){
+  const daysEl=$("#homeTogetherDays");
+  const dateEl=$("#homeTogetherDate");
+  const todayMemoryEl=$("#homeTodayMemoryCount");
+  const seasonEl=$("#homeSeasonLabel");
+  if(daysEl)daysEl.textContent=daysSinceLocal(2026,8,14).toLocaleString("tr-TR");
+  if(dateEl)dateEl.textContent="14 Ağustos 2026'dan beri";
+  if(todayMemoryEl){
+    const count=memories.filter(m=>m.date===today()).length;
+    todayMemoryEl.textContent=count?`${count} anı bugün`:`Bugün yeni bir sayfa`;
+  }
+  if(seasonEl){
+    const s=currentSeason(), labels={spring:"🌷 İlkbahar modu",summer:"🌿 Yaz modu",autumn:"🍂 Sonbahar modu",winter:"✦ Kış modu"};
+    seasonEl.textContent=labels[s];
+  }
+  const wrap=$("#lastYearTodayCard");
+  const body=$("#lastYearTodayBody");
+  if(!wrap||!body)return;
+  const old=previousYearTodayMemories();
+  if(old.length){
+    wrap.hidden=false;
+    const m=old[0];
+    body.innerHTML=`<button class="last-year-memory" data-last-year-memory="${safe(m.id)}" type="button"><div class="last-year-cover">${memoryCoverHtml(m)}</div><span><small>GEÇEN YIL BUGÜN</small><strong>${safe(m.title||"Bir anımız")}</strong><em>${safe(formatDateTR(m.date))}${old.length>1?` · +${old.length-1} anı`:""}</em></span><b>→</b></button>`;
+    hydrateMemoryMedia(body);
+    $("[data-last-year-memory]",body)?.addEventListener("click",()=>openMemoryActions(m.id));
+  }else{
+    wrap.hidden=false;
+    body.innerHTML=`<div class="last-year-empty"><span>🕰️</span><div><small>GEÇEN YIL BUGÜN</small><strong>Bu kart anılar biriktikçe canlanacak.</strong><p>Gelecek yıl bugün, bugünün fotoğrafları burada sürpriz yapacak.</p></div></div>`;
+  }
+}
 function renderAll(){
 renderPlacesPage();
   renderProductivityHome();
+  renderHomeLoveWidgets();
   if($("#todayLabel"))$("#todayLabel").textContent=fmtTR(new Date());
   if($("#heroGreeting"))$("#heroGreeting").textContent=`Merhaba ${profile?.name||"Erol"} 👋`;
   renderToday();renderCalendar();renderMemories(activeMemoryFilter);renderTogetherDays();renderSmart();renderShiftMini();renderWorkPage();renderSport();checkReminders();checkShiftNotifications();
@@ -1430,6 +1492,7 @@ function openMemoryForm(existing=null){
   <label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label>
   <div class="form-row"><label>Tarih<input id="memoryDate" type="date" value="${safe(existing?.date||today())}"></label><label>Emoji<input id="memoryEmoji" value="${safe(existing?.emoji||"♡")}" maxlength="8"></label></div>
   <label>Not<textarea id="memoryNote" rows="3">${safe(existing?.note||"")}</textarea></label>
+  <label>Yer <select id="memoryPlace"><option value="">Yer seçilmedi</option>${[...ourPlaces].sort((a,b)=>(a.name||"").localeCompare(b.name||"","tr")).map(p=>`<option value="${safe(p.id)}" ${existing?.placeId===p.id?"selected":""}>📍 ${safe(p.name)}</option>`).join("")}</select><small class="field-hint">Bir yer seçersen anı o mekanın albümünde de görünür.</small></label>
   <label>Fotoğraf / video<input id="memoryMedia" type="file" accept="image/*,video/*" multiple></label><div id="memoryExistingMedia" class="memory-upload-preview"></div><div id="memoryMediaPreview" class="memory-upload-preview"></div>
   <label>Hatırlat<select id="memoryReminder"><option value="">Hatırlatma yok</option><option value="1m">1 ay sonra</option><option value="6m">6 ay sonra</option><option value="1y">1 yıl sonra</option><option value="custom">Özel tarih</option></select></label>
   <label id="customReminderWrap" style="display:none">Hatırlatma tarihi<input id="memoryReminderCustom" type="date"></label>
@@ -1470,7 +1533,7 @@ function openMemoryForm(existing=null){
         const localMedia=await saveMediaImmediately(selected);
         const media=[...keptMedia,...localMedia];
         const base=seedOnly?{}:existing;
-        const item={...base,id,title,type:$("#memoryType",content).value,emoji:$("#memoryEmoji",content).value||"♡",date,note:$("#memoryNote",content).value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom",content).value),createdBy:(!seedOnly&&existing?.createdBy)||currentUser?.uid||"local",createdAt:(!seedOnly&&existing?.createdAt)||Date.now(),updatedAt:Date.now(),_pending:true};
+        const item={...base,id,title,type:$("#memoryType",content).value,emoji:$("#memoryEmoji",content).value||"♡",date,note:$("#memoryNote",content).value.trim(),placeId:$("#memoryPlace",content)?.value||"",media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom",content).value),createdBy:(!seedOnly&&existing?.createdBy)||currentUser?.uid||"local",createdAt:(!seedOnly&&existing?.createdAt)||Date.now(),updatedAt:Date.now(),_pending:true};
         memoryTombstones.delete(id);
         const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);
         saveLocal();removedLocalIds.forEach(deleteLocalMedia);renderAll();try{dialog.close()}catch{dialog.removeAttribute("open")};cloudSave("memories",item);
@@ -2237,55 +2300,79 @@ function placeMapUrl(p){
 function placeCategoryEmoji(cat){
   return ({date:"♥",food:"◆",coffee:"●",trip:"✈",special:"✦",other:"⌖"})[cat]||"⌖";
 }
+function normPlaceText(value){return String(value||"").toLocaleLowerCase("tr-TR").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9çğıöşü]+/g," ").trim()}
+function memoriesForPlace(p){
+  if(!p)return [];
+  const needle=normPlaceText(p.name);
+  return memories.filter(m=>{
+    if(m.placeId===p.id)return true;
+    if(!needle||needle.length<3)return false;
+    const hay=normPlaceText(`${m.title||""} ${m.note||""}`);
+    return hay.includes(needle);
+  }).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))||memoryAddedStamp(b)-memoryAddedStamp(a));
+}
+function placeFirstVisit(p){
+  const linked=memoriesForPlace(p).map(m=>m.date).filter(Boolean).sort();
+  return p.firstVisit||linked[0]||"";
+}
+function placeVisitCount(p){
+  const unique=new Set(memoriesForPlace(p).map(m=>m.date).filter(Boolean)).size;
+  return Math.max(Number(p.visitCount)||0,unique);
+}
+function placeRatingStars(p){
+  const r=Math.max(0,Math.min(5,Number(p.rating)||0));
+  return r?`${"★".repeat(r)}${"☆".repeat(5-r)}`:"Henüz puan yok";
+}
+function placePhotoHtml(p,cls="place-photo"){
+  const x=p?.photo;
+  if(!x)return `<div class="${cls} place-photo-empty"><span>${placeCategoryEmoji(p?.category)}</span></div>`;
+  return `<img class="${cls}" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} alt="${safe(p?.name||"Bizim yerimiz")}" loading="lazy">`;
+}
+async function syncPlacePhotoInBackground(placeId,file,localPhoto){
+  if(!storage||!file)return;
+  try{
+    const cleanName=(file.name||"yer-fotografi").replace(/[^a-zA-Z0-9._-]+/g,"-");
+    const r=storageRef(storage,`pairs/${pairId()}/places/${placeId}/${Date.now()}-${cleanName}`);
+    await uploadBytes(r,file,{contentType:file.type||undefined});
+    const url=await getDownloadURL(r);
+    const item=ourPlaces.find(x=>x.id===placeId);
+    if(!item)return;
+    item.photo={url,type:"image",name:file.name||"yer-fotografi"};
+    item.updatedAt=Date.now();
+    saveLocal();syncOurPlaces();renderPlacesPage();
+  }catch(err){console.warn("Yer fotoğrafı buluta yüklenemedi, cihazdaki kopya korunuyor:",err)}
+}
+function openPlaceDetail(id){
+  const p=ourPlaces.find(x=>x.id===id);if(!p)return;
+  const linked=memoriesForPlace(p),first=placeFirstVisit(p),visits=placeVisitCount(p);
+  openGeneric(`
+    <div class="place-detail">
+      <div class="place-detail-hero">${placePhotoHtml(p,"place-detail-photo")}<div class="place-detail-shade"></div><button class="icon-btn close-generic place-detail-close" type="button">×</button><div class="place-detail-title"><small>${placeCategoryEmoji(p.category)} BİZİM YERİMİZ</small><h2>${safe(p.name)}</h2>${p.address?`<p>${safe(p.address)}</p>`:""}</div></div>
+      <div class="place-stat-row"><article><strong>${first?safe(formatDateTR(first)):"—"}</strong><small>ilk gidiş</small></article><article><strong>${visits}</strong><small>kez gittik</small></article><article><strong class="place-stars">${safe(placeRatingStars(p))}</strong><small>favori puanı</small></article></div>
+      ${p.note?`<div class="place-detail-note"><span>♡</span><p>${safe(p.note)}</p></div>`:""}
+      <div class="place-detail-actions"><a href="${safe(placeMapUrl(p))}" target="_blank" rel="noopener">📍 Haritada aç</a><button id="placeDetailAddMemory" type="button">＋ Bu yere anı ekle</button><button id="placeDetailEdit" type="button">Düzenle</button></div>
+      <section class="place-memory-section"><div class="section-head compact"><div><p class="eyebrow">BU YERDE</p><h3>${linked.length?`${linked.length} anımız`:"Henüz anı yok"}</h3></div></div>${linked.length?`<div class="place-memory-grid">${linked.map(m=>`<button data-place-memory="${safe(m.id)}" type="button"><div>${memoryCoverHtml(m)}</div><span><strong>${safe(m.title)}</strong><small>${safe(formatDateTR(m.date))}</small></span></button>`).join("")}</div>`:`<div class="place-memory-empty"><span>📷</span><p>Burada çektiğiniz ilk fotoğrafı eklediğinde mekan kendi albümüne kavuşacak.</p></div>`}</section>
+    </div>`,()=>{
+      hydrateMemoryMedia($("#genericContent"));
+      $("#placeDetailEdit")?.addEventListener("click",()=>openPlaceEditor(p.id));
+      $("#placeDetailAddMemory")?.addEventListener("click",()=>{try{$("#genericDialog").close()}catch{};openMemoryForm({_newFromCalendar:true,date:today(),type:"memory",emoji:"♡",placeId:p.id,title:""})});
+      $$('[data-place-memory]',$("#genericContent")).forEach(b=>b.onclick=()=>openMemoryActions(b.dataset.placeMemory));
+    });
+}
 
 function renderPlacesPage(){
   const mount=$("#placesPageMount");if(!mount)return;
   const list=[...ourPlaces].sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0));
-  mount.innerHTML=list.length?`<div class="places-page-grid">${list.map(p=>`<article class="place-page-card"><a class="place-page-main" href="${safe(placeMapUrl(p))}" target="_blank" rel="noopener"><span class="place-page-pin">${placeCategoryEmoji(p.category)}</span><span><strong>${safe(p.name)}</strong>${p.address?`<small>${safe(p.address)}</small>`:""}${p.note?`<em>${safe(p.note)}</em>`:""}</span><b>↗</b></a><div class="place-actions"><button data-place-edit="${safe(p.id)}" type="button">Düzenle</button><button data-place-delete="${safe(p.id)}" type="button">Sil</button></div></article>`).join("")}</div>`:`<div class="places-page-empty"><span>⌖</span><h3>Henüz yer yok</h3><p>Bulunduğun yer olmak zorunda değil. İstediğin mekan, şehir veya adresi ekleyebilirsin.</p><button id="placesEmptyAddBtn" class="primary-btn" type="button">+ Yer ekle</button></div>`;
-  $$("[data-place-edit]",mount).forEach(b=>b.onclick=()=>openPlaceEditor(b.dataset.placeEdit));
-  $$("[data-place-delete]",mount).forEach(b=>b.onclick=()=>{if(!confirm("Bu yeri silelim mi?"))return;ourPlaces=ourPlaces.filter(x=>x.id!==b.dataset.placeDelete);saveLocal();renderPlacesPage();syncOurPlaces()});
+  mount.innerHTML=list.length?`<div class="places-page-grid enhanced">${list.map(p=>{const linked=memoriesForPlace(p),first=placeFirstVisit(p),visits=placeVisitCount(p);return `<article class="place-page-card place-story-card"><button class="place-story-main" data-place-open="${safe(p.id)}" type="button"><div class="place-story-cover">${placePhotoHtml(p,"place-story-photo")}<span class="place-story-pin">${placeCategoryEmoji(p.category)}</span></div><div class="place-story-copy"><small>${first?`İlk gidiş · ${safe(formatDateTR(first))}`:"Yeni yer"}</small><strong>${safe(p.name)}</strong>${p.address?`<p>${safe(p.address)}</p>`:""}<div class="place-story-stats"><span>📷 ${linked.length} anı</span><span>↻ ${visits} ziyaret</span><span class="mini-stars">${safe(placeRatingStars(p))}</span></div></div></button><div class="place-actions"><button data-place-edit="${safe(p.id)}" type="button">Düzenle</button><button data-place-delete="${safe(p.id)}" type="button">Sil</button></div></article>`}).join("")}</div>`:`<div class="places-page-empty"><span>⌖</span><h3>Henüz yer yok</h3><p>Bulunduğun yer olmak zorunda değil. İstediğin mekan, şehir veya adresi ekleyebilirsin.</p><button id="placesEmptyAddBtn" class="primary-btn" type="button">+ Yer ekle</button></div>`;
+  $$('[data-place-open]',mount).forEach(b=>b.onclick=()=>openPlaceDetail(b.dataset.placeOpen));
+  $$('[data-place-edit]',mount).forEach(b=>b.onclick=e=>{e.stopPropagation();openPlaceEditor(b.dataset.placeEdit)});
+  $$('[data-place-delete]',mount).forEach(b=>b.onclick=e=>{e.stopPropagation();if(!confirm("Bu yeri silelim mi?"))return;ourPlaces=ourPlaces.filter(x=>x.id!==b.dataset.placeDelete);saveLocal();renderPlacesPage();syncOurPlaces()});
   $("#placesEmptyAddBtn",mount)?.addEventListener("click",()=>openPlaceEditor());
+  hydrateMemoryMedia(mount);
 }
 function openPlacesPage(){switchView("places");renderPlacesPage();$$(".nav-btn").forEach(x=>x.classList.remove("active"));document.querySelector("[data-places-tab]")?.classList.add("active")}
 document.addEventListener("click",e=>{if(e.target.closest?.("[data-places-tab]"))openPlacesPage();if(e.target.closest?.("#placesPageAddBtn"))openPlaceEditor()});
-function openOurPlaces(){
-  const rows=[...ourPlaces].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  openGeneric(`
-    <div class="modal-head places-head">
-      <div><p class="eyebrow">EROLAND · HARİTA</p><h3>Bizim Yerlerimiz</h3></div>
-      <button class="icon-btn close-generic" type="button">×</button>
-    </div>
-    <section class="places-cover">
-      <div><span class="places-cover-mark">⌖</span><small>BİZİM HARİTAMIZ</small><h2>${rows.length} yer, bir sürü hikâye.</h2><p>Sevdiğiniz yerleri E.log'a iğneleyin.</p></div>
-      <button id="addOurPlaceBtn" type="button">＋ Yer ekle</button>
-    </section>
-    ${rows.length?`
-      <div class="places-list">
-        ${rows.map(p=>`
-          <article class="place-card">
-            <a class="place-main" href="${safe(placeMapUrl(p))}" target="_blank" rel="noopener noreferrer">
-              <span class="place-pin">${placeCategoryEmoji(p.category)}</span>
-              <span class="place-copy"><strong>${safe(p.name)}</strong>${p.address?`<small>${safe(p.address)}</small>`:""}${p.note?`<em>${safe(p.note)}</em>`:""}</span>
-              <b>Haritada aç ↗</b>
-            </a>
-            <div class="place-actions">
-              <button data-place-edit="${safe(p.id)}" type="button">Düzenle</button>
-              <button data-place-delete="${safe(p.id)}" type="button">Sil</button>
-            </div>
-          </article>
-        `).join("")}
-      </div>
-    `:`<div class="places-empty"><span>🗺️</span><strong>Haritanız henüz boş</strong><p>İlk buluşma, favori kahveci ya da tatilden bir yer ekleyin.</p></div>`}
-  `,()=>{
-    $("#addOurPlaceBtn").onclick=()=>openPlaceEditor();
-    $$("[data-place-edit]").forEach(b=>b.onclick=()=>openPlaceEditor(b.dataset.placeEdit));
-    $$("[data-place-delete]").forEach(b=>b.onclick=async()=>{
-      if(!confirm("Bu yer haritanızdan silinsin mi?"))return;
-      ourPlaces=ourPlaces.filter(x=>x.id!==b.dataset.placeDelete);
-      saveLocal(); syncOurPlaces(); openOurPlaces();
-    });
-  });
-}
+function openOurPlaces(){openPlacesPage()}
 function openPlaceEditor(id=null){
   const p=id?ourPlaces.find(x=>x.id===id):null;
   let autoLat=p?.lat??null, autoLng=p?.lng??null;
@@ -2316,6 +2403,9 @@ function openPlaceEditor(id=null){
 
       <label>Adres / yer ara<div class="place-search-row"><input id="placeAddress" value="${safe(p?.address||"")}" placeholder="Örn: Alaçatı, İzmir veya mekan adı"><button id="searchPlaceBtn" type="button">Haritada ara</button></div></label>
       <div class="place-picker-wrap"><div id="placePickerMap" aria-label="Haritadan konum seç"></div><small>Haritada istediğin noktaya dokun. Bulunduğun yerde olman gerekmiyor.</small></div>
+      <div class="place-editor-meta"><label>İlk gidiş<input id="placeFirstVisit" type="date" value="${safe(p?.firstVisit||placeFirstVisit(p)||"")}"></label><label>Kaç kez gittik?<input id="placeVisitCount" type="number" min="0" max="999" value="${safe(p?.visitCount??placeVisitCount(p)??0)}"></label></div>
+      <label>Favori puanı<select id="placeRating"><option value="0">Puan verme</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${Number(p?.rating)===n?"selected":""}>${"★".repeat(n)}${"☆".repeat(5-n)}</option>`).join("")}</select></label>
+      <label>Mekan fotoğrafı<input id="placePhoto" type="file" accept="image/*"><small class="field-hint">İstersen mekan kartının kapak fotoğrafını seç.</small></label><div id="placePhotoPreview" class="place-photo-preview">${p?.photo?placePhotoHtml(p,"place-editor-photo"):""}</div>
       <label>Bizim notumuz<textarea id="placeNote" rows="3" maxlength="300" placeholder="Burayı neden seviyoruz?">${safe(p?.note||"")}</textarea></label>
       <div id="placeLocationMessage" class="place-location-message">${autoLat!=null&&autoLng!=null?"✓ Harita konumu kayıtlı":""}</div>
       <button id="savePlaceBtn" class="primary-btn full" type="button">${p?"Kaydet":"Haritaya ekle"}</button>
@@ -2353,15 +2443,34 @@ function openPlaceEditor(id=null){
       },{enableHighAccuracy:true,timeout:10000});
     };
 
+    hydrateMemoryMedia($("#genericContent"));
+    $("#placePhoto")?.addEventListener("change",()=>{
+      const file=$("#placePhoto").files?.[0],box=$("#placePhotoPreview");
+      if(!file||!box)return;
+      if(!file.type.startsWith("image/")){box.innerHTML="<small>Sadece fotoğraf seçebilirsin.</small>";return}
+      const url=URL.createObjectURL(file);box.innerHTML=`<img class="place-editor-photo" src="${url}" alt="Önizleme">`;
+      box.querySelector("img").onload=()=>setTimeout(()=>URL.revokeObjectURL(url),500);
+    });
     $("#savePlaceBtn").onclick=async()=>{
       const name=$("#placeName").value.trim();
       if(!name){$("#placeName").focus();return}
 
+      const photoFile=$("#placePhoto")?.files?.[0]||null;
+      let photo=p?.photo||null;
+      if(photoFile){
+        if(!photoFile.type.startsWith("image/")){alert("Mekan fotoğrafı için bir görsel seç.");return}
+        if(photoFile.size>20*1024*1024){alert("Mekan fotoğrafı en fazla 20 MB olabilir.");return}
+        try{photo=(await saveMediaImmediately([photoFile]))[0]||photo}catch(err){console.warn(err)}
+      }
       const item={
         id:p?.id||uuid(),name,
         category:$("#placeCategory").value,
         address:$("#placeAddress").value.trim(),
         note:$("#placeNote").value.trim(),
+        firstVisit:$("#placeFirstVisit")?.value||"",
+        visitCount:Math.max(0,Number($("#placeVisitCount")?.value)||0),
+        rating:Math.max(0,Math.min(5,Number($("#placeRating")?.value)||0)),
+        photo,
         lat:autoLat!=null?autoLat:null,
         lng:autoLng!=null?autoLng:null,
         createdAt:p?.createdAt||Date.now(),updatedAt:Date.now()
@@ -2371,8 +2480,10 @@ function openPlaceEditor(id=null){
       else ourPlaces.push(item);
 
       saveLocal();
-      openOurPlaces();
+      renderPlacesPage();
+      try{$("#genericDialog").close()}catch{}
       syncOurPlaces();
+      if(photoFile)syncPlacePhotoInBackground(item.id,photoFile,photo);
     };
   });
 }
@@ -2475,3 +2586,18 @@ document.addEventListener("click",e=>{
 
 
 console.log("E.log stable build: 20260831-calendar-memories-v1");
+
+
+/* ===== PWA INSTALL UX ===== */
+document.addEventListener("click",async e=>{
+  if(!e.target.closest?.("#installElogBtn"))return;
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    try{await deferredInstallPrompt.userChoice}catch{}
+    deferredInstallPrompt=null;
+    document.documentElement.classList.remove("pwa-install-ready");
+    return;
+  }
+  const isiOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  alert(isiOS?"Safari'de Paylaş → Ana Ekrana Ekle ile E.log'u uygulama gibi kurabilirsin.":"Tarayıcı menüsünden ‘Uygulamayı yükle’ veya ‘Ana ekrana ekle’ seçeneğini kullanabilirsin.");
+});

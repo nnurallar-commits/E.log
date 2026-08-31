@@ -2,13 +2,18 @@
 
 <html lang="tr">
 <head>
-<meta content="20260828-more-gallery-redesign" name="elog-version"/>
+<meta content="20260831-love-atlas-pwa-v2" name="elog-version"/>
 <meta charset="utf-8">
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#23352b" name="theme-color"/>
+<meta name="application-name" content="E.log">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="E.log">
+<meta name="mobile-web-app-capable" content="yes">
 <title>E.log</title>
-<link href="manifest.json?v=20260831-places-hero-emoji-dark" rel="manifest"/>
-<link href="style.css?v=20260831-remove-timeline-wrapper-v9" rel="stylesheet"/>
+<link href="manifest.json?v=20260831-pwa-love-v2" rel="manifest"/>
+<link href="style.css?v=20260831-love-atlas-pwa-v12" rel="stylesheet"/>
 <link crossorigin="" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
 <link href="favicon.svg?v=20260827-logo-final3" rel="icon" type="image/svg+xml"/>
 <link href="apple-touch-icon.png?v=20260827-logo-final3" rel="apple-touch-icon" sizes="180x180"/>
@@ -53,6 +58,12 @@
 <button id="quickMemoryBtn" type="button"><span>💞</span><small>Anı</small></button>
 </div>
 </section>
+<section class="love-widget-strip" aria-label="Bizim bugün kartlarımız">
+  <article class="love-widget love-widget-days"><span class="love-widget-icon">♡</span><div><small id="homeTogetherDate">14 Ağustos 2026'dan beri</small><strong><b id="homeTogetherDays">0</b> gün</strong></div></article>
+  <article class="love-widget love-widget-today"><span class="love-widget-icon">☀︎</span><div><small>BUGÜN</small><strong id="homeTodayMemoryCount">Bugün yeni bir sayfa</strong></div></article>
+  <article class="love-widget love-widget-season"><span class="love-widget-icon">✦</span><div><small>ATMOSFER</small><strong id="homeSeasonLabel">Mevsim modu</strong></div></article>
+</section>
+<section class="last-year-card" id="lastYearTodayCard"><div id="lastYearTodayBody"></div></section>
 <section class="section-block today-compact">
 <div class="section-head">
 <div><p class="eyebrow">Akış</p><h3>Bugün</h3></div>
@@ -279,6 +290,7 @@
 
 <button class="more-feature more-month" id="monthReplayBtn" type="button"><span>🎞️ Ayımız</span><b>›</b></button>
 <button class="more-feature more-places" id="ourPlacesBtn" type="button"><span>📍 Bizim Yerlerimiz</span><b>›</b></button>
+<button class="more-feature install-elog" id="installElogBtn" type="button"><span>📲 E.log’u telefona yükle</span><b>›</b></button>
 <button id="logoutBtn" type="button"><span>Çıkış yap</span><b>›</b></button>
 </div>
 </section>
@@ -342,6 +354,6 @@
 </div>
 </dialog>
 <script crossorigin="" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="script.js?v=20260831-remove-timeline-wrapper-v9" type="module"></script>
+<script src="script.js?v=20260831-love-atlas-pwa-v12" type="module"></script>
 </body>
 </html>
