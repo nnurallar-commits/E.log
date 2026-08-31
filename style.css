@@ -2582,6 +2582,52 @@ body::after{
   #erolandQuickMemory{width:100%}
 }
 
+/* Pinterest havasında samimi "Kaç gün oldu?" alanı */
+.together-days{
+  position:relative;
+  margin:22px 0 6px;
+  padding:20px 18px 16px;
+  overflow:hidden;
+  border:1px solid rgba(100,126,101,.2);
+  border-radius:28px;
+  background:
+    radial-gradient(circle at 92% 8%,rgba(255,255,255,.85) 0 3px,transparent 4px),
+    linear-gradient(145deg,#f7f1e5,#e7efe3 58%,#f5ede4);
+  box-shadow:0 16px 34px rgba(48,70,54,.1);
+}
+.together-days:before,.together-days:after{position:absolute;color:#78917b;opacity:.28;font-family:Georgia,serif;pointer-events:none}
+.together-days:before{content:"♡";font-size:76px;right:-10px;bottom:-23px;transform:rotate(-13deg)}
+.together-days:after{content:"✦";font-size:22px;left:48%;top:15px}
+.together-days-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:17px}
+.together-days-head h3{margin:1px 0 0;font:700 26px/1.05 Georgia,serif;color:#2f4736}
+.together-days-head>small{color:#718174;font:600 12px/1.3 Georgia,serif;transform:rotate(-2deg)}
+.together-doodle{float:left;margin:-2px 7px 0 0;color:#6c876f;font-size:20px}
+.together-days-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;padding:4px 2px 5px}
+.together-day-card{position:relative;min-height:184px;padding:27px 16px 15px;text-align:center;border:1px solid rgba(81,104,84,.14);border-radius:8px 20px 11px 19px;background:#fffdf7;box-shadow:0 12px 25px rgba(54,68,56,.11)}
+.together-day-first{transform:rotate(-1.4deg)}
+.together-day-second{transform:rotate(1.2deg);background:#f2f6ed}
+.paper-tape{position:absolute;top:-7px;left:50%;width:55px;height:17px;transform:translateX(-50%) rotate(-2deg);background:rgba(213,196,158,.52);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.together-day-second .paper-tape{transform:translateX(-50%) rotate(3deg);background:rgba(160,186,160,.43)}
+.together-sticker{position:absolute;right:10px;top:10px;font-size:19px;transform:rotate(9deg)}
+.together-day-card p{margin:5px 0 2px;color:#647266;font:700 13px/1.2 Georgia,serif}
+.together-day-card strong{display:block;margin:3px 0 -2px;color:#2f513d;font:800 58px/1 Georgia,serif;letter-spacing:-.04em}
+.together-day-card>small{display:block;color:#718174;font:700 13px Georgia,serif}
+.together-day-card time{display:inline-block;margin-top:15px;padding:5px 9px;border-radius:99px;background:#e4ecdf;color:#536958;font-size:11px;font-weight:750;letter-spacing:.04em}
+.together-days-note{margin:13px 0 0;text-align:center;color:#718174;font:italic 14px Georgia,serif;transform:rotate(-.4deg)}
+[data-theme="dark"] .together-days{border-color:rgba(151,181,151,.25);background:linear-gradient(145deg,#1b241e,#26382c 58%,#1c2a22);box-shadow:0 18px 38px rgba(0,0,0,.25)}
+[data-theme="dark"] .together-days-head h3,[data-theme="dark"] .together-day-card strong{color:#c7ddc6}
+[data-theme="dark"] .together-days-head>small,[data-theme="dark"] .together-days-note{color:#98ae99}
+[data-theme="dark"] .together-day-card{border-color:rgba(173,199,173,.16);background:#29392e;box-shadow:0 12px 25px rgba(0,0,0,.22)}
+[data-theme="dark"] .together-day-second{background:#314336}
+[data-theme="dark"] .together-day-card p,[data-theme="dark"] .together-day-card>small{color:#aabdaa}
+[data-theme="dark"] .together-day-card time{background:#18251d;color:#a8c3aa}
+@media(max-width:430px){
+  .together-days{padding-inline:14px}
+  .together-days-head>small{max-width:105px;text-align:right}
+  .together-day-card{min-height:174px;padding-inline:10px}
+  .together-day-card strong{font-size:48px}
+}
+
 .memory-card::after{
   content:"";
   position:absolute;

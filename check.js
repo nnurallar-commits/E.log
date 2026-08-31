@@ -746,7 +746,19 @@ renderPlacesPage();
   renderProductivityHome();
   if($("#todayLabel"))$("#todayLabel").textContent=fmtTR(new Date());
   if($("#heroGreeting"))$("#heroGreeting").textContent=`Merhaba ${profile?.name||"Erol"} 👋`;
-  renderToday();renderCalendar();renderMemories(activeMemoryFilter);renderSmart();renderShiftMini();renderWorkPage();renderSport();checkReminders();checkShiftNotifications();
+  renderToday();renderCalendar();renderMemories(activeMemoryFilter);renderTogetherDays();renderSmart();renderShiftMini();renderWorkPage();renderSport();checkReminders();checkShiftNotifications();
+}
+
+function daysSinceLocal(year,month,day){
+  const now=new Date();
+  const todayLocal=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const start=new Date(year,month-1,day);
+  return Math.max(0,Math.floor((todayLocal-start)/86400000));
+}
+function renderTogetherDays(){
+  const first=$("#togetherDaysFirst"),second=$("#togetherDaysSecond");
+  if(first)first.textContent=daysSinceLocal(2024,11,26).toLocaleString("tr-TR");
+  if(second)second.textContent=daysSinceLocal(2026,8,14).toLocaleString("tr-TR");
 }
 function categoryName(c){return ({work:"İş",sport:"Spor",food:"Yemek",us:"Nilsu ♡",personal:"Kişisel",general:"Genel"})[c]||"Genel"}
 function categoryIcon(c){return ({work:"💼",sport:"🏋️",food:"🍽️",us:"❤️",personal:"✨",general:"•"})[c]||"•"}
@@ -2391,7 +2403,7 @@ async function boot(){
 
 
 boot();
-setInterval(()=>{flushPending();checkReminders();checkShiftNotifications()},60*60*1000);
+setInterval(()=>{flushPending();checkReminders();checkShiftNotifications();renderTogetherDays()},60*60*1000);
 
 document.addEventListener("DOMContentLoaded",()=>{
   $("#quickPlanBtn")?.addEventListener("click",()=>$("#quickAddBtn")?.click());
