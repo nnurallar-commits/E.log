@@ -798,6 +798,9 @@ function renderCalendar(){
     const plans=entries.filter(x=>x.date===ds && x.kind!=="overtime");
     const notes=getDayNotes(ds);
     const hasNote=notes.length>0;
+    const dayMemories=memories.filter(x=>x.date===ds);
+    const hasMemory=dayMemories.length>0;
+    const hasMemoryMedia=dayMemories.some(x=>normalizeMemoryMedia(x).length>0);
 
     const auto=[];
     if(hasShift)auto.push("🩻");
@@ -829,7 +832,9 @@ function renderCalendar(){
           <span class="calendar-note-mark" aria-hidden="true" title="Not var">📝</span>
         ` : ""}
 
-        ${(hasShift || overtime.length || plans.length) ? `
+        ${hasMemory ? `<span class="calendar-memory-mark" title="${dayMemories.length} anı">${hasMemoryMedia?"📷":"♡"}</span>` : ""}
+
+        ${(hasShift || overtime.length || plans.length || hasMemory) ? `
           <span class="calendar-record-mark" aria-hidden="true"></span>
         ` : ""}
       </button>
@@ -861,6 +866,7 @@ function renderDayDetail(){
   const dayShifts=shifts.filter(s=>s.startDate===selectedDate);
   const ems=getDayEmojis(selectedDate);
   const notes=getDayNotes(selectedDate);
+  const dayMemories=memories.filter(m=>m.date===selectedDate).sort((a,b)=>memoryAddedStamp(b)-memoryAddedStamp(a));
 
   const records=[];
 
@@ -901,6 +907,7 @@ function renderDayDetail(){
         <h3>${fmtTR(day)}</h3>
       </div>
       <div class="day-detail-actions">
+        <button id="dayMemoryBtn" class="memory-add-day-btn" type="button">＋ Anı</button>
         <button id="dayEmojiBtn" class="emoji-add-btn" type="button">＋ Emoji</button>
         <button id="dayNoteBtn" class="note-add-btn" type="button">＋ Not</button>
       </div>
@@ -932,8 +939,9 @@ function renderDayDetail(){
       </div>
     ` : ""}
 
+    ${dayMemories.length ? `<section class="calendar-memories-block"><div class="calendar-memories-title"><span>💞</span><strong>Bu günün anıları</strong><small>${dayMemories.length}</small></div><div class="calendar-memory-grid">${dayMemories.map(m=>`<article class="calendar-memory-card"><button class="calendar-memory-main" data-calendar-memory-open="${safe(m.id)}" type="button"><div class="calendar-memory-cover">${memoryCoverHtml(m)}<span>${safe(m.emoji||"♡")}</span></div><div class="calendar-memory-copy"><small>${memoryTypeName(m.type)}</small><strong>${safe(m.title)}</strong>${m.note?`<p>${safe(m.note)}</p>`:""}</div></button><div class="calendar-memory-actions"><button data-calendar-memory-edit="${safe(m.id)}" type="button">✏️ Düzenle</button><button class="danger" data-calendar-memory-delete="${safe(m.id)}" type="button">🗑 Sil</button></div></article>`).join("")}</div></section>` : ""}
     <div class="calendar-detail-list">
-      ${records.length ? records.join("") : `<div class="calendar-empty-day">Bu gün boş görünüyor.</div>`}
+      ${records.length ? records.join("") : (!dayMemories.length ? `<div class="calendar-empty-day">Bu gün boş görünüyor.</div>` : "")}
     </div>
   `;
 
@@ -942,6 +950,11 @@ function renderDayDetail(){
   $$("[data-remove-emoji]",el).forEach(b=>b.onclick=()=>removeDayEmoji(selectedDate,b.dataset.removeEmoji));
   $$("[data-note-edit]",el).forEach(b=>b.onclick=()=>openDayNoteEditor(selectedDate,b.dataset.noteEdit));
   $$("[data-note-delete]",el).forEach(b=>b.onclick=()=>deleteDayNote(selectedDate,b.dataset.noteDelete));
+  $("#dayMemoryBtn").onclick=()=>openMemoryForm({date:selectedDate,type:"memory",emoji:"♡",_newFromCalendar:true});
+  $$("[data-calendar-memory-open]",el).forEach(b=>b.onclick=()=>openMemoryActions(b.dataset.calendarMemoryOpen));
+  $$("[data-calendar-memory-edit]",el).forEach(b=>b.onclick=e=>{e.stopPropagation();const m=memories.find(x=>x.id===b.dataset.calendarMemoryEdit);if(m)openMemoryForm(m)});
+  $$("[data-calendar-memory-delete]",el).forEach(b=>b.onclick=async e=>{e.stopPropagation();const id=b.dataset.calendarMemoryDelete,m=memories.find(x=>x.id===id);if(!m||!confirm(`"${m.title||"Bu anı"}" silinsin mi?`))return;normalizeMemoryMedia(m).forEach(x=>x.localId&&deleteLocalMedia(x.localId));memoryTombstones.add(id);memories=memories.filter(x=>x.id!==id);saveLocal();renderAll();if(db)try{await deleteDoc(pairDoc("memories",id));markSync("● canlı")}catch(err){console.warn("Anı silinemedi:",err);markSync("○ cihazda")}});
+  hydrateMemoryMedia(el);
 }
 
 function getDayNotes(date){
@@ -1409,9 +1422,10 @@ function renderMemories(filter="all"){
   hydrateMemoryMedia(grid);
 }
 function openMemoryForm(existing=null){
+  const seedOnly=!!existing?._newFromCalendar;
   const dialog=$("#memoryDialog"),content=$("#memoryDialogContent");
   if(!dialog||!content){console.error("Anı penceresi bulunamadı");return}
-  content.innerHTML=`<div class="modal-head"><h3>${existing?"Düzenle":"♡ Eroland'a ekle"}</h3><button class="icon-btn close-memory" type="button">×</button></div>
+  content.innerHTML=`<div class="modal-head"><h3>${existing&&!seedOnly?"Düzenle":"♡ Anı ekle"}</h3><button class="icon-btn close-memory" type="button">×</button></div>
   <form id="memoryForm"><label>Başlık<input id="memoryTitle" required value="${safe(existing?.title||"")}"></label>
   <label>Tür<select id="memoryType"><option value="memory">Anı</option><option value="plan">Plan</option><option value="place">Yer</option></select></label>
   <div class="form-row"><label>Tarih<input id="memoryDate" type="date" value="${safe(existing?.date||today())}"></label><label>Emoji<input id="memoryEmoji" value="${safe(existing?.emoji||"♡")}" maxlength="8"></label></div>
@@ -1444,7 +1458,7 @@ function openMemoryForm(existing=null){
       });
     };
     $("#memoryForm",content).onsubmit=async e=>{
-      e.preventDefault();const id=existing?.id||uuid(),date=$("#memoryDate",content).value||today(),mode=$("#memoryReminder",content).value;
+      e.preventDefault();const id=(!seedOnly&&existing?.id)||uuid(),date=$("#memoryDate",content).value||today(),mode=$("#memoryReminder",content).value;
       const msg=$("#memoryMsg",content);
       const submit=$("#memoryForm button[type=submit]",content);
       msg.textContent="Kaydediliyor..."; submit.disabled=true;
@@ -1455,7 +1469,8 @@ function openMemoryForm(existing=null){
         if(selected.length) msg.textContent="Fotoğraf cihaza kaydediliyor...";
         const localMedia=await saveMediaImmediately(selected);
         const media=[...keptMedia,...localMedia];
-        const item={...existing,id,title,type:$("#memoryType",content).value,emoji:$("#memoryEmoji",content).value||"♡",date,note:$("#memoryNote",content).value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom",content).value),createdBy:existing?.createdBy||currentUser?.uid||"local",createdAt:existing?.createdAt||Date.now(),updatedAt:Date.now(),_pending:true};
+        const base=seedOnly?{}:existing;
+        const item={...base,id,title,type:$("#memoryType",content).value,emoji:$("#memoryEmoji",content).value||"♡",date,note:$("#memoryNote",content).value.trim(),media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom",content).value),createdBy:(!seedOnly&&existing?.createdBy)||currentUser?.uid||"local",createdAt:(!seedOnly&&existing?.createdAt)||Date.now(),updatedAt:Date.now(),_pending:true};
         memoryTombstones.delete(id);
         const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);
         saveLocal();removedLocalIds.forEach(deleteLocalMedia);renderAll();try{dialog.close()}catch{dialog.removeAttribute("open")};cloudSave("memories",item);
@@ -2459,4 +2474,4 @@ document.addEventListener("click",e=>{
 
 
 
-console.log("E.log stable build: 20260831-final-stable-no-stale");
+console.log("E.log stable build: 20260831-calendar-memories-v1");
