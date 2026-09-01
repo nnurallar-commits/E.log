@@ -1239,6 +1239,7 @@ function normalizeMemoryMedia(m){
   const out=[];
 
   const pushMedia=(url,type="image",name="",localId="",firestoreId="")=>{
+    if(typeof url==="string"&&url.startsWith("blob:"))url=""; // blob URL sayfa kapanınca ölür; kalıcı medya değildir.
     if(!url&&!localId&&!firestoreId)return;
     if(out.some(x=>(localId&&x.localId===localId)||(firestoreId&&x.firestoreId===firestoreId)||(url&&x.url===url)))return;
     out.push({
@@ -1281,7 +1282,7 @@ function memoryMediaItemHtml(x,m,cls="memory-cover"){
   const cloudAttr=x?.firestoreId?` data-firestore-media="${safe(x.firestoreId)}"`:"";
   const srcAttr=x?.url?` src="${safe(x.url)}"`:"";
   if(x?.type==="video") return `<video class="${cls}"${localAttr}${cloudAttr}${srcAttr} muted playsinline preload="metadata"></video>`;
-  return `<img class="${cls}"${localAttr}${cloudAttr}${srcAttr} alt="${safe(m?.title||"Eroland anısı")}" onerror="this.dataset.mediaBroken='1'">`;
+  return `<img class="${cls}"${localAttr}${cloudAttr}${srcAttr} alt="${safe(m?.title||"Eroland anısı")}" onerror="window.elogMediaError&&window.elogMediaError(this)">`;
 }
 function memoryCoverHtml(m){
   const media=normalizeMemoryMedia(m);
@@ -1295,6 +1296,14 @@ function memoryAllMediaHtml(m){
   const count=Math.min(media.length,6);
   return `<div class="memory-card-gallery count-${count}">${media.slice(0,6).map(x=>memoryMediaItemHtml(x,m,"memory-gallery-media")).join("")}</div>`;
 }
+window.elogMediaError=function(el){
+  try{
+    const gallery=el.closest(".memory-card-gallery");
+    const wrap=el.closest(".memory-cover-wrap,.calendar-memory-cover,.last-year-cover,.place-memory-grid");
+    el.remove();
+    if(gallery&&!gallery.querySelector("img,video")){gallery.remove();wrap?.classList.add("memory-media-unavailable");}
+  }catch{}
+};
 
 function memoryTypeName(t){return ({memory:"Anı",plan:"Plan",place:"Yer"})[t]||"Anı"}
 function memoryAddedStamp(m){
@@ -1394,37 +1403,31 @@ async function migrateLegacyMemoryMedia(){
 async function uploadMedia(memoryId,files){
   const out=[];
   if(!files?.length)return out;
+  if(!currentUser)throw new Error("Fotoğraf yüklemek için Google hesabınla giriş yapmalısın.");
+  if(!storage)throw new Error("Firebase Storage bağlanmadı. Sayfayı yenileyip tekrar dene.");
 
-  for(const file of files){
+  for(let i=0;i<files.length;i++){
+    const file=files[i];
     if(!file.type.startsWith("image/")&&!file.type.startsWith("video/"))throw new Error("Sadece fotoğraf veya video seçebilirsin.");
     if(file.size>40*1024*1024)throw new Error(`${file.name||"Dosya"} çok büyük. En fazla 40 MB seç.`);
-    let uploaded=false;
 
-    if(storage){
-      try{
-        const cleanName=(file.name||"dosya").replace(/[^a-zA-Z0-9._-]+/g,"-");
-        const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${Date.now()}-${cleanName}`);
-        await uploadBytes(r,file,{contentType:file.type||undefined});
-        out.push({
-          url:await getDownloadURL(r),
-          type:file.type.startsWith("video/")?"video":"image",
-          name:file.name||"dosya"
-        });
-        uploaded=true;
-      }catch(err){
-        console.warn("Bulut medya yükleme başarısız, yerel yedek deneniyor:",err);
+    const cleanName=(file.name||"dosya").replace(/[^a-zA-Z0-9._-]+/g,"-");
+    const unique=`${Date.now()}-${i}-${uuid()}-${cleanName}`;
+    const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${unique}`);
+    try{
+      const snap=await uploadBytes(r,file,{contentType:file.type||undefined,customMetadata:{memoryId,owner:currentUser.uid}});
+      const url=await getDownloadURL(snap.ref);
+      if(!url||!/^https:\/\//i.test(url))throw new Error("Storage indirme bağlantısı üretmedi.");
+      out.push({url,type:file.type.startsWith("video/")?"video":"image",name:file.name||"dosya",storagePath:snap.ref.fullPath});
+    }catch(err){
+      console.error("Firebase Storage yükleme hatası:",err);
+      const code=String(err?.code||"");
+      if(code.includes("unauthorized")||code.includes("permission")){
+        throw new Error("Fotoğraf yükleme izni kapalı. ZIP içindeki storage.rules Firebase'e bir kez yayınlanmalı.");
       }
+      throw new Error(`Fotoğraf buluta yüklenemedi${err?.message?`: ${err.message}`:""}. Anı kaydedilmedi.`);
     }
-
-    if(!uploaded&&file.type.startsWith("image/")&&db&&currentUser){
-      try{const cloudDoc=await savePhotoToFirestore(memoryId,file);if(cloudDoc){out.push(cloudDoc);uploaded=true;console.log("Fotoğraf Firestore bulut yedeğine kaydedildi:",cloudDoc.firestoreId)}}catch(err){console.warn("Firestore fotoğraf yedeği başarısız:",err)}
-    }
-
-    if(!uploaded)try{out.push({url:"",localId:await saveLocalMedia(file),type:file.type.startsWith("video/")?"video":"image",name:file.name||"dosya",localOnly:true});uploaded=true}catch(err){console.error("Medya cihazda saklanamadı:",err)}
-
-    if(!uploaded){throw new Error("Dosya ne buluta ne de cihaza kaydedilebildi. Tarayıcı depolama iznini kontrol et.");}
   }
-
   return out;
 }
 
@@ -1627,19 +1630,26 @@ function openMemoryForm(existing=null){
         if(!title){msg.textContent="Başlık yazmalısın.";$("#memoryTitle",content).focus();submit.disabled=false;return}
         const selected=[...$("#memoryMedia",content).files].slice(0,6);
         if(selected.length) msg.textContent="Fotoğraflar kalıcı olarak kaydediliyor...";
-        // Önce Firebase Storage, olmazsa Firestore içinde sıkıştırılmış fotoğraf yedeği.
-        // Böylece fotoğraf başka cihazda da açılır.
+        // Tek medya kaynağı: Firebase Storage. Yükleme tamamlanmadan anı oluşturulmaz.
         let newMedia=[];
         if(selected.length){newMedia=await uploadMedia(id,selected);}
-        const localMedia=newMedia.filter(x=>x.localId&&!x.url);
         const media=[...keptMedia,...newMedia];
         const base=seedOnly?{}:existing;
         const item={...base,id,title,type:$("#memoryType",content).value,emoji:$("#memoryEmoji",content).value||"♡",date,note:$("#memoryNote",content).value.trim(),placeId:$("#memoryPlace",content)?.value||"",media,reminderDate:calcReminder(date,mode,$("#memoryReminderCustom",content).value),createdBy:(!seedOnly&&existing?.createdBy)||currentUser?.uid||"local",createdAt:(!seedOnly&&existing?.createdAt)||Date.now(),updatedAt:Date.now(),_pending:true};
+        if(!db||!currentUser)throw new Error("Bulut bağlantısı hazır değil. Anı kaydedilmedi; interneti kontrol edip tekrar dene.");
+        // Önce anı belgesini Firestore'a yaz. Bu adım başarısızsa kartı yerelde bile oluşturma:
+        // böylece bir daha "anı var ama fotoğraf yok" hayalet kaydı oluşmaz.
+        const cleanItem={...item};delete cleanItem._pending;
+        try{
+          await setDoc(pairDoc("memories",id),{...cleanItem,updatedAt:serverTimestamp()},{merge:true});
+        }catch(err){
+          console.error("Anı Firestore'a kaydedilemedi:",err);
+          throw new Error("Anı buluta kaydedilemedi. Fotoğrafsız kayıt oluşturulmadı; tekrar dene.");
+        }
+        item._pending=false;
         memoryTombstones.delete(id);
         const ix=memories.findIndex(x=>x.id===id);if(ix>=0)memories[ix]=item;else memories.push(item);
-        saveLocal();removedLocalIds.forEach(deleteLocalMedia);renderAll();try{dialog.close()}catch{dialog.removeAttribute("open")};await cloudSave("memories",item);
-        // Yalnızca buluta çıkamamış yerel yedekler varsa arka planda tekrar dene.
-        if(localMedia.length) syncMemoryMediaInBackground(id,localMedia,selected);
+        saveLocal();removedLocalIds.forEach(deleteLocalMedia);renderAll();markSync("● canlı");try{dialog.close()}catch{dialog.removeAttribute("open")};
       }catch(err){
         console.error(err); msg.textContent=err?.message||"Fotoğraf yüklenemedi. Tekrar dene."; submit.disabled=false;
       }
@@ -2201,7 +2211,7 @@ function openGeneric(html,after){
   });
   try{after?.()}catch(err){console.error("Modal başlatma hatası:",err)}
 }
-function switchView(name){const t=document.getElementById(`view-${name}`);if(!t)return;$$(".view").forEach(v=>v.classList.remove("active"));t.classList.add("active");$$("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="calendar")renderCalendar();if(name==="shifts")renderWorkPage();if(name==="eroland")renderMemories(activeMemoryFilter);if(name==="sport")renderSport();window.scrollTo(0,0)}
+function switchView(name){const t=document.getElementById(`view-${name}`);if(!t)return;$$(".view").forEach(v=>v.classList.remove("active"));t.classList.add("active");$$("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="calendar")renderCalendar();if(name==="shifts")renderWorkPage();if(name==="eroland")renderMemories(activeMemoryFilter);if(name==="sport")renderSport();if(name==="places")renderPlacesPage();window.scrollTo(0,0)}
 async function googleLogin(){
   const p=new GoogleAuthProvider();
   const msg=$("#authMessage");
@@ -2235,7 +2245,7 @@ function wire(){
   $("#memoryAddBtn")?.addEventListener("click",e=>{e.preventDefault();openMemoryForm(null)});
   $("#erolandQuickMemory")?.addEventListener("click",e=>{e.preventDefault();openMemoryForm(null)});
   $("#erolandQuickMonth")?.addEventListener("click",e=>{e.preventDefault();$("#monthReplayBtn")?.click()});
-  $("#erolandQuickPlace")?.addEventListener("click",e=>{e.preventDefault();openPlaceForm()});
+  $("#erolandQuickPlace")?.addEventListener("click",e=>{e.preventDefault();openPlaceEditor()});
 
   $$(".close-dialog").forEach(b=>{
     b.onclick=()=>b.closest("dialog")?.close();
@@ -2415,11 +2425,11 @@ function memoriesForPlace(p){
 }
 function placeFirstVisit(p){
   const linked=memoriesForPlace(p).map(m=>m.date).filter(Boolean).sort();
-  return p.firstVisit||linked[0]||"";
+  return p?.firstVisit||linked[0]||"";
 }
 function placeVisitCount(p){
   const unique=new Set(memoriesForPlace(p).map(m=>m.date).filter(Boolean)).size;
-  return Math.max(Number(p.visitCount)||0,unique);
+  return Math.max(Number(p?.visitCount)||0,unique);
 }
 function placeRatingStars(p){
   const r=Math.max(0,Math.min(5,Number(p.rating)||0));
@@ -2687,7 +2697,7 @@ document.addEventListener("click",e=>{
 
 
 
-console.log("E.log stable build: 20260831-calendar-memories-v1");
+console.log("E.log stable build: 20260901-places-nullsafe-fix");
 
 
 /* ===== PWA INSTALL UX ===== */

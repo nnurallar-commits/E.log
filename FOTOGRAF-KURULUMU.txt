@@ -1,0 +1,14 @@
+E.log FOTOĞRAF SİSTEMİ — TEK SEFERLİK KURULUM
+
+Bu sürüm fotoğrafları yalnızca Firebase Storage'a kaydeder.
+GitHub Pages'e ZIP'i yüklemek Storage güvenlik kurallarını yayınlamaz.
+Bu nedenle Firebase Cloud Shell'de proje klasöründe BİR KEZ şu komutu çalıştır:
+
+firebase deploy --project e-log-2f316 --only storage
+
+veya setup-cloudshell.sh dosyasını yeniden çalıştır. Bu sürümde script Storage kurallarını da deploy eder.
+
+Bundan sonra yeni anı: önce fotoğraf Storage'a yüklenir -> URL alınır -> anı Firestore'a kaydedilir.
+Yükleme başarısızsa anı hiç oluşturulmaz. Böylece boş fotoğraf kartı oluşmaz.
+
+Not: Daha önce tarayıcıya blob URL olarak kaydedilmiş ve asıl dosyası kaybolmuş eski fotoğraflar kodla geri üretilemez. Düzenle > fotoğrafı bir kez yeniden seçmek gerekir.

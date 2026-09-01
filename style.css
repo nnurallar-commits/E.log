@@ -3940,3 +3940,12 @@ html[data-season="winter"] body:after{
 .memory-card-gallery.count-5 .memory-gallery-media:nth-child(2){grid-column:3}.memory-card-gallery.count-5 .memory-gallery-media:nth-child(n+3){grid-column:auto}
 .memory-card-gallery video{pointer-events:none}
 @media(max-width:560px){.memory-card-gallery{aspect-ratio:1.08/1}.memory-card{overflow:hidden}.memory-card-body{padding-top:18px!important}}
+
+
+/* ===== 2026-08-31 STRICT CLOUD PHOTO FIX ===== */
+.memory-card-gallery:empty{display:none!important}
+.memory-cover-wrap.memory-media-unavailable{min-height:0!important;height:auto!important;padding:0!important;background:transparent!important}
+.memory-cover-wrap.memory-media-unavailable .memory-heart{position:static!important;display:inline-flex!important;margin:12px 16px 0!important}
+.memory-cover-wrap:not(:has(.memory-card-gallery)):has(.memory-heart){min-height:0}
+.memory-gallery-media[data-media-broken="1"],.memory-cover[data-media-broken="1"]{display:none!important}
+.memory-upload-status{font-size:.82rem;color:var(--muted)}

@@ -33,8 +33,8 @@ VAPID_PRIVATE=$(printf "%s" "$VAPID_JSON" | node -e 'let s="";process.stdin.on("
 printf "%s" "$VAPID_PUBLIC" | firebase functions:secrets:set VAPID_PUBLIC_KEY --project "$PROJECT"
 printf "%s" "$VAPID_PRIVATE" | firebase functions:secrets:set VAPID_PRIVATE_KEY --project "$PROJECT"
 
-echo "5/5 Firestore kuralları + GPT + bildirim backend'i yayınlanıyor"
-firebase deploy --project "$PROJECT" --only firestore:rules,functions
+echo "5/5 Firestore + Storage kuralları + GPT + bildirim backend'i yayınlanıyor"
+firebase deploy --project "$PROJECT" --only firestore:rules,storage,functions
 
 echo
 echo "✅ E.log backend hazır."
