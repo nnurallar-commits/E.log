@@ -1214,8 +1214,8 @@ function renderWorkPage(){
   if(!shiftList && !overtimeList)return;
 
   const now=Date.now();
-  const shiftSorted=[...shifts].filter(x=>x?.startDate).sort((a,b)=>workDateValue(b.startDate,b.startTime||"08:30")-workDateValue(a.startDate,a.startTime||"08:30"));
-  const overtimeSorted=[...overtimeEntries()].filter(x=>x?.date).sort((a,b)=>workDateValue(b.date,b.time||"00:00")-workDateValue(a.date,a.time||"00:00"));
+  const shiftSorted=[...shifts].filter(x=>x?.startDate).sort((a,b)=>workDateValue(a.startDate,a.startTime||"08:30")-workDateValue(b.startDate,b.startTime||"08:30"));
+  const overtimeSorted=[...overtimeEntries()].filter(x=>x?.date).sort((a,b)=>workDateValue(a.date,a.time||"00:00")-workDateValue(b.date,b.time||"00:00"));
 
   const candidates=[];
   shiftSorted.forEach(sh=>{const t=workDateValue(sh.startDate,sh.startTime||"08:30");if(Number.isFinite(t)&&t>=now)candidates.push({t,title:"☾ Nöbet",meta:`${formatDateTR(sh.startDate)} · 08:30 → ertesi gün 08:30`})});
