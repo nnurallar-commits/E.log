@@ -1456,7 +1456,7 @@ async function saveLocalMedia(file){
 }
 async function getLocalMedia(id){const dbx=await openMemoryDb();return new Promise((resolve,reject)=>{const req=dbx.transaction(MEMORY_STORE).objectStore(MEMORY_STORE).get(id);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)})}
 async function deleteLocalMedia(id){if(!id)return;try{const dbx=await openMemoryDb();await new Promise((resolve,reject)=>{const tx=dbx.transaction(MEMORY_STORE,"readwrite");tx.objectStore(MEMORY_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}catch{}}
-async function imageFileToCompressedDataUrl(file,maxChars=780000){
+async function imageFileToCompressedDataUrl(file,maxChars=620000){
   if(!file?.type?.startsWith("image/"))throw new Error("Bu yöntem yalnızca fotoğraf için kullanılabilir.");
   const bitmap=await createImageBitmap(file);
   let w=bitmap.width,h=bitmap.height;
@@ -1466,7 +1466,7 @@ async function imageFileToCompressedDataUrl(file,maxChars=780000){
   let ctx=canvas.getContext("2d",{alpha:false});ctx.drawImage(bitmap,0,0,w,h);bitmap.close?.();
   let quality=.82,data=canvas.toDataURL("image/jpeg",quality);
   while(data.length>maxChars&&quality>.5){quality-=.08;data=canvas.toDataURL("image/jpeg",quality)}
-  if(data.length>900000)throw new Error("Fotoğraf bulut yedeği için çok büyük.");
+  if(data.length>700000)throw new Error("Fotoğraf bulut yedeği için çok büyük.");
   return data;
 }
 const firestoreMediaCache=new Map();
@@ -1539,8 +1539,19 @@ async function uploadMedia(memoryId,files){
     const unique=`${Date.now()}-${i}-${uuid()}-${cleanName}`;
     const r=storageRef(storage,`pairs/${pairId()}/memories/${memoryId}/${unique}`);
     try{
-      const snap=await uploadBytes(r,file,{contentType:file.type||undefined,customMetadata:{memoryId,owner:currentUser.uid}});
-      const url=await getDownloadURL(snap.ref);
+      // iOS/Safari'de Firebase Storage isteği bazen ne başarılı ne hatalı dönüp
+      // sonsuza kadar bekleyebiliyor. Beklemeyi sınırlayıp Firestore yedeğine düş.
+      const snap=await Promise.race([
+        uploadBytes(r,file,{contentType:file.type||undefined,customMetadata:{memoryId,owner:currentUser.uid}}),
+        new Promise((_,reject)=>setTimeout(()=>{
+          const e=new Error("Storage yüklemesi zaman aşımına uğradı");
+          e.code="storage/timeout"; reject(e);
+        },12000))
+      ]);
+      const url=await Promise.race([
+        getDownloadURL(snap.ref),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error("İndirme bağlantısı zaman aşımına uğradı")),8000))
+      ]);
       if(!url||!/^https:\/\//i.test(url))throw new Error("Storage indirme bağlantısı üretmedi.");
       out.push({url,type:file.type.startsWith("video/")?"video":"image",name:file.name||"dosya",storagePath:snap.ref.fullPath});
     }catch(err){
@@ -1766,7 +1777,7 @@ function openMemoryForm(existing=null){
         const title=$("#memoryTitle",content).value.trim();
         if(!title){msg.textContent="Başlık yazmalısın.";$("#memoryTitle",content).focus();submit.disabled=false;return}
         const selected=[...$("#memoryMedia",content).files].slice(0,6);
-        if(selected.length) msg.textContent="Fotoğraflar kalıcı olarak kaydediliyor...";
+        if(selected.length) msg.textContent="Fotoğraflar yükleniyor… Bu işlem en fazla birkaç saniye sürecek.";
         // Tek medya kaynağı: Firebase Storage. Yükleme tamamlanmadan anı oluşturulmaz.
         let newMedia=[];
         if(selected.length){newMedia=await uploadMedia(id,selected);}
