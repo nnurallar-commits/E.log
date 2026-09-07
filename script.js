@@ -103,7 +103,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
-import { getFirestore, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { getFirestore, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-functions.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js";
 
@@ -129,7 +129,76 @@ const EMOJI_KEY="elog-day-emojis-v2";
 const NOTES_KEY="elog-day-notes-v1";
 const PLACES_KEY="elog-our-places-v1";
 const DELETED_MEMORY_KEY="elog-deleted-memories-v1";
+const CANONICAL_PAIR_ID="elog-nisu-erol-2026";
 function sharedLocalKey(base){return `${base}-${pairId()}`}
+
+function mergeArrayById(a=[],b=[]){
+  const m=new Map();
+  [...a,...b].forEach(x=>{if(!x)return;const k=x.id||JSON.stringify(x);m.set(k,x)});
+  return [...m.values()];
+}
+function migrateLocalSharedCachesToCanonical(){
+  const mergeObjectPrefix=(base)=>{
+    const merged={};
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const k=localStorage.key(i);
+        if(!k||!(k===base||k.startsWith(base+"-")))continue;
+        try{const v=JSON.parse(localStorage.getItem(k)||"{}");if(v&&typeof v==="object"&&!Array.isArray(v))Object.assign(merged,v)}catch{}
+      }
+      localStorage.setItem(`${base}-${CANONICAL_PAIR_ID}`,JSON.stringify(merged));
+    }catch{}
+  };
+  const mergeArrayPrefix=(base)=>{
+    let merged=[];
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const k=localStorage.key(i);
+        if(!k||!(k===base||k.startsWith(base+"-")))continue;
+        try{const v=JSON.parse(localStorage.getItem(k)||"[]");if(Array.isArray(v))merged=mergeArrayById(merged,v)}catch{}
+      }
+      localStorage.setItem(`${base}-${CANONICAL_PAIR_ID}`,JSON.stringify(merged));
+    }catch{}
+  };
+  mergeObjectPrefix(EMOJI_KEY);
+  mergeObjectPrefix(NOTES_KEY);
+  mergeArrayPrefix(PLACES_KEY);
+}
+async function readPairSnapshot(oldPairId){
+  if(!db||!oldPairId||oldPairId===CANONICAL_PAIR_ID)return null;
+  const out={collections:{},shared:{}};
+  for(const name of ["entries","shifts","routines","memories","rules","sportMetrics","memoryMedia"]){
+    try{const snap=await getDocs(collection(db,"pairs",oldPairId,name));out.collections[name]=snap.docs.map(d=>({id:d.id,...d.data()}))}catch(e){console.warn("Eski pair okunamadı",name,e);out.collections[name]=[]}
+  }
+  for(const name of ["dayEmojis","dayNotes","ourPlaces"]){
+    try{const snap=await getDoc(doc(db,"pairs",oldPairId,"shared",name));out.shared[name]=snap.exists()?snap.data():null}catch(e){console.warn("Eski ortak kayıt okunamadı",name,e);out.shared[name]=null}
+  }
+  return out;
+}
+async function migratePairSnapshotToCanonical(snapshot){
+  if(!snapshot||!db)return;
+  for(const [name,items] of Object.entries(snapshot.collections||{})){
+    for(const item of items||[]){
+      const {id,...data}=item;if(!id)continue;
+      try{await setDoc(doc(db,"pairs",CANONICAL_PAIR_ID,name,id),data,{merge:true})}catch(e){console.warn("Pair taşıma yazma hatası",name,id,e)}
+    }
+  }
+  for(const name of ["dayEmojis","dayNotes","ourPlaces"]){
+    const oldData=snapshot.shared?.[name];if(!oldData)continue;
+    const target=doc(db,"pairs",CANONICAL_PAIR_ID,"shared",name);
+    try{
+      const cur=await getDoc(target);const curData=cur.exists()?cur.data():{};
+      if(name==="ourPlaces"){
+        const merged=mergeArrayById(curData.values||curData.value||[],oldData.values||oldData.value||[]);
+        await setDoc(target,{values:merged,updatedAt:serverTimestamp()},{merge:false});
+      }else{
+        const merged={...(curData.values||curData.value||{}),...(oldData.values||oldData.value||{})};
+        await setDoc(target,{values:merged,updatedAt:serverTimestamp()},{merge:false});
+      }
+    }catch(e){console.warn("Ortak kayıt taşıma hatası",name,e)}
+  }
+}
+
 
 const defaultRules=[
   {id:"rule-aquarium",name:"Pazartesi akvaryum",type:"weekday",weekday:1,action:"Şans'ın akvaryumunu temizle",active:true},
@@ -298,73 +367,49 @@ async function handleAuth(user){
 }
 async function ensureProfile(user){
   let data = null;
-
-  // 1) Önce Firestore'dan oku
   try{
     const snap = await getDoc(doc(db,"users",user.uid));
-    if(snap.exists()){
-      data = snap.data();
-    }
-  }catch(e){
-    console.warn("Firestore profil okunamadı:", e);
-  }
+    if(snap.exists()) data = snap.data();
+  }catch(e){console.warn("Firestore profil okunamadı:", e)}
 
-  // 2) Firestore boşsa telefondaki eski profili kullan
   if(!data){
-    try{
-      data = JSON.parse(
-        localStorage.getItem("elog-profile-" + user.uid) || "null"
-      );
-    }catch(e){
-      data = null;
-    }
+    try{data = JSON.parse(localStorage.getItem("elog-profile-" + user.uid) || "null")}catch{data=null}
   }
-
-  // 3) Hiç profil yoksa ilk kurulum ekranını aç
   if(!data){
     await firstSetup(user);
     data = profile;
   }
+  if(!data) throw new Error("E.log profili oluşturulamadı.");
 
-  if(!data){
-    throw new Error("E.log profili oluşturulamadı.");
+  const oldPairId=data.pairId||user.uid;
+  let legacySnapshot=null;
+  if(oldPairId!==CANONICAL_PAIR_ID){
+    legacySnapshot=await readPairSnapshot(oldPairId);
   }
 
-  // 4) pairId boş kalmasın
-  profile = {
+  profile={
     ...data,
-    name: data.name || user.displayName || "Erol",
-    pairId: data.pairId || user.uid
+    name:data.name||user.displayName||"Erol",
+    pairId:CANONICAL_PAIR_ID
   };
+  migrateLocalSharedCachesToCanonical();
+  localStorage.setItem("elog-profile-"+user.uid,JSON.stringify(profile));
 
-  localStorage.setItem(
-    "elog-profile-" + user.uid,
-    JSON.stringify(profile)
-  );
+  await setDoc(doc(db,"users",user.uid),{
+    ...profile,
+    uid:user.uid,
+    email:user.email||"",
+    displayName:user.displayName||"",
+    photoURL:user.photoURL||"",
+    pairId:CANONICAL_PAIR_ID,
+    pairMigration:"20260907-v1",
+    updatedAt:serverTimestamp()
+  },{merge:true});
 
-  // 5) EN ÖNEMLİ KISIM:
-  // Firestore'da users/{uid} belgesini mutlaka oluştur / güncelle
-  try{
-    await setDoc(
-      doc(db,"users",user.uid),
-      {
-        ...profile,
-        uid: user.uid,
-        email: user.email || "",
-        displayName: user.displayName || "",
-        photoURL: user.photoURL || "",
-        updatedAt: serverTimestamp()
-      },
-      { merge:true }
-    );
-
-    markSync("● bağlandı");
-  }catch(e){
-    console.error("Firestore kullanıcı kaydı oluşturulamadı:", e);
-    markSync("○ cihazda");
-    throw e;
-  }
+  if(legacySnapshot) await migratePairSnapshotToCanonical(legacySnapshot);
+  markSync("● eşleşti");
 }
+
 function firstSetup(user){
   return new Promise(resolve=>{
     openGeneric(`<div class="modal-head"><h3>E.log'a hoş geldin 🌿</h3></div>
@@ -375,7 +420,7 @@ function firstSetup(user){
       $("#firstSetupForm").onsubmit=async e=>{
         e.preventDefault();const role=$("#setupRole").value,pair=$("#setupPair").value.trim();
         if(role==="partner"&&!pair)return;
-        profile={name:role==="owner"?"Erol":"Nilsu",role,pairId:role==="owner"?user.uid:pair};
+        profile={name:role==="owner"?"Erol":"Nilsu",role,pairId:CANONICAL_PAIR_ID};
         localStorage.setItem("elog-profile-"+user.uid,JSON.stringify(profile));
         try{
           await setDoc(
@@ -2504,17 +2549,9 @@ function openPlaceEditor(id=null){
         <option value="special" ${p?.category==="special"?"selected":""}>✦ Özel</option>
         <option value="other" ${p?.category==="other"?"selected":""}>📍 Diğer</option>
       </select></label>
-
-      <div class="place-map-box">
-        <div>
-          <strong>📍 Konum</strong>
-          <small>Koordinatla uğraşma. İstersen konumunu tek tuşla ekle, istemezsen yer adı veya adres yeterli.</small>
-        </div>
-        <button id="useMyLocationBtn" type="button">${autoLat!=null&&autoLng!=null?"✓ Konum eklendi":"Konumumu kullan"}</button>
-      </div>
-
+      <div class="place-map-box"><div><strong>📍 Konum</strong><small>Harita açılmasa bile yer adı ve adresle kaydedebilirsin.</small></div><button id="useMyLocationBtn" type="button">${autoLat!=null&&autoLng!=null?"✓ Konum eklendi":"Konumumu kullan"}</button></div>
       <label>Adres / yer ara<div class="place-search-row"><input id="placeAddress" value="${safe(p?.address||"")}" placeholder="Örn: Alaçatı, İzmir veya mekan adı"><button id="searchPlaceBtn" type="button">Haritada ara</button></div></label>
-      <div class="place-picker-wrap"><div id="placePickerMap" aria-label="Haritadan konum seç"></div><small>Haritada istediğin noktaya dokun. Bulunduğun yerde olman gerekmiyor.</small></div>
+      <div class="place-picker-wrap"><div id="placePickerMap" aria-label="Haritadan konum seç"></div><small>Harita yüklenemezse kayıt yine çalışır.</small></div>
       <div class="place-editor-meta"><label>İlk gidiş<input id="placeFirstVisit" type="date" value="${safe(p?.firstVisit||placeFirstVisit(p)||"")}"></label><label>Kaç kez gittik?<input id="placeVisitCount" type="number" min="0" max="999" value="${safe(p?.visitCount??placeVisitCount(p)??0)}"></label></div>
       <label>Favori puanı<select id="placeRating"><option value="0">Puan verme</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${Number(p?.rating)===n?"selected":""}>${"★".repeat(n)}${"☆".repeat(5-n)}</option>`).join("")}</select></label>
       <label>Mekan fotoğrafı<input id="placePhoto" type="file" accept="image/*"><small class="field-hint">İstersen mekan kartının kapak fotoğrafını seç.</small></label><div id="placePhotoPreview" class="place-photo-preview">${p?.photo?placePhotoHtml(p,"place-editor-photo"):""}</div>
@@ -2523,82 +2560,125 @@ function openPlaceEditor(id=null){
       <button id="savePlaceBtn" class="primary-btn full" type="button">${p?"Kaydet":"Haritaya ekle"}</button>
     </div>
   `,()=>{
+    const root=$("#genericContent");
+    if(!root)return;
+    const q=s=>$(s,root);
     let map=null,marker=null;
+    const msg=q("#placeLocationMessage");
+
     const setPickedPoint=(lat,lng,message="✓ Konum seçildi")=>{
-      autoLat=Number(Number(lat).toFixed(6));autoLng=Number(Number(lng).toFixed(6));
-      if(map&&window.L){if(marker)marker.setLatLng([autoLat,autoLng]);else marker=window.L.marker([autoLat,autoLng]).addTo(map);map.setView([autoLat,autoLng],Math.max(map.getZoom(),15))}
-      $("#placeLocationMessage").textContent=message;
-    };
-    if(window.L){
-      map=window.L.map("placePickerMap").setView(autoLat!=null&&autoLng!=null?[autoLat,autoLng]:[38.4237,27.1428],autoLat!=null&&autoLng!=null?15:10);
-      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
-      if(autoLat!=null&&autoLng!=null)marker=window.L.marker([autoLat,autoLng]).addTo(map);
-      map.on("click",async ev=>{setPickedPoint(ev.latlng.lat,ev.latlng.lng,"✓ Haritadan seçildi");try{const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${ev.latlng.lat}&lon=${ev.latlng.lng}&accept-language=tr`);const data=await res.json();if(data?.display_name&&!$("#placeAddress").value.trim())$("#placeAddress").value=data.display_name}catch(_){}});
-      setTimeout(()=>map.invalidateSize(),100);
-    }else $("#placeLocationMessage").textContent="Harita yüklenemedi. Adres yazarak yine kaydedebilirsin.";
-    $("#searchPlaceBtn").onclick=async()=>{
-      const q=($("#placeAddress").value||$("#placeName").value||"").trim();
-      if(!q){$("#placeLocationMessage").textContent="Önce yer adı veya adres yaz.";return}
-      const msg=$("#placeLocationMessage");msg.textContent="Yer aranıyor…";
-      try{const res=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=tr&q=${encodeURIComponent(q)}`);const rows=await res.json();if(!rows?.length){msg.textContent="Yer bulunamadı. Daha açık bir adres yaz veya haritadan seç.";return}setPickedPoint(rows[0].lat,rows[0].lon,"✓ Yer bulundu ve seçildi")}catch(_){msg.textContent="Arama açılamadı. Haritadan dokunarak seçebilirsin."}
-    };
-    $("#useMyLocationBtn").onclick=()=>{
-      const msg=$("#placeLocationMessage");
-      const btn=$("#useMyLocationBtn");
-      if(!navigator.geolocation){msg.textContent="Konum alınamıyor, sorun değil. Yer adı veya adresle kaydedebilirsin.";return}
-      msg.textContent="Konum alınıyor…";
-      navigator.geolocation.getCurrentPosition(pos=>{
-        setPickedPoint(pos.coords.latitude,pos.coords.longitude,"✓ Mevcut konumun seçildi");
-        btn.textContent="✓ Konum eklendi";
-      },()=>{
-        msg.textContent="Konum izni verilmedi. Sorun değil, yer adı veya adres yeterli.";
-      },{enableHighAccuracy:true,timeout:10000});
+      autoLat=Number(Number(lat).toFixed(6));
+      autoLng=Number(Number(lng).toFixed(6));
+      if(msg)msg.textContent=message;
+      try{
+        if(map&&window.L){
+          if(marker)marker.setLatLng([autoLat,autoLng]);
+          else marker=window.L.marker([autoLat,autoLng]).addTo(map);
+          map.setView([autoLat,autoLng],Math.max(map.getZoom(),15));
+        }
+      }catch(err){console.warn("Yer işaretçisi güncellenemedi:",err)}
     };
 
-    hydrateMemoryMedia($("#genericContent"));
-    $("#placePhoto")?.addEventListener("change",()=>{
-      const file=$("#placePhoto").files?.[0],box=$("#placePhotoPreview");
+    // Önce temel kontrolleri bağla. Harita hata verse bile kayıt butonu çalışır.
+    q("#placePhoto")?.addEventListener("change",()=>{
+      const file=q("#placePhoto")?.files?.[0],box=q("#placePhotoPreview");
       if(!file||!box)return;
       if(!file.type.startsWith("image/")){box.innerHTML="<small>Sadece fotoğraf seçebilirsin.</small>";return}
-      const url=URL.createObjectURL(file);box.innerHTML=`<img class="place-editor-photo" src="${url}" alt="Önizleme">`;
-      box.querySelector("img").onload=()=>setTimeout(()=>URL.revokeObjectURL(url),500);
+      const url=URL.createObjectURL(file);
+      box.innerHTML=`<img class="place-editor-photo" src="${url}" alt="Önizleme">`;
+      box.querySelector("img")?.addEventListener("load",()=>setTimeout(()=>URL.revokeObjectURL(url),500),{once:true});
     });
-    $("#savePlaceBtn").onclick=async()=>{
-      const name=$("#placeName").value.trim();
-      if(!name){$("#placeName").focus();return}
 
-      const photoFile=$("#placePhoto")?.files?.[0]||null;
-      let photo=p?.photo||null;
-      if(photoFile){
-        if(!photoFile.type.startsWith("image/")){alert("Mekan fotoğrafı için bir görsel seç.");return}
-        if(photoFile.size>20*1024*1024){alert("Mekan fotoğrafı en fazla 20 MB olabilir.");return}
-        try{photo=(await saveMediaImmediately([photoFile]))[0]||photo}catch(err){console.warn(err)}
+    q("#savePlaceBtn")?.addEventListener("click",async()=>{
+      const name=q("#placeName")?.value.trim()||"";
+      if(!name){q("#placeName")?.focus();if(msg)msg.textContent="Yer adını yaz.";return}
+      const btn=q("#savePlaceBtn");
+      if(btn){btn.disabled=true;btn.textContent="Kaydediliyor…"}
+      try{
+        const photoFile=q("#placePhoto")?.files?.[0]||null;
+        let photo=p?.photo||null;
+        if(photoFile){
+          if(!photoFile.type.startsWith("image/"))throw new Error("Mekan fotoğrafı için bir görsel seç.");
+          if(photoFile.size>20*1024*1024)throw new Error("Mekan fotoğrafı en fazla 20 MB olabilir.");
+          try{photo=(await saveMediaImmediately([photoFile]))[0]||photo}catch(err){console.warn("Yer fotoğrafı cihaz kaydına alınamadı:",err)}
+        }
+        const item={
+          id:p?.id||uuid(),name,
+          category:q("#placeCategory")?.value||"other",
+          address:q("#placeAddress")?.value.trim()||"",
+          note:q("#placeNote")?.value.trim()||"",
+          firstVisit:q("#placeFirstVisit")?.value||"",
+          visitCount:Math.max(0,Number(q("#placeVisitCount")?.value)||0),
+          rating:Math.max(0,Math.min(5,Number(q("#placeRating")?.value)||0)),
+          photo,
+          lat:autoLat!=null?autoLat:null,
+          lng:autoLng!=null?autoLng:null,
+          createdAt:p?.createdAt||Date.now(),updatedAt:Date.now()
+        };
+        if(p){const i=ourPlaces.findIndex(x=>x.id===p.id);if(i>=0)ourPlaces[i]=item;else ourPlaces.push(item)}
+        else ourPlaces.push(item);
+        saveLocal();
+        renderPlacesPage();
+        try{$("#genericDialog")?.close()}catch{$("#genericDialog")?.removeAttribute("open")}
+        syncOurPlaces().catch?.(()=>{});
+        if(photoFile)syncPlacePhotoInBackground(item.id,photoFile,photo);
+      }catch(err){
+        console.error("Yer kaydedilemedi:",err);
+        if(msg)msg.textContent=err?.message||"Yer kaydedilemedi.";
+        if(btn){btn.disabled=false;btn.textContent=p?"Kaydet":"Haritaya ekle"}
       }
-      const item={
-        id:p?.id||uuid(),name,
-        category:$("#placeCategory").value,
-        address:$("#placeAddress").value.trim(),
-        note:$("#placeNote").value.trim(),
-        firstVisit:$("#placeFirstVisit")?.value||"",
-        visitCount:Math.max(0,Number($("#placeVisitCount")?.value)||0),
-        rating:Math.max(0,Math.min(5,Number($("#placeRating")?.value)||0)),
-        photo,
-        lat:autoLat!=null?autoLat:null,
-        lng:autoLng!=null?autoLng:null,
-        createdAt:p?.createdAt||Date.now(),updatedAt:Date.now()
-      };
+    });
 
-      if(p){const i=ourPlaces.findIndex(x=>x.id===p.id);ourPlaces[i]=item}
-      else ourPlaces.push(item);
+    q("#useMyLocationBtn")?.addEventListener("click",()=>{
+      const btn=q("#useMyLocationBtn");
+      if(!navigator.geolocation){if(msg)msg.textContent="Konum kullanılamıyor. Adresle kaydedebilirsin.";return}
+      if(msg)msg.textContent="Konum alınıyor…";
+      navigator.geolocation.getCurrentPosition(pos=>{
+        setPickedPoint(pos.coords.latitude,pos.coords.longitude,"✓ Mevcut konumun seçildi");
+        if(btn)btn.textContent="✓ Konum eklendi";
+      },()=>{if(msg)msg.textContent="Konum izni verilmedi. Adresle kaydedebilirsin."},{enableHighAccuracy:true,timeout:10000});
+    });
 
-      saveLocal();
-      renderPlacesPage();
-      try{$("#genericDialog").close()}catch{}
-      syncOurPlaces();
-      if(photoFile)syncPlacePhotoInBackground(item.id,photoFile,photo);
-    };
+    q("#searchPlaceBtn")?.addEventListener("click",async()=>{
+      const query=(q("#placeAddress")?.value||q("#placeName")?.value||"").trim();
+      if(!query){if(msg)msg.textContent="Önce yer adı veya adres yaz.";return}
+      if(msg)msg.textContent="Yer aranıyor…";
+      try{
+        const res=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=tr&q=${encodeURIComponent(query)}`);
+        if(!res.ok)throw new Error("Arama servisi yanıt vermedi");
+        const rows=await res.json();
+        if(!rows?.length){if(msg)msg.textContent="Yer bulunamadı. Adresi daha açık yaz.";return}
+        setPickedPoint(rows[0].lat,rows[0].lon,"✓ Yer bulundu ve seçildi");
+      }catch(err){console.warn(err);if(msg)msg.textContent="Harita araması açılamadı. Adresi yazarak yine kaydedebilirsin."}
+    });
+
+    // Harita tamamen opsiyonel. Başlatma hatası artık formu öldürmez.
+    requestAnimationFrame(()=>{
+      const mapNode=q("#placePickerMap");
+      if(!mapNode)return;
+      if(!window.L){if(msg&&!msg.textContent)msg.textContent="Harita yüklenemedi. Adresle kayıt çalışır.";return}
+      try{
+        if(mapNode._leaflet_id)mapNode._leaflet_id=null;
+        map=window.L.map(mapNode,{zoomControl:true}).setView(autoLat!=null&&autoLng!=null?[autoLat,autoLng]:[38.4237,27.1428],autoLat!=null&&autoLng!=null?15:10);
+        window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+        if(autoLat!=null&&autoLng!=null)marker=window.L.marker([autoLat,autoLng]).addTo(map);
+        map.on("click",async ev=>{
+          setPickedPoint(ev.latlng.lat,ev.latlng.lng,"✓ Haritadan seçildi");
+          try{
+            const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${ev.latlng.lat}&lon=${ev.latlng.lng}&accept-language=tr`);
+            const data=await res.json();
+            if(data?.display_name&&!q("#placeAddress")?.value.trim())q("#placeAddress").value=data.display_name;
+          }catch(_){}
+        });
+        setTimeout(()=>{try{map.invalidateSize()}catch{}},180);
+      }catch(err){
+        console.warn("Harita başlatılamadı ama yer formu çalışmaya devam ediyor:",err);
+        if(msg&&!msg.textContent)msg.textContent="Harita açılamadı. Yer adı/adres ile kaydedebilirsin.";
+      }
+    });
   });
 }
+
 document.addEventListener("click",e=>{
   if(e.target.closest?.("#ourPlacesBtn"))openOurPlaces();
 });
@@ -2697,7 +2777,7 @@ document.addEventListener("click",e=>{
 
 
 
-console.log("E.log stable build: 20260901-places-nullsafe-fix");
+console.log("E.log stable build: 20260907-cross-device-pair-sync-v1");
 
 
 /* ===== PWA INSTALL UX ===== */
