@@ -1466,11 +1466,22 @@ async function uploadMedia(memoryId,files){
       out.push({url,type:file.type.startsWith("video/")?"video":"image",name:file.name||"dosya",storagePath:snap.ref.fullPath});
     }catch(err){
       console.error("Firebase Storage yükleme hatası:",err);
+      // Storage bazı Firebase projelerinde storage/unknown döndürebiliyor. Fotoğrafı
+      // kaybetmek yerine Firestore'a sıkıştırılmış bulut yedeği olarak kaydet.
+      // Böylece anı diğer cihazlarda da görünür ve Storage düzeltilene kadar akış durmaz.
+      if(file.type.startsWith("image/")){
+        try{
+          const fallback=await savePhotoToFirestore(memoryId,file);
+          if(fallback){out.push(fallback);continue;}
+        }catch(fallbackErr){
+          console.error("Firestore fotoğraf yedeği de başarısız:",fallbackErr);
+        }
+      }
       const code=String(err?.code||"");
       if(code.includes("unauthorized")||code.includes("permission")){
-        throw new Error("Fotoğraf yükleme izni kapalı. ZIP içindeki storage.rules Firebase'e bir kez yayınlanmalı.");
+        throw new Error("Medya yükleme izni kapalı. Firebase Storage kurallarını yayınlayıp tekrar dene.");
       }
-      throw new Error(`Fotoğraf buluta yüklenemedi${err?.message?`: ${err.message}`:""}. Anı kaydedilmedi.`);
+      throw new Error(`Medya buluta yüklenemedi${err?.message?`: ${err.message}`:""}. Anı kaydedilmedi.`);
     }
   }
   return out;
@@ -1732,8 +1743,8 @@ function openMemoryActions(id){
     <div class="memory-modal-media">
       ${media.map(x=>
         x.type==="video"
-          ? `<video class="memory-media" controls playsinline ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""}></video>`
-          : `<img class="memory-media" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} alt="${safe(m.title||"Anı")}">`
+          ? `<video class="memory-media" controls playsinline ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.firestoreId?`data-firestore-media="${safe(x.firestoreId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""}></video>`
+          : `<img class="memory-media" ${x.localId?`data-local-media="${safe(x.localId)}"`:""} ${x.firestoreId?`data-firestore-media="${safe(x.firestoreId)}"`:""} ${x.url?`src="${safe(x.url)}"`:""} alt="${safe(m.title||"Anı")}">`
       ).join("")}
     </div>
 
