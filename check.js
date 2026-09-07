@@ -1335,11 +1335,13 @@ function renderMemories(filter="all"){
   if($("#erolandPlanCount")) $("#erolandPlanCount").textContent=planCount;
   if($("#erolandPlaceCount")) $("#erolandPlaceCount").textContent=(ourPlaces||[]).length;
 
+  // Anıları anının seçilen TARİHİNE göre sırala: en yeni tarih en üstte.
+  // Aynı tarihte olanlarda yalnızca sıralamayı sabitlemek için eklenme zamanı kullanılır.
   const list=memories
     .filter(m=>filter==="all"||m.type===filter)
     .sort((a,b)=>{
-      const byDate=String(b.date||"").localeCompare(String(a.date||""));
-      return byDate||memoryAddedStamp(b)-memoryAddedStamp(a);
+      const byDate=(b.date||"").localeCompare(a.date||"");
+      return byDate || (memoryAddedStamp(b)-memoryAddedStamp(a));
     });
 
   grid.innerHTML=list.length
