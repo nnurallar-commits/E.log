@@ -207,7 +207,13 @@ const defaultRules=[
 
 function uuid(){return crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random().toString(16).slice(2)}`}
 function pairId(){return profile?.pairId||currentUser?.uid||"local"}
-function markSync(t){if($("#syncBadge"))$("#syncBadge").textContent=t}
+function markSync(t){
+  const el=$("#syncBadge");if(!el)return;
+  const x=String(t||"");
+  if(/canlı|eşleşti|güncel/.test(x))el.textContent="● güncel";
+  else if(/bağlan|giriş/.test(x))el.textContent="● bağlanıyor";
+  else el.textContent="● cihazda kayıtlı";
+}
 function loadLocal(){
   const candidates=[];
 
@@ -1172,44 +1178,84 @@ function renderShiftMini(){
 }
 
 
+function workTimeMinutes(value){
+  const [h,m]=String(value||"00:00").split(":").map(Number);
+  return (Number.isFinite(h)?h:0)*60+(Number.isFinite(m)?m:0);
+}
+function workDateValue(date,time="00:00"){
+  if(!date)return Number.POSITIVE_INFINITY;
+  const d=new Date(`${date}T${time24(time||"00:00")}:00`);
+  return Number.isNaN(d.getTime())?Number.POSITIVE_INFINITY:d.getTime();
+}
+function workDayDiff(date,time="00:00"){
+  const target=workDateValue(date,time);if(!Number.isFinite(target))return null;
+  const now=new Date();
+  const start=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  const targetDate=new Date(target);const t0=new Date(targetDate.getFullYear(),targetDate.getMonth(),targetDate.getDate()).getTime();
+  return Math.round((t0-start)/86400000);
+}
+function workCountdownLabel(date,time="00:00"){
+  const d=workDayDiff(date,time);if(d===null)return "";
+  if(d<0)return "Tamamlandı";
+  if(d===0)return "Bugün";
+  if(d===1)return "Yarın";
+  return `${d} gün kaldı`;
+}
+function workDateParts(date){
+  const d=new Date(`${date}T12:00:00`);if(Number.isNaN(d.getTime()))return {day:"--",month:"",weekday:""};
+  return {
+    day:String(d.getDate()),
+    month:d.toLocaleDateString("tr-TR",{month:"short"}).replace(".","").toLocaleUpperCase("tr-TR"),
+    weekday:d.toLocaleDateString("tr-TR",{weekday:"short"}).replace(".","").toLocaleUpperCase("tr-TR")
+  };
+}
 function renderWorkPage(){
   const shiftList=$("#shiftPageList"), overtimeList=$("#overtimePageList");
   if(!shiftList && !overtimeList)return;
 
-  const now=new Date();
-  const shiftSorted=[...shifts].sort((a,b)=>(a.startDate||"").localeCompare(b.startDate||""));
-  const overtimeSorted=[...overtimeEntries()].sort((a,b)=>((a.date||"")+(a.time||"")).localeCompare((b.date||"")+(b.time||"")));
+  const now=Date.now();
+  const shiftSorted=[...shifts].filter(x=>x?.startDate).sort((a,b)=>workDateValue(b.startDate,b.startTime||"08:30")-workDateValue(a.startDate,a.startTime||"08:30"));
+  const overtimeSorted=[...overtimeEntries()].filter(x=>x?.date).sort((a,b)=>workDateValue(b.date,b.time||"00:00")-workDateValue(a.date,a.time||"00:00"));
 
   const candidates=[];
-  shiftSorted.forEach(sh=>{
-    const d=new Date(`${sh.startDate}T${time24(sh.startTime||"08:30")}:00`);
-    if(!Number.isNaN(d.getTime())&&d>=now)candidates.push({d,title:"🩻 Nöbet",meta:`${formatDateTR(sh.startDate)} · 08:30 → ertesi gün 08:30`});
-  });
-  overtimeSorted.forEach(e=>{
-    const d=new Date(`${e.date}T${time24(e.time||"00:00")}:00`);
-    if(!Number.isNaN(d.getTime())&&d>=now)candidates.push({d,title:"💼 Ekstra mesai",meta:`${formatDateTR(e.date)} · ${time24(e.time)}–${time24(e.endTime)}`});
-  });
-  const next=candidates.sort((a,b)=>a.d-b.d)[0];
-  if($("#shiftPageNext"))$("#shiftPageNext").textContent=next?next.title:"Yaklaşan çalışma yok";
-  if($("#shiftPageNextMeta"))$("#shiftPageNextMeta").textContent=next?next.meta:"Nöbet veya ekstra mesai ekleyebilirsin.";
+  shiftSorted.forEach(sh=>{const t=workDateValue(sh.startDate,sh.startTime||"08:30");if(Number.isFinite(t)&&t>=now)candidates.push({t,title:"☾ Nöbet",meta:`${formatDateTR(sh.startDate)} · 08:30 → ertesi gün 08:30`})});
+  overtimeSorted.forEach(e=>{const t=workDateValue(e.date,e.time||"00:00");if(Number.isFinite(t)&&t>=now)candidates.push({t,title:"＋ Ekstra mesai",meta:`${formatDateTR(e.date)} · ${time24(e.time)}–${time24(e.endTime)}`})});
+  const next=candidates.sort((a,b)=>a.t-b.t)[0];
+  if($("#shiftPageNext"))$("#shiftPageNext").textContent=next?next.title:"Takvim şu an boş";
+  if($("#shiftPageNextMeta"))$("#shiftPageNextMeta").textContent=next?next.meta:"Yeni nöbet veya ekstra mesai ekleyebilirsin.";
 
   if(shiftList){
-    shiftList.innerHTML=shiftSorted.length?shiftSorted.map(sh=>`<div class="panel-row work-record"><div><strong>🩻 ${safe(formatDateTR(sh.startDate))}</strong><small>08:30 → ertesi gün 08:30</small></div><button class="text-btn" data-page-delete-shift="${sh.id}" type="button">Sil</button></div>`).join(""):'<div class="empty">Henüz nöbet kaydı yok.</div>';
-    $$("[data-page-delete-shift]",shiftList).forEach(b=>b.onclick=async()=>{
-      const id=b.dataset.pageDeleteShift;shifts=shifts.filter(x=>x.id!==id);saveLocal();renderAll();renderWorkPage();
-      if(db)try{await deleteDoc(pairDoc("shifts",id))}catch(e){console.warn(e)}
+    shiftList.innerHTML=shiftSorted.length?shiftSorted.map(sh=>{
+      const p=workDateParts(sh.startDate), past=workDateValue(sh.endDate||sh.startDate,sh.endTime||"08:30")<now;
+      return `<div class="work-record ${past?"is-past":"is-upcoming"}">
+        <div class="work-date-badge"><b>${safe(p.day)}</b><span>${safe(p.month)}</span><small>${safe(p.weekday)}</small></div>
+        <div class="work-record-main"><span class="work-kind shift-kind">☾ NÖBET</span><strong>${safe(formatDateTR(sh.startDate))}</strong><small>08:30 → ertesi gün 08:30</small></div>
+        <div class="work-record-side"><span class="work-countdown">${safe(workCountdownLabel(sh.startDate,"08:30"))}</span><button class="work-delete" aria-label="Nöbeti sil" data-page-delete-shift="${safe(sh.id)}" type="button">×</button></div>
+      </div>`;
+    }).join(""):'<div class="empty">Henüz nöbet kaydı yok.</div>';
+    $$('[data-page-delete-shift]',shiftList).forEach(b=>b.onclick=async()=>{
+      const id=b.dataset.pageDeleteShift;if(!id)return;
+      shifts=shifts.filter(x=>x.id!==id);saveLocal();renderAll();renderWorkPage();
+      if(db&&currentUser)try{await deleteDoc(pairDoc("shifts",id));markSync("● güncel")}catch(e){console.warn("Nöbet buluttan silinemedi; cihaz kaydı korunuyor",e);markSync("● cihazda kayıtlı")}
     });
   }
 
   if(overtimeList){
-    overtimeList.innerHTML=overtimeSorted.length?overtimeSorted.map(e=>`<div class="panel-row work-record"><div><strong>💼 ${safe(formatDateTR(e.date))}</strong><small>${safe(time24(e.time))}–${safe(time24(e.endTime))}${e.note?` · ${safe(e.note)}`:""}</small></div><button class="text-btn" data-page-delete-overtime="${e.id}" type="button">Sil</button></div>`).join(""):'<div class="empty">Henüz ekstra mesai kaydı yok.</div>';
-    $$("[data-page-delete-overtime]",overtimeList).forEach(b=>b.onclick=async()=>{
-      const id=b.dataset.pageDeleteOvertime;entries=entries.filter(x=>x.id!==id);saveLocal();renderAll();renderWorkPage();
-      if(db)try{await deleteDoc(pairDoc("entries",id))}catch(e){console.warn(e)}
+    overtimeList.innerHTML=overtimeSorted.length?overtimeSorted.map(e=>{
+      const p=workDateParts(e.date), past=workDateValue(e.date,e.endTime||e.time||"23:59")<now;
+      return `<div class="work-record overtime-record ${past?"is-past":"is-upcoming"}">
+        <div class="work-date-badge"><b>${safe(p.day)}</b><span>${safe(p.month)}</span><small>${safe(p.weekday)}</small></div>
+        <div class="work-record-main"><span class="work-kind overtime-kind">＋ EKSTRA MESAİ</span><strong>${safe(formatDateTR(e.date))}</strong><small>${safe(time24(e.time))} → ${safe(time24(e.endTime))}${e.note?` · ${safe(e.note)}`:""}</small></div>
+        <div class="work-record-side"><span class="work-countdown">${safe(workCountdownLabel(e.date,e.time||"00:00"))}</span><button class="work-delete" aria-label="Mesaiyi sil" data-page-delete-overtime="${safe(e.id)}" type="button">×</button></div>
+      </div>`;
+    }).join(""):'<div class="empty">Henüz ekstra mesai kaydı yok.</div>';
+    $$('[data-page-delete-overtime]',overtimeList).forEach(b=>b.onclick=async()=>{
+      const id=b.dataset.pageDeleteOvertime;if(!id)return;
+      entries=entries.filter(x=>x.id!==id);saveLocal();renderAll();renderWorkPage();
+      if(db&&currentUser)try{await deleteDoc(pairDoc("entries",id));markSync("● güncel")}catch(e){console.warn("Mesai buluttan silinemedi; cihaz kaydı korunuyor",e);markSync("● cihazda kayıtlı")}
     });
   }
 }
-
 function setWorkTab(tab){
   const a=$("#shiftTabPanel"),b=$("#overtimeTabPanel");if(!a||!b)return;
   a.hidden=tab!=="shift";b.hidden=tab!=="overtime";
@@ -1229,13 +1275,16 @@ function wireWorkPage(){
     e.preventDefault();const date=$("#shiftPageDate").value;if(!date)return;
     if(shifts.some(x=>x.startDate===date)){if($("#shiftPageMsg"))$("#shiftPageMsg").textContent="Bu tarihte zaten nöbet kayıtlı.";return}
     const item={id:uuid(),startDate:date,startTime:"08:30",endDate:shiftEndDate(date),endTime:"08:30",type:"Tomografi",title:"Nöbet",createdBy:currentUser?.uid||"local",_pending:true};
-    shifts.push(item);saveLocal();renderAll();renderWorkPage();if($("#shiftPageMsg"))$("#shiftPageMsg").textContent="✓ Nöbet kaydedildi.";await cloudSave("shifts",item);
+    shifts.push(item);saveLocal();renderAll();renderWorkPage();if($("#shiftPageMsg"))$("#shiftPageMsg").textContent="✓ Kaydedildi.";await cloudSave("shifts",item);
   });
 
   $("#overtimePageForm")?.addEventListener("submit",async e=>{
     e.preventDefault();
-    const item={id:uuid(),date:$("#overtimePageDate").value,time:$("#overtimePageStart").value,endTime:$("#overtimePageEnd").value,title:"Ekstra mesai",note:$("#overtimePageNote").value.trim(),category:"work",kind:"overtime",done:false,createdBy:currentUser?.uid||"local",_pending:true};
-    entries.push(item);saveLocal();renderAll();renderWorkPage();if($("#overtimePageMsg"))$("#overtimePageMsg").textContent="✓ Ekstra mesai kaydedildi.";$("#overtimePageNote").value="";await cloudSave("entries",item);
+    const date=$("#overtimePageDate").value,start=$("#overtimePageStart").value,end=$("#overtimePageEnd").value;
+    if(!date||!start||!end){if($("#overtimePageMsg"))$("#overtimePageMsg").textContent="Tarih ve saatleri seç.";return}
+    if(workTimeMinutes(end)<=workTimeMinutes(start)){if($("#overtimePageMsg"))$("#overtimePageMsg").textContent="Bitiş saati başlangıçtan sonra olmalı.";return}
+    const item={id:uuid(),date,time:start,endTime:end,title:"Ekstra mesai",note:$("#overtimePageNote").value.trim(),category:"work",kind:"overtime",done:false,createdBy:currentUser?.uid||"local",_pending:true};
+    entries.push(item);saveLocal();renderAll();renderWorkPage();if($("#overtimePageMsg"))$("#overtimePageMsg").textContent="✓ Kaydedildi.";$("#overtimePageNote").value="";await cloudSave("entries",item);
   });
 
   document.addEventListener("click",e=>{
@@ -2820,7 +2869,11 @@ document.addEventListener("click",e=>{
 
 
 
-console.log("E.log stable build: 20260907-cross-device-pair-sync-v1");
+// Bağlantı geri geldiğinde bekleyen kayıtları sessizce yeniden dener.
+window.addEventListener("online",()=>{markSync("● bağlanıyor");flushPending().catch(()=>{});});
+window.addEventListener("offline",()=>markSync("● cihazda kayıtlı"));
+
+console.log("E.log stable build: 20260907-butter-modern-v1");
 
 
 /* ===== PWA INSTALL UX ===== */
