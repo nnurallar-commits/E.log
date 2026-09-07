@@ -4045,3 +4045,173 @@ html[data-theme="dark"] .work-record-main small{color:#aaa59b!important}
   .work-record{grid-template-columns:58px minmax(0,1fr) auto!important;gap:9px!important;padding:9px!important}
   .work-date-badge{height:62px}.work-countdown{font-size:10px;padding:6px 7px}.work-delete{width:28px;height:28px}.work-record-main small{max-width:155px}
 }
+
+/* =========================================================
+   E.LOG SOFT MONOCHROME + PASTEL DETAILS — 2026-09-07
+   Final visual override: no green / no serif / clean iOS-like UI
+   ========================================================= */
+:root{
+  --green:#202126!important;
+  --green-2:#202126!important;
+  --sage:#dbe8ff!important;
+  --sage-light:#eef4ff!important;
+  --cream:#f6f6f3!important;
+  --paper:#ffffff!important;
+  --ink:#17181c!important;
+  --muted:#767983!important;
+  --line:#e7e8e5!important;
+  --shadow:0 10px 30px rgba(24,26,31,.055)!important;
+  --elog-blue:#dceaff;
+  --elog-blue-strong:#a9c8ff;
+  --elog-yellow:#ffe8a6;
+  --elog-orange:#ffd9c4;
+  --elog-lilac:#e9e1ff;
+  --elog-soft:#f1f2ef;
+  --elog-charcoal:#17181c;
+}
+html,body,button,input,textarea,select,
+.topbar h1,.section-head h2,.section-head h3,.hero-card h2,.modal-card h2,.modal-card h3,
+.calendar-toolbar strong,.day-detail h3,.eroland-banner,.eroland-banner span,.auth-logo{
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+}
+html,body{background:#f6f6f3!important;color:#17181c!important}
+body{background:linear-gradient(180deg,#fafaf8 0,#f6f6f3 38%,#f2f3f0 100%)!important}
+.app-shell{max-width:800px!important}
+.topbar{padding-top:10px!important}
+.topbar h1{font-size:34px!important;font-weight:850!important;letter-spacing:-.055em!important;color:#17181c!important}
+.eyebrow{color:#8a8d95!important;font-weight:750!important;letter-spacing:.09em!important}
+
+/* home: clean white surfaces, color only in small details */
+.hero-card{
+  background:#fff!important;color:#17181c!important;border:1px solid #e7e8e5!important;
+  box-shadow:0 12px 34px rgba(24,26,31,.05)!important;border-radius:26px!important;
+}
+.hero-card h2{color:#17181c!important;font-weight:850!important;letter-spacing:-.045em!important}
+.hero-card p{color:#767983!important}
+.hero-card .tag{background:#eef4ff!important;color:#405775!important;border:0!important}
+.hero-card .primary-btn{background:#17181c!important;color:#fff!important}
+.productivity-strip,.love-widget-strip{gap:10px!important}
+.next-card,.section-block,.module-card,.timeline-item,.panel-row,.calendar-toolbar,.day-cell,.memory-card,.modal-card,.settings-list button,.stat,
+.work-panel,.sport-progress-card,.sport-history-card,.place-page-card,.place-card{
+  background:#fff!important;color:#17181c!important;border:1px solid #e7e8e5!important;box-shadow:none!important;
+}
+.next-card{border-radius:22px!important}
+.quick-actions button{background:#fff!important;border:1px solid #e7e8e5!important;box-shadow:none!important}
+.quick-actions button:nth-child(1){background:#fff7dc!important}
+.quick-actions button:nth-child(2){background:#eef4ff!important}
+.quick-actions button:nth-child(3){background:#f0ebff!important}
+.quick-actions button:nth-child(4){background:#fff0e8!important}
+.love-widget{background:#fff!important;border:1px solid #e7e8e5!important;box-shadow:none!important;border-radius:22px!important}
+.love-widget-days .love-widget-icon{background:#eef4ff!important;color:#42638e!important}
+.love-widget-today .love-widget-icon{background:#fff5d7!important;color:#8b6a12!important}
+.love-widget-season .love-widget-icon{background:#fff0e8!important;color:#9b5c3d!important}
+.smart-card{background:#eef4ff!important;border-color:#dce8f9!important;box-shadow:none!important}
+.smart-icon{background:#17181c!important;color:#fff!important}
+.module-card{border-radius:22px!important}
+.two-col .module-card:nth-child(1){background:#eef4ff!important}
+.two-col .module-card:nth-child(2){background:#f3efff!important}
+.two-col .module-card:nth-child(3){background:#fff3df!important}
+.primary-btn{background:#17181c!important;color:#fff!important;border-radius:15px!important}
+.primary-btn:not(.full){background:#17181c!important;color:#fff!important}
+.secondary-btn,.icon-btn{background:#fff!important;color:#17181c!important;border-color:#e7e8e5!important}
+.chip{background:#eef4ff!important;color:#405775!important}
+.text-btn{color:#17181c!important}
+
+/* calendar */
+.calendar-toolbar{border-radius:20px!important}
+.day-cell{border-radius:15px!important;transition:transform .12s ease,background .12s ease!important}
+.day-cell.selected{background:#e8f1ff!important;color:#17181c!important;border-color:#cbdcf5!important}
+.day-cell.today{outline:2px solid #17181c!important}
+.day-cell.today .day-number{background:#17181c!important;color:#fff!important;border-radius:8px;padding:2px 6px!important}
+.event-dots i,.status-dot,.status-dot.done{background:#a9c8ff!important}
+
+/* bottom nav */
+.bottom-nav{
+  background:rgba(255,255,255,.94)!important;border:1px solid #e7e8e5!important;
+  box-shadow:0 12px 34px rgba(24,26,31,.09)!important;border-radius:26px!important;
+}
+.nav-btn{color:#747780!important}
+.nav-btn.active{background:#eaf2ff!important;color:#17181c!important;font-weight:800!important}
+
+/* NÖBET + EKSTRA MESAİ: neutral cards with blue/orange identifiers */
+#view-shifts{--work-shift:#dceaff;--work-overtime:#ffd9c4}
+#view-shifts>.section-head h2{font-weight:850!important;color:#17181c!important}
+.work-hero{
+  background:#fff!important;color:#17181c!important;border:1px solid #e7e8e5!important;border-radius:24px!important;
+  box-shadow:none!important;padding:20px!important;
+}
+.work-hero:after{content:""!important;width:112px!important;height:112px!important;right:-28px!important;top:-36px!important;background:#dceaff!important;opacity:.88!important}
+.work-hero:before{content:"";position:absolute;width:54px;height:54px;border-radius:50%;right:58px;bottom:-22px;background:#ffe8a6;opacity:.8}
+.work-hero .tag{background:#f2f3f1!important;color:#5f6269!important;border:1px solid #e4e6e2!important}
+.work-hero h3{color:#17181c!important;font-weight:850!important;letter-spacing:-.035em!important}
+.work-hero p{color:#777a82!important}
+.work-tabs{background:#eff0ed!important;border:1px solid #e4e5e2!important;border-radius:18px!important}
+.work-tab{color:#6e7178!important}
+.work-tab.active{background:#fff!important;color:#17181c!important;box-shadow:0 2px 8px rgba(24,26,31,.06)!important}
+.rule-card{background:#f5f6f3!important;border-color:#e5e6e2!important;color:#17181c!important}
+.work-form{background:#fff!important;border:1px solid #e7e8e5!important;box-shadow:none!important}
+.work-form input,.work-form select{background:#f7f7f5!important;border-color:#e5e6e2!important;color:#17181c!important}
+.work-form .primary-btn.full{background:#17181c!important;color:#fff!important}
+.work-record{background:#fff!important;border:1px solid #e7e8e5!important;box-shadow:none!important;border-radius:20px!important}
+.work-record.is-past{opacity:.58!important;filter:none!important}
+.work-date-badge{background:#eef4ff!important;color:#17181c!important}
+.overtime-record .work-date-badge{background:#fff0e8!important}
+.shift-kind{background:#dceaff!important;color:#304b6e!important}
+.overtime-kind{background:#ffd9c4!important;color:#79452f!important}
+.work-countdown{background:#f2f3f1!important;color:#4f5259!important}
+.is-upcoming .work-countdown{background:#ffe8a6!important;color:#5c4916!important}
+.work-delete{background:#f2f3f1!important;color:#6f7279!important}
+.work-delete:hover{background:#17181c!important;color:#fff!important}
+.work-record-main strong{color:#17181c!important}
+.work-record-main small{color:#777a82!important}
+
+/* forms + dialogs */
+input,textarea,select{background:#fff!important;border-color:#e3e5e1!important;color:#17181c!important}
+input:focus,textarea:focus,select:focus{outline:2px solid rgba(169,200,255,.5)!important;border-color:#a9c8ff!important}
+.modal-card{border-radius:26px!important}
+
+/* dark mode: graphite, soft neutral, pastel accents; never green */
+html[data-theme="dark"]{
+  --green:#f5f5f3!important;--green-2:#b8cff3!important;--sage:#273143!important;--sage-light:#202a39!important;
+  --cream:#101113!important;--paper:#181a1e!important;--ink:#f3f4f6!important;--muted:#9ca0a9!important;--line:#292c31!important;
+  --bg:#101113!important;--surface:#181a1e!important;--card:#181a1e!important;--surface-2:#202329!important;--text:#f3f4f6!important;
+  background:#101113!important;color:#f3f4f6!important
+}
+html[data-theme="dark"] body{background:linear-gradient(180deg,#101113 0,#131519 100%)!important;color:#f3f4f6!important}
+html[data-theme="dark"] :is(.hero-card,.next-card,.section-block,.module-card,.timeline-item,.panel-row,.calendar-toolbar,.day-cell,.memory-card,.modal-card,.settings-list button,.stat,.work-panel,.sport-progress-card,.sport-history-card,.place-page-card,.place-card,.love-widget,.bottom-nav,.work-hero,.work-form,.work-record,.rule-card){background:#181a1e!important;color:#f3f4f6!important;border-color:#292c31!important;box-shadow:none!important}
+html[data-theme="dark"] :is(h1,h2,h3,h4,strong,.topbar h1){color:#f3f4f6!important}
+html[data-theme="dark"] :is(p,label,.muted,small,.eyebrow,.helper,.help,.description,[class*="hint"],[class*="desc"]){color:#9ca0a9!important}
+html[data-theme="dark"] :is(input,textarea,select){background:#202329!important;color:#f3f4f6!important;border-color:#30343a!important}
+html[data-theme="dark"] .hero-card .tag,html[data-theme="dark"] .work-hero .tag{background:#23262c!important;color:#c5d8f5!important;border-color:#30343a!important}
+html[data-theme="dark"] .hero-card .primary-btn,html[data-theme="dark"] .primary-btn{background:#f2f3f5!important;color:#17181c!important}
+html[data-theme="dark"] .quick-actions button{background:#1c1f24!important;border-color:#292c31!important}
+html[data-theme="dark"] .quick-actions button:nth-child(1){background:#2a271d!important}
+html[data-theme="dark"] .quick-actions button:nth-child(2){background:#1d2634!important}
+html[data-theme="dark"] .quick-actions button:nth-child(3){background:#282337!important}
+html[data-theme="dark"] .quick-actions button:nth-child(4){background:#30241f!important}
+html[data-theme="dark"] .love-widget-days .love-widget-icon{background:#1f2a3a!important;color:#aac8f5!important}
+html[data-theme="dark"] .love-widget-today .love-widget-icon{background:#2e291b!important;color:#f2d77e!important}
+html[data-theme="dark"] .love-widget-season .love-widget-icon{background:#30231f!important;color:#edb392!important}
+html[data-theme="dark"] .nav-btn{color:#9ca0a9!important}
+html[data-theme="dark"] .nav-btn.active{background:#202a39!important;color:#d8e7ff!important}
+html[data-theme="dark"] .work-hero:after{background:#26364d!important}
+html[data-theme="dark"] .work-hero:before{background:#4b4325!important}
+html[data-theme="dark"] .work-tabs{background:#14161a!important;border-color:#292c31!important}
+html[data-theme="dark"] .work-tab.active{background:#25282e!important;color:#f3f4f6!important}
+html[data-theme="dark"] .work-date-badge{background:#1f2a3a!important;color:#dceaff!important}
+html[data-theme="dark"] .overtime-record .work-date-badge{background:#30231f!important;color:#ffd9c4!important}
+html[data-theme="dark"] .shift-kind{background:#26364d!important;color:#cfe1ff!important}
+html[data-theme="dark"] .overtime-kind{background:#432d24!important;color:#ffd9c4!important}
+html[data-theme="dark"] .work-countdown{background:#23262c!important;color:#c9ccd2!important}
+html[data-theme="dark"] .is-upcoming .work-countdown{background:#3d361f!important;color:#ffe8a6!important}
+html[data-theme="dark"] .work-record-main strong{color:#f3f4f6!important}
+html[data-theme="dark"] .work-record-main small{color:#9ca0a9!important}
+html[data-theme="dark"] .day-cell.selected{background:#202a39!important;color:#f3f4f6!important;border-color:#35445b!important}
+html[data-theme="dark"] .day-cell.today{outline-color:#dceaff!important}
+
+@media(max-width:520px){
+  .app-shell{padding-inline:12px!important}
+  .hero-card{border-radius:22px!important;padding:20px!important}
+  .love-widget-strip{gap:8px!important}
+  .bottom-nav{border-radius:23px!important}
+}
