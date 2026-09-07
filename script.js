@@ -1355,7 +1355,37 @@ function memoryAddedStamp(m){
   const raw=m?.createdAt??m?.updatedAt;
   if(typeof raw==="number"&&Number.isFinite(raw))return raw;
   if(raw&&typeof raw.toMillis==="function")return raw.toMillis();
-  const parsed=Date.parse(m?.date||"");
+  const parsed=memoryDateStamp(m?.date);
+  return Number.isFinite(parsed)?parsed:0;
+}
+
+// Anı tarihleri eski kayıtlarda farklı biçimlerde kalmış olabilir.
+// Hepsini gerçek bir gün damgasına çevirip sıralamada bunu kullanıyoruz.
+function memoryDateStamp(value){
+  if(!value)return 0;
+  if(typeof value==="number"&&Number.isFinite(value))return value;
+  if(value&&typeof value.toMillis==="function")return value.toMillis();
+  if(value instanceof Date&&!Number.isNaN(value.getTime()))return value.getTime();
+
+  const text=String(value).trim();
+  let y,m,d;
+
+  // 2026-08-19 / 2026.08.19 / 2026/08/19
+  let hit=text.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
+  if(hit){[,y,m,d]=hit;}
+  else{
+    // 19.08.2026 / 19-08-2026 / 19/08/2026
+    hit=text.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{4})/);
+    if(hit){[,d,m,y]=hit;}
+  }
+
+  if(y&&m&&d){
+    const stamp=new Date(Number(y),Number(m)-1,Number(d),12,0,0,0).getTime();
+    return Number.isNaN(stamp)?0:stamp;
+  }
+
+  // Son çare: tarayıcının anlayabildiği tarih metinleri.
+  const parsed=Date.parse(text);
   return Number.isFinite(parsed)?parsed:0;
 }
 function calcReminder(date,mode,custom){
@@ -1569,7 +1599,9 @@ function renderMemories(filter="all"){
   const list=memories
     .filter(m=>filter==="all"||m.type===filter)
     .sort((a,b)=>{
-      const byDate=String(b.date||"").localeCompare(String(a.date||""));
+      // Anının seçilen tarihi esas alınır. En yeni tarih en üstte.
+      // Aynı güne ait birden fazla anıda yalnızca eşitliği bozmak için eklenme zamanı kullanılır.
+      const byDate=memoryDateStamp(b.date)-memoryDateStamp(a.date);
       return byDate||memoryAddedStamp(b)-memoryAddedStamp(a);
     });
 
