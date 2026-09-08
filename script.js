@@ -1,7 +1,7 @@
 /* ===== E.LOG PWA ===== */
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{
-    navigator.serviceWorker.register("./sw.js?v=20260831-pwa-v2").catch(err=>console.warn("PWA service worker:",err));
+    navigator.serviceWorker.register("./sw.js?v=20260908-pastel12-v2").catch(err=>console.warn("PWA service worker:",err));
   },{once:true});
 }
 let deferredInstallPrompt=null;
@@ -39,27 +39,53 @@ function safeDialogOpen(id){
 
 /* E.log pastel palette selector: 12 themes, persisted locally */
 (function(){
-  const KEY="elog-palette-v1";
+  const KEY="elog-palette-v2";
   const THEMES=["fresh","sage","mint","butter","peach","coral","beige","blue","lavender","lilac","teal","olive"];
   const META={fresh:"#89a987",sage:"#a8b9a1",mint:"#8dcabb",butter:"#f0c85e",peach:"#efb19a",coral:"#e8918a",beige:"#cdb99d",blue:"#93b7c7",lavender:"#a9a6cf",lilac:"#cba9c8",teal:"#75b5ad",olive:"#9aa36f"};
+  const themeButtons=()=>document.querySelectorAll('#themePicker .theme-grid button[data-palette]');
   function applyPalette(name){
     if(!THEMES.includes(name)) name="fresh";
-    document.documentElement.setAttribute("data-theme","light");
-    document.documentElement.setAttribute("data-palette",name);
-    localStorage.setItem(KEY,name);
+    const root=document.documentElement;
+    root.setAttribute("data-theme","light");
+    root.setAttribute("data-palette",name);
+    try{localStorage.setItem(KEY,name)}catch{}
     const meta=document.querySelector('meta[name="theme-color"]');
     if(meta) meta.setAttribute("content",META[name]||META.fresh);
-    document.querySelectorAll('[data-palette]').forEach(b=>b.classList.toggle('selected',b.dataset.palette===name));
+    themeButtons().forEach(btn=>{
+      const selected=btn.dataset.palette===name;
+      btn.classList.toggle('selected',selected);
+      btn.setAttribute('aria-pressed',selected?'true':'false');
+    });
+  }
+  function openPicker(picker){
+    if(!picker)return;
+    if(typeof picker.showModal==='function'){
+      try{if(!picker.open)picker.showModal();return}catch{}
+    }
+    picker.setAttribute('open','');
+    picker.classList.add('theme-picker-open');
+  }
+  function closePicker(picker){
+    if(!picker)return;
+    if(typeof picker.close==='function'){try{if(picker.open)picker.close()}catch{}}
+    picker.removeAttribute('open');
+    picker.classList.remove('theme-picker-open');
   }
   function initPalette(){
-    applyPalette(localStorage.getItem(KEY)||"fresh");
+    let saved='fresh';
+    try{saved=localStorage.getItem(KEY)||localStorage.getItem('elog-palette-v1')||'fresh'}catch{}
+    applyPalette(saved);
     const opener=document.getElementById("elogThemeToggle");
     const picker=document.getElementById("themePicker");
     const closer=document.getElementById("themePickerClose");
-    opener?.addEventListener("click",()=>picker?.showModal());
-    closer?.addEventListener("click",()=>picker?.close());
-    picker?.addEventListener("click",e=>{if(e.target===picker) picker.close();});
-    document.querySelectorAll('[data-palette]').forEach(btn=>btn.addEventListener('click',()=>{applyPalette(btn.dataset.palette);picker?.close();}));
+    opener?.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();openPicker(picker)});
+    closer?.addEventListener("click",e=>{e.preventDefault();closePicker(picker)});
+    picker?.addEventListener("click",e=>{if(e.target===picker)closePicker(picker)});
+    themeButtons().forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      applyPalette(btn.dataset.palette);
+      closePicker(picker);
+    }));
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",initPalette,{once:true}); else initPalette();
 })();
