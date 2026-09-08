@@ -1,7 +1,7 @@
 /* ===== E.LOG PWA ===== */
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{
-    navigator.serviceWorker.register("./sw.js?v=20260908-pastel12-v2").catch(err=>console.warn("PWA service worker:",err));
+    navigator.serviceWorker.register("./sw.js?v=20260908-pastel12-logo-v3").catch(err=>console.warn("PWA service worker:",err));
   },{once:true});
 }
 let deferredInstallPrompt=null;
@@ -1875,13 +1875,13 @@ function checkReminders(){
   const t=today();
   memories.filter(m=>m.reminderDate===t).forEach(m=>{
     const k=`elog-reminder-${m.id}-${t}`;if(localStorage.getItem(k))return;
-    if("Notification" in window&&Notification.permission==="granted")new Notification("Eroland hatırlatma ♡",{body:m.title,icon:"./icon-192.png"});
+    if("Notification" in window&&Notification.permission==="granted")new Notification("Eroland hatırlatma ♡",{body:m.title,icon:"./elog-logo-pastel-v3-192.png"});
     localStorage.setItem(k,"1");
   });
 }
 function checkShiftNotifications(){
   if(!("Notification" in window)||Notification.permission!=="granted")return;
-  shifts.forEach(s=>{const mins=(new Date(`${s.startDate}T08:30:00`)-new Date())/60000;for(const [key,min,max,msg] of [["24",1380,1440,"Yarın 08:30'da nöbetin var 🩻"],["2",60,120,"Nöbetin 08:30'da başlıyor 🩻"]]){const k=`shift-${s.id}-${key}`;if(mins>min&&mins<=max&&!localStorage.getItem(k)){new Notification("E.log",{body:msg,icon:"./icon-192.png"});localStorage.setItem(k,"1")}}});
+  shifts.forEach(s=>{const mins=(new Date(`${s.startDate}T08:30:00`)-new Date())/60000;for(const [key,min,max,msg] of [["24",1380,1440,"Yarın 08:30'da nöbetin var 🩻"],["2",60,120,"Nöbetin 08:30'da başlıyor 🩻"]]){const k=`shift-${s.id}-${key}`;if(mins>min&&mins<=max&&!localStorage.getItem(k)){new Notification("E.log",{body:msg,icon:"./elog-logo-pastel-v3-192.png"});localStorage.setItem(k,"1")}}});
 }
 
 function normalizeTR(x){
