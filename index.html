@@ -2,7 +2,7 @@
 
 <html lang="tr">
 <head>
-<meta content="20260907-softmono-pastel-v2" name="elog-version"/>
+<meta content="20260908-pastel12-v1" name="elog-version"/>
 <meta charset="utf-8">
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#F6F6F3" name="theme-color"/>
@@ -12,24 +12,40 @@
 <meta name="apple-mobile-web-app-title" content="E.log">
 <meta name="mobile-web-app-capable" content="yes">
 <title>E.log</title>
-<link href="manifest.json?v=20260907-softmono-pastel-v2" rel="manifest"/>
-<link href="style.css?v=20260907-softmono-pastel-v2" rel="stylesheet"/>
+<link href="manifest.json?v=20260908-pastel12-v1" rel="manifest"/>
+<link href="style.css?v=20260908-pastel12-v1" rel="stylesheet"/>
 <link crossorigin="" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
 <link href="favicon.svg?v=20260827-logo-final3" rel="icon" type="image/svg+xml"/>
 <link href="apple-touch-icon.png?v=20260827-logo-final3" rel="apple-touch-icon" sizes="180x180"/>
 <link href="apple-touch-icon.png?v=20260827-logo-final3" rel="apple-touch-icon-precomposed" sizes="180x180"/>
 </meta></head>
 <body>
-<button aria-label="Tema değiştir" class="elog-theme-toggle" id="elogThemeToggle" title="Tema değiştir" type="button">
-<span aria-hidden="true" class="elog-theme-icon">☾</span>
-<span class="elog-theme-text">Koyu</span>
+<button aria-label="Tema seç" class="elog-theme-toggle" id="elogThemeToggle" title="Tema seç" type="button">
+<span aria-hidden="true" class="elog-theme-icon">◉</span>
+<span class="elog-theme-text">Tema</span>
 </button>
+<dialog class="theme-picker" id="themePicker">
+  <div class="theme-picker-card">
+    <div class="theme-picker-head"><div><p class="eyebrow">GÖRÜNÜM</p><h3>Pastel temalar</h3><small>12 renk, aynı E.log.</small></div><button class="icon-btn" id="themePickerClose" type="button">✕</button></div>
+    <div class="theme-grid">
+      <button data-palette="fresh" style="--sw:#89a987"><span></span><b>Fresh Green</b></button>
+      <button data-palette="sage" style="--sw:#a8b9a1"><span></span><b>Sage Calm</b></button>
+      <button data-palette="mint" style="--sw:#8dcabb"><span></span><b>Mint Cloud</b></button>
+      <button data-palette="butter" style="--sw:#f0c85e"><span></span><b>Butter</b></button>
+      <button data-palette="peach" style="--sw:#efb19a"><span></span><b>Peach Mist</b></button>
+      <button data-palette="coral" style="--sw:#e8918a"><span></span><b>Soft Coral</b></button>
+      <button data-palette="beige" style="--sw:#cdb99d"><span></span><b>Warm Beige</b></button>
+      <button data-palette="blue" style="--sw:#93b7c7"><span></span><b>Dusty Blue</b></button>
+      <button data-palette="lavender" style="--sw:#a9a6cf"><span></span><b>Lavender</b></button>
+      <button data-palette="lilac" style="--sw:#cba9c8"><span></span><b>Pale Lilac</b></button>
+      <button data-palette="teal" style="--sw:#75b5ad"><span></span><b>Muted Teal</b></button>
+      <button data-palette="olive" style="--sw:#9aa36f"><span></span><b>Olive Cream</b></button>
+    </div>
+  </div>
+</dialog>
 <div class="app-shell" id="app">
 <header class="topbar">
-<div>
-<p class="eyebrow" id="todayLabel">Bugün</p>
-<h1>E.log</h1>
-</div>
+<div class="elog-brand"><img src="icon-192.png?v=20260908" alt="E.log"><div><p class="eyebrow" id="todayLabel">Bugün</p><h1>E.log</h1></div></div>
 <div class="top-actions">
 <button class="chip ghost" id="syncBadge" type="button">● bağlanıyor</button>
 <button aria-label="Profil" class="icon-btn" id="profileBtn" type="button">E</button>
@@ -354,6 +370,6 @@
 </div>
 </dialog>
 <script crossorigin="" src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="script.js?v=20260907-softmono-pastel-v2" type="module"></script>
+<script src="script.js?v=20260908-pastel12-v1" type="module"></script>
 </body>
 </html>

@@ -37,52 +37,32 @@ function safeDialogOpen(id){
 }
 
 
-/* E.log theme: light / dark, persisted locally */
+/* E.log pastel palette selector: 12 themes, persisted locally */
 (function(){
-  const KEY="elog-theme-v1";
-
-  function getTheme(){
-    const saved=localStorage.getItem(KEY);
-    if(saved==="light" || saved==="dark") return saved;
-    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-
-  function applyTheme(theme){
-    document.documentElement.setAttribute("data-theme",theme);
-    const btn=document.getElementById("elogThemeToggle");
-    if(btn){
-      const icon=btn.querySelector(".elog-theme-icon");
-      const text=btn.querySelector(".elog-theme-text");
-      const next=theme==="dark" ? "light" : "dark";
-      if(icon) icon.textContent=theme==="dark" ? "☀︎" : "☾";
-      if(text) text.textContent=theme==="dark" ? "Açık" : "Koyu";
-      btn.setAttribute("aria-label", next==="dark" ? "Koyu temaya geç" : "Açık temaya geç");
-      btn.title=btn.getAttribute("aria-label");
-    }
+  const KEY="elog-palette-v1";
+  const THEMES=["fresh","sage","mint","butter","peach","coral","beige","blue","lavender","lilac","teal","olive"];
+  const META={fresh:"#89a987",sage:"#a8b9a1",mint:"#8dcabb",butter:"#f0c85e",peach:"#efb19a",coral:"#e8918a",beige:"#cdb99d",blue:"#93b7c7",lavender:"#a9a6cf",lilac:"#cba9c8",teal:"#75b5ad",olive:"#9aa36f"};
+  function applyPalette(name){
+    if(!THEMES.includes(name)) name="fresh";
+    document.documentElement.setAttribute("data-theme","light");
+    document.documentElement.setAttribute("data-palette",name);
+    localStorage.setItem(KEY,name);
     const meta=document.querySelector('meta[name="theme-color"]');
-    if(meta) meta.setAttribute("content",theme==="dark" ? "#171113" : "#fff7f4");
+    if(meta) meta.setAttribute("content",META[name]||META.fresh);
+    document.querySelectorAll('[data-palette]').forEach(b=>b.classList.toggle('selected',b.dataset.palette===name));
   }
-
-  function initTheme(){
-    applyTheme(getTheme());
-    const btn=document.getElementById("elogThemeToggle");
-    if(btn){
-      btn.addEventListener("click",()=>{
-        const current=document.documentElement.getAttribute("data-theme")==="dark" ? "dark" : "light";
-        const next=current==="dark" ? "light" : "dark";
-        localStorage.setItem(KEY,next);
-        applyTheme(next);
-      });
-    }
+  function initPalette(){
+    applyPalette(localStorage.getItem(KEY)||"fresh");
+    const opener=document.getElementById("elogThemeToggle");
+    const picker=document.getElementById("themePicker");
+    const closer=document.getElementById("themePickerClose");
+    opener?.addEventListener("click",()=>picker?.showModal());
+    closer?.addEventListener("click",()=>picker?.close());
+    picker?.addEventListener("click",e=>{if(e.target===picker) picker.close();});
+    document.querySelectorAll('[data-palette]').forEach(btn=>btn.addEventListener('click',()=>{applyPalette(btn.dataset.palette);picker?.close();}));
   }
-
-  if(document.readyState==="loading"){
-    document.addEventListener("DOMContentLoaded",initTheme,{once:true});
-  }else{
-    initTheme();
-  }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",initPalette,{once:true}); else initPalette();
 })();
-
 
 /* ===== MEVSİMSEL ATMOSFER ===== */
 function currentSeason(date=new Date()){

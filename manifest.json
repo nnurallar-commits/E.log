@@ -1,7 +1,7 @@
 {
   "name": "E.log · bizim küçük dünyamız",
   "short_name": "E.log",
-  "description": "Takvimimiz, anılarımız ve bizim yerlerimiz.",
+  "description": "Takvimimiz, anılarımız ve bizim yerlerimiz · 12 pastel tema.",
   "id": "./",
   "start_url": "./?source=pwa",
   "scope": "./",
@@ -11,8 +11,8 @@
     "standalone"
   ],
   "orientation": "portrait-primary",
-  "background_color": "#F6F6F3",
-  "theme_color": "#F2C94C",
+  "background_color": "#f2f6ee",
+  "theme_color": "#89a987",
   "categories": [
     "lifestyle",
     "productivity"
